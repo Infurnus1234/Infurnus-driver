@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../../providers/app_state.dart';
 import '../../core/theme.dart';
 
 class VendorDashboardScreen extends StatefulWidget {

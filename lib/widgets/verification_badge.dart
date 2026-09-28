@@ -32,7 +32,6 @@ class VerificationBadge extends StatelessWidget {
         icon = Icons.error_outline_rounded;
         break;
       case VerificationStatus.draft:
-      default:
         bg = InfurnusTheme.warningAmber.withOpacity(0.15);
         fg = InfurnusTheme.warningAmber;
         icon = Icons.edit_note_rounded;

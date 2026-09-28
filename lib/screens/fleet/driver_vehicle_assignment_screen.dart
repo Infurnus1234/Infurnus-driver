@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/app_state.dart';
-import '../../models/app_models.dart';
 import '../../core/theme.dart';
 
 class DriverVehicleAssignmentScreen extends StatefulWidget {

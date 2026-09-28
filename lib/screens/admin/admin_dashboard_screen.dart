@@ -184,7 +184,7 @@ class AdminConfigRow extends StatelessWidget {
   final String label;
   final String val;
 
-  const AdminConfigRow(this.label, this.val);
+  const AdminConfigRow(this.label, this.val, {super.key});
 
   @override
   Widget build(BuildContext context) {

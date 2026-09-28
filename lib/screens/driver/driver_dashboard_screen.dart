@@ -13,7 +13,6 @@ class DriverDashboardScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final appState = Provider.of<AppState>(context);
-    final user = appState.currentUser;
     final isOnline = appState.isOnline;
     final bookings = appState.bookings;
     final pendingBookings = bookings.where((b) => b.status == 'Pending').toList();
