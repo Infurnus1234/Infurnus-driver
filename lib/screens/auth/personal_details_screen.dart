@@ -38,6 +38,7 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
     final isFleet = role == UserRole.fleetOwner || role == UserRole.driverFleetOwner;
 
     return Scaffold(
+      backgroundColor: InfurnusTheme.bgWhite,
       appBar: AppBar(title: const Text('Personal & Business Details')),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -47,59 +48,59 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
             children: [
               const Text(
                 'Complete Profile Details',
-                style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                style: TextStyle(color: InfurnusTheme.textDark, fontSize: 20, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 4),
-              Text(
+              const Text(
                 'Provide accurate identity and business registration details.',
-                style: TextStyle(color: Colors.grey.shade400, fontSize: 13),
+                style: TextStyle(color: InfurnusTheme.textMuted, fontSize: 13),
               ),
               const SizedBox(height: 24),
 
               TextField(
                 controller: _nameController,
-                style: const TextStyle(color: Colors.white),
+                style: const TextStyle(color: InfurnusTheme.textDark),
                 decoration: const InputDecoration(
                   labelText: 'Full Name (as on Driving License / Aadhaar)',
-                  prefixIcon: Icon(Icons.person_outline, color: InfurnusTheme.accentOrange),
+                  prefixIcon: Icon(Icons.person_outline, color: InfurnusTheme.primaryGreen),
                 ),
               ),
               const SizedBox(height: 16),
 
               TextField(
                 controller: _phoneController,
-                style: const TextStyle(color: Colors.white),
+                style: const TextStyle(color: InfurnusTheme.textDark),
                 decoration: const InputDecoration(
                   labelText: 'Phone Number',
-                  prefixIcon: Icon(Icons.phone_android, color: InfurnusTheme.accentOrange),
+                  prefixIcon: Icon(Icons.phone_android, color: InfurnusTheme.primaryGreen),
                 ),
               ),
               const SizedBox(height: 16),
 
               TextField(
                 controller: _emailController,
-                style: const TextStyle(color: Colors.white),
+                style: const TextStyle(color: InfurnusTheme.textDark),
                 decoration: const InputDecoration(
                   labelText: 'Email Address',
-                  prefixIcon: Icon(Icons.email_outlined, color: InfurnusTheme.accentOrange),
+                  prefixIcon: Icon(Icons.email_outlined, color: InfurnusTheme.primaryGreen),
                 ),
               ),
               const SizedBox(height: 24),
 
               if (isFleet) ...[
-                const Divider(color: Colors.white12, height: 32),
+                const Divider(color: Color(0xFFE2E8F0), height: 32),
                 const Text(
                   'Fleet Business Information',
-                  style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                  style: TextStyle(color: InfurnusTheme.textDark, fontSize: 16, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 16),
 
                 TextField(
                   controller: _bizNameController,
-                  style: const TextStyle(color: Colors.white),
+                  style: const TextStyle(color: InfurnusTheme.textDark),
                   decoration: const InputDecoration(
                     labelText: 'Fleet / Business Registered Name',
-                    prefixIcon: Icon(Icons.business, color: InfurnusTheme.accentOrange),
+                    prefixIcon: Icon(Icons.business, color: InfurnusTheme.primaryGreen),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -107,16 +108,20 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
                 TextField(
                   controller: _bizAddrController,
                   maxLines: 2,
-                  style: const TextStyle(color: Colors.white),
+                  style: const TextStyle(color: InfurnusTheme.textDark),
                   decoration: const InputDecoration(
                     labelText: 'Office / Garage Operating Address',
-                    prefixIcon: Icon(Icons.location_on_outlined, color: InfurnusTheme.accentOrange),
+                    prefixIcon: Icon(Icons.location_on_outlined, color: InfurnusTheme.primaryGreen),
                   ),
                 ),
                 const SizedBox(height: 24),
               ],
 
               ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: InfurnusTheme.buttonBlack, // BLACK BUTTON
+                  foregroundColor: Colors.white,
+                ),
                 onPressed: () {
                   appState.updateProfile(
                     fullName: _nameController.text,

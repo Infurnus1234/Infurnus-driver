@@ -20,7 +20,7 @@ class ModeSwitchHeader extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      color: InfurnusTheme.primaryDark,
+      color: InfurnusTheme.greenLight,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -29,14 +29,14 @@ class ModeSwitchHeader extends StatelessWidget {
             children: [
               Icon(
                 isDriverMode ? Icons.directions_car : Icons.business_center,
-                color: InfurnusTheme.accentOrange,
+                color: InfurnusTheme.primaryGreen,
                 size: 20,
               ),
               const SizedBox(width: 8),
               Text(
                 isDriverMode ? 'ACTIVE: DRIVER MODE' : 'ACTIVE: FLEET OWNER MODE',
                 style: const TextStyle(
-                  color: Colors.white,
+                  color: InfurnusTheme.textDark,
                   fontWeight: FontWeight.bold,
                   fontSize: 13,
                   letterSpacing: 0.5,
@@ -55,26 +55,25 @@ class ModeSwitchHeader extends StatelessWidget {
                         : 'Switched to Driver Mode',
                   ),
                   duration: const Duration(seconds: 2),
-                  backgroundColor: InfurnusTheme.accentOrange,
+                  backgroundColor: InfurnusTheme.buttonBlack,
                 ),
               );
             },
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: InfurnusTheme.accentOrange.withOpacity(0.15),
+                color: InfurnusTheme.buttonBlack,
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: InfurnusTheme.accentOrange, width: 1),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.swap_horiz, color: InfurnusTheme.accentOrange, size: 16),
+                  const Icon(Icons.swap_horiz, color: Colors.white, size: 16),
                   const SizedBox(width: 4),
                   Text(
                     isDriverMode ? 'Switch to Fleet Mode' : 'Switch to Driver Mode',
                     style: const TextStyle(
-                      color: InfurnusTheme.accentOrange,
-                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
                       fontSize: 12,
                     ),
                   ),

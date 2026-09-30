@@ -18,6 +18,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: InfurnusTheme.bgWhite,
       appBar: AppBar(title: const Text('Role Selection')),
       body: SafeArea(
         child: Padding(
@@ -27,12 +28,12 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
             children: [
               const Text(
                 'Select Your Account Role',
-                style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
+                style: TextStyle(color: InfurnusTheme.textDark, fontSize: 22, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 6),
-              Text(
+              const Text(
                 'Choose how you want to operate on Infurnus.',
-                style: TextStyle(color: Colors.grey.shade400, fontSize: 13),
+                style: TextStyle(color: InfurnusTheme.textMuted, fontSize: 13),
               ),
               const SizedBox(height: 24),
 
@@ -63,6 +64,10 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
               const Spacer(),
 
               ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: InfurnusTheme.buttonBlack, // BLACK BUTTON
+                  foregroundColor: Colors.white,
+                ),
                 onPressed: () {
                   final appState = Provider.of<AppState>(context, listen: false);
                   if (appState.currentUser == null) {
@@ -104,10 +109,10 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: isSelected ? InfurnusTheme.accentOrange.withOpacity(0.12) : InfurnusTheme.primaryDark,
+          color: isSelected ? InfurnusTheme.greenLight : Colors.white,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isSelected ? InfurnusTheme.accentOrange : Colors.white12,
+            color: isSelected ? InfurnusTheme.primaryGreen : const Color(0xFFE2E8F0),
             width: isSelected ? 2 : 1,
           ),
         ),
@@ -117,10 +122,10 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: isSelected ? InfurnusTheme.accentOrange : Colors.white10,
+                color: isSelected ? InfurnusTheme.primaryGreen : const Color(0xFFF1F5F9),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(icon, color: isSelected ? Colors.white : Colors.grey.shade400, size: 24),
+              child: Icon(icon, color: isSelected ? Colors.white : InfurnusTheme.textMuted, size: 24),
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -131,14 +136,14 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                     children: [
                       Text(
                         title,
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                        style: const TextStyle(color: InfurnusTheme.textDark, fontWeight: FontWeight.bold, fontSize: 16),
                       ),
                       if (isRecommended) ...[
                         const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: InfurnusTheme.accentOrange,
+                            color: InfurnusTheme.primaryGreen,
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: const Text(
@@ -152,15 +157,14 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                   const SizedBox(height: 4),
                   Text(
                     subtitle,
-                    style: TextStyle(color: Colors.grey.shade400, fontSize: 12),
+                    style: const TextStyle(color: InfurnusTheme.textMuted, fontSize: 12),
                   ),
                 ],
               ),
             ),
             Radio<UserRole>(
               value: role,
-              groupValue: _selectedRole,
-              activeColor: InfurnusTheme.accentOrange,
+              activeColor: InfurnusTheme.primaryGreen,
               onChanged: (val) {
                 if (val != null) setState(() => _selectedRole = val);
               },

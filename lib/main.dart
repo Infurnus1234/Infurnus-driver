@@ -22,7 +22,7 @@ class InfurnusApp extends StatelessWidget {
     return MaterialApp.router(
       title: 'Infurnus Logistics & Fleet',
       debugShowCheckedModeBanner: false,
-      theme: InfurnusTheme.darkTheme,
+      theme: InfurnusTheme.lightTheme,
       routerConfig: appRouter,
     );
   }

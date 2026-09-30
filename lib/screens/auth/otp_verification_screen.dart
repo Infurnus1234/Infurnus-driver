@@ -17,6 +17,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: InfurnusTheme.bgWhite,
       appBar: AppBar(title: const Text('OTP Verification')),
       body: SafeArea(
         child: Padding(
@@ -25,17 +26,24 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               const SizedBox(height: 20),
-              const Icon(Icons.mark_email_read_outlined, size: 60, color: InfurnusTheme.accentOrange),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: InfurnusTheme.greenLight,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.mark_email_read_outlined, size: 50, color: InfurnusTheme.primaryGreen),
+              ),
               const SizedBox(height: 16),
               const Text(
                 'Enter Verification Code',
-                style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                style: TextStyle(color: InfurnusTheme.textDark, fontSize: 20, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
-              Text(
+              const Text(
                 'We sent a 4-digit verification code to your registered mobile number.',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey.shade400, fontSize: 13),
+                style: TextStyle(color: InfurnusTheme.textMuted, fontSize: 13),
               ),
               const SizedBox(height: 32),
 
@@ -49,10 +57,10 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                       textAlign: TextAlign.center,
                       keyboardType: TextInputType.number,
                       maxLength: 1,
-                      style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
-                      decoration: InputDecoration(
+                      style: const TextStyle(color: InfurnusTheme.textDark, fontSize: 22, fontWeight: FontWeight.bold),
+                      decoration: const InputDecoration(
                         counterText: '',
-                        fillColor: InfurnusTheme.primaryDark,
+                        fillColor: Colors.white,
                       ),
                     ),
                   );
@@ -61,6 +69,10 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
               const SizedBox(height: 32),
 
               ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: InfurnusTheme.buttonBlack, // BLACK BUTTON
+                  foregroundColor: Colors.white,
+                ),
                 onPressed: () {
                   final appState = Provider.of<AppState>(context, listen: false);
                   if (appState.currentUser == null) {
@@ -79,7 +91,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                     const SnackBar(content: Text('Resent OTP to registered phone number.')),
                   );
                 },
-                child: const Text('Resend OTP', style: TextStyle(color: InfurnusTheme.accentOrange)),
+                child: const Text('Resend OTP', style: TextStyle(color: InfurnusTheme.primaryGreen, fontWeight: FontWeight.bold)),
               ),
             ],
           ),

@@ -15,6 +15,7 @@ class ApplicationRejectedScreen extends StatelessWidget {
     final rejectedDocs = docs.where((d) => d.status == 'Rejected' || d.rejectionReason != null).toList();
 
     return Scaffold(
+      backgroundColor: InfurnusTheme.bgWhite,
       appBar: AppBar(title: const Text('Rejection & Resubmission')),
       body: SafeArea(
         child: Padding(
@@ -26,7 +27,7 @@ class ApplicationRejectedScreen extends StatelessWidget {
                 width: double.infinity,
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: InfurnusTheme.dangerRed.withOpacity(0.15),
+                  color: InfurnusTheme.dangerRed.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: InfurnusTheme.dangerRed),
                 ),
@@ -40,7 +41,7 @@ class ApplicationRejectedScreen extends StatelessWidget {
                         Text(
                           'Action Required by Admin Review',
                           style: TextStyle(
-                            color: Colors.white,
+                            color: InfurnusTheme.textDark,
                             fontWeight: FontWeight.bold,
                             fontSize: 16,
                           ),
@@ -50,7 +51,7 @@ class ApplicationRejectedScreen extends StatelessWidget {
                     const SizedBox(height: 8),
                     Text(
                       'Admin reviewed your application and requested document updates before granting full operational access.',
-                      style: TextStyle(color: Colors.grey.shade300, fontSize: 13),
+                      style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
                     ),
                   ],
                 ),
@@ -59,7 +60,7 @@ class ApplicationRejectedScreen extends StatelessWidget {
 
               const Text(
                 'Specific Document Feedback',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                style: TextStyle(color: InfurnusTheme.textDark, fontWeight: FontWeight.bold, fontSize: 16),
               ),
               const SizedBox(height: 12),
 
@@ -73,9 +74,9 @@ class ApplicationRejectedScreen extends StatelessWidget {
                     return Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: InfurnusTheme.primaryDark,
+                        color: Colors.white,
                         borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: Colors.white12),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -86,7 +87,7 @@ class ApplicationRejectedScreen extends StatelessWidget {
                               Text(
                                 doc.name,
                                 style: const TextStyle(
-                                  color: Colors.white,
+                                  color: InfurnusTheme.textDark,
                                   fontWeight: FontWeight.bold,
                                   fontSize: 15,
                                 ),
@@ -94,7 +95,7 @@ class ApplicationRejectedScreen extends StatelessWidget {
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                 decoration: BoxDecoration(
-                                  color: InfurnusTheme.dangerRed.withOpacity(0.2),
+                                  color: InfurnusTheme.dangerRed.withValues(alpha: 0.15),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: const Text(
@@ -111,12 +112,13 @@ class ApplicationRejectedScreen extends StatelessWidget {
                           const SizedBox(height: 8),
                           Text(
                             doc.rejectionReason ?? 'Photo is blurry or unreadable. Please upload a clear original image.',
-                            style: TextStyle(color: Colors.grey.shade400, fontSize: 13),
+                            style: const TextStyle(color: InfurnusTheme.textMuted, fontSize: 13),
                           ),
                           const SizedBox(height: 12),
                           ElevatedButton.icon(
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: InfurnusTheme.accentOrange,
+                              backgroundColor: InfurnusTheme.buttonBlack, // BLACK BUTTON
+                              foregroundColor: Colors.white,
                               minimumSize: const Size.fromHeight(40),
                             ),
                             onPressed: () {
@@ -140,6 +142,10 @@ class ApplicationRejectedScreen extends StatelessWidget {
 
               const SizedBox(height: 16),
               ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: InfurnusTheme.buttonBlack, // BLACK BUTTON
+                  foregroundColor: Colors.white,
+                ),
                 onPressed: () {
                   appState.submitForReview();
                   context.push('/verification-status');

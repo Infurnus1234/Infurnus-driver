@@ -15,24 +15,24 @@ class VerificationBadge extends StatelessWidget {
 
     switch (status) {
       case VerificationStatus.approved:
-        bg = InfurnusTheme.successGreen.withOpacity(0.15);
-        fg = InfurnusTheme.successGreen;
+        bg = InfurnusTheme.greenLight;
+        fg = InfurnusTheme.primaryGreen;
         icon = Icons.check_circle_outline;
         break;
       case VerificationStatus.underReview:
       case VerificationStatus.documentsSubmitted:
-        bg = InfurnusTheme.infoBlue.withOpacity(0.15);
+        bg = InfurnusTheme.infoBlue.withValues(alpha: 0.12);
         fg = InfurnusTheme.infoBlue;
         icon = Icons.hourglass_top_rounded;
         break;
       case VerificationStatus.changesRequired:
       case VerificationStatus.rejected:
-        bg = InfurnusTheme.dangerRed.withOpacity(0.15);
+        bg = InfurnusTheme.dangerRed.withValues(alpha: 0.12);
         fg = InfurnusTheme.dangerRed;
         icon = Icons.error_outline_rounded;
         break;
       case VerificationStatus.draft:
-        bg = InfurnusTheme.warningAmber.withOpacity(0.15);
+        bg = InfurnusTheme.warningAmber.withValues(alpha: 0.12);
         fg = InfurnusTheme.warningAmber;
         icon = Icons.edit_note_rounded;
         break;
@@ -43,7 +43,7 @@ class VerificationBadge extends StatelessWidget {
       decoration: BoxDecoration(
         color: bg,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: fg.withOpacity(0.4), width: 1),
+        border: Border.all(color: fg.withValues(alpha: 0.4), width: 1),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

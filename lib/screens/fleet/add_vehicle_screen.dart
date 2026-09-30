@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../providers/app_state.dart';
+import '../../models/vehicle_catalog_model.dart';
+import '../../widgets/vehicle_selection_search_widget.dart';
 import '../../core/theme.dart';
 
 class AddVehicleScreen extends StatefulWidget {
@@ -13,14 +15,16 @@ class AddVehicleScreen extends StatefulWidget {
 
 class _AddVehicleScreenState extends State<AddVehicleScreen> {
   final _plateController = TextEditingController(text: 'KA 03 EV 4010');
-  final _modelController = TextEditingController(text: 'Mahindra Zor Grand Cargo');
+  String _selectedModelName = 'Tata Ace EV Truck';
   String _category = 'Truck';
+  VehicleCatalogItem? _selectedCatalogItem;
 
   @override
   Widget build(BuildContext context) {
     final appState = Provider.of<AppState>(context, listen: false);
 
     return Scaffold(
+      backgroundColor: InfurnusTheme.bgWhite,
       appBar: AppBar(title: const Text('Add Fleet Vehicle')),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -28,38 +32,55 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Vehicle Registration Details', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+              const Text(
+                'Vehicle Selection & Search',
+                style: TextStyle(color: InfurnusTheme.textDark, fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'Type vehicle model name (e.g. "Alto", "Fortuner", "Ford") to search suggestions.',
+                style: TextStyle(color: InfurnusTheme.textMuted, fontSize: 12),
+              ),
               const SizedBox(height: 16),
 
-              TextField(
-                controller: _plateController,
-                style: const TextStyle(color: Colors.white),
-                decoration: const InputDecoration(
-                  labelText: 'Vehicle License Plate Number',
-                  prefixIcon: Icon(Icons.pin, color: InfurnusTheme.accentOrange),
-                ),
+              // Searchable Vehicle Selection Component
+              VehicleSelectionSearchWidget(
+                initialSelection: _selectedCatalogItem,
+                onVehicleSelected: (item) {
+                  setState(() {
+                    _selectedCatalogItem = item;
+                    _selectedModelName = item.fullName;
+                    _category = item.category;
+                  });
+                },
+              ),
+              const SizedBox(height: 24),
+
+              const Text(
+                'Vehicle Registration Details',
+                style: TextStyle(color: InfurnusTheme.textDark, fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 16),
 
               TextField(
-                controller: _modelController,
-                style: const TextStyle(color: Colors.white),
+                controller: _plateController,
+                style: const TextStyle(color: InfurnusTheme.textDark),
                 decoration: const InputDecoration(
-                  labelText: 'Vehicle Model / Make Name',
-                  prefixIcon: Icon(Icons.local_shipping, color: InfurnusTheme.accentOrange),
+                  labelText: 'Vehicle License Plate Number',
+                  prefixIcon: Icon(Icons.pin, color: InfurnusTheme.primaryGreen),
                 ),
               ),
               const SizedBox(height: 16),
 
               DropdownButtonFormField<String>(
-                value: _category,
-                dropdownColor: InfurnusTheme.primaryDark,
-                style: const TextStyle(color: Colors.white),
+                initialValue: _category,
+                dropdownColor: Colors.white,
+                style: const TextStyle(color: InfurnusTheme.textDark),
                 decoration: const InputDecoration(
                   labelText: 'Vehicle Category',
-                  prefixIcon: Icon(Icons.category, color: InfurnusTheme.accentOrange),
+                  prefixIcon: Icon(Icons.category, color: InfurnusTheme.primaryGreen),
                 ),
-                items: ['Sedan', 'Truck', 'Van', 'Container'].map((cat) {
+                items: ['Sedan', 'Truck', 'Van', 'Container', 'Hatchback', 'SUV'].map((cat) {
                   return DropdownMenuItem(value: cat, child: Text(cat));
                 }).toList(),
                 onChanged: (val) {
@@ -68,22 +89,26 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
               ),
               const SizedBox(height: 24),
 
-              const Text('Vehicle Compliance Documents', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              const Text('Vehicle Compliance Documents', style: TextStyle(color: InfurnusTheme.textDark, fontWeight: FontWeight.bold)),
               const SizedBox(height: 12),
               _docUploadRow('Vehicle RC Certificate'),
               const SizedBox(height: 8),
               _docUploadRow('Commercial Insurance Policy'),
-              const SizedBox(height: 24),
+              const SizedBox(height: 28),
 
               ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: InfurnusTheme.buttonBlack, // BLACK BUTTON
+                  foregroundColor: Colors.white,
+                ),
                 onPressed: () {
                   appState.addVehicle(
                     plateNumber: _plateController.text,
-                    modelName: _modelController.text,
+                    modelName: _selectedModelName,
                     category: _category,
                   );
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Vehicle added and submitted for verification review.')),
+                    SnackBar(content: Text('Vehicle "$_selectedModelName" added and submitted for verification review.')),
                   );
                   context.pop();
                 },
@@ -100,16 +125,21 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: InfurnusTheme.primaryDark,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white12),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(title, style: const TextStyle(color: Colors.white, fontSize: 13)),
+          Text(title, style: const TextStyle(color: InfurnusTheme.textDark, fontSize: 13, fontWeight: FontWeight.w600)),
           OutlinedButton(
-            style: OutlinedButton.styleFrom(minimumSize: const Size(80, 32), padding: const EdgeInsets.symmetric(horizontal: 8)),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: InfurnusTheme.buttonBlack,
+              side: const BorderSide(color: InfurnusTheme.buttonBlack),
+              minimumSize: const Size(80, 32),
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+            ),
             onPressed: () {},
             child: const Text('Upload PDF/Img', style: TextStyle(fontSize: 11)),
           ),

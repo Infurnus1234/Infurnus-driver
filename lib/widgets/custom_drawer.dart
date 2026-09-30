@@ -16,16 +16,16 @@ class CustomDrawer extends StatelessWidget {
     final activeMode = appState.activeMode;
 
     return Drawer(
-      backgroundColor: InfurnusTheme.primaryDark,
+      backgroundColor: Colors.white,
       child: Column(
         children: [
           // Header
           UserAccountsDrawerHeader(
             decoration: const BoxDecoration(
-              color: InfurnusTheme.primaryNavy,
+              color: InfurnusTheme.primaryGreen,
             ),
             currentAccountPicture: CircleAvatar(
-              backgroundColor: InfurnusTheme.accentOrange,
+              backgroundColor: InfurnusTheme.buttonBlack,
               child: Text(
                 user?.fullName.isNotEmpty == true ? user!.fullName[0] : 'U',
                 style: const TextStyle(
@@ -52,7 +52,7 @@ class CustomDrawer extends StatelessWidget {
             ),
             accountEmail: Text(
               '${user?.phone ?? ''} • ${user?.role.displayName ?? ''}',
-              style: TextStyle(color: Colors.grey.shade400, fontSize: 12),
+              style: const TextStyle(color: Colors.white70, fontSize: 12),
             ),
           ),
 
@@ -132,7 +132,7 @@ class CustomDrawer extends StatelessWidget {
                 ],
 
                 // Common Items
-                const Divider(color: Colors.white12, height: 24),
+                const Divider(color: Colors.black12, height: 24),
 
                 _drawerTile(
                   context: context,
@@ -159,15 +159,15 @@ class CustomDrawer extends StatelessWidget {
                   route: '/notifications',
                 ),
 
-                const Divider(color: Colors.white12, height: 24),
+                const Divider(color: Colors.black12, height: 24),
 
-                // Special Panels for Business / Admin (Requirement Sections 10 & 11)
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                // Portals Section
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                   child: Text(
                     'PORTAL PANELS',
                     style: TextStyle(
-                      color: Colors.grey.shade500,
+                      color: InfurnusTheme.textMuted,
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
                     ),
@@ -189,10 +189,14 @@ class CustomDrawer extends StatelessWidget {
             ),
           ),
 
-          // Logout
+          // Logout Button
           Padding(
             padding: const EdgeInsets.all(16.0),
-            child: OutlinedButton.icon(
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: InfurnusTheme.buttonBlack,
+                foregroundColor: Colors.white,
+              ),
               onPressed: () {
                 appState.logout();
                 context.go('/login');
@@ -213,10 +217,10 @@ class CustomDrawer extends StatelessWidget {
     required String route,
   }) {
     return ListTile(
-      leading: Icon(icon, color: InfurnusTheme.accentOrange, size: 22),
+      leading: Icon(icon, color: InfurnusTheme.primaryGreen, size: 22),
       title: Text(
         title,
-        style: const TextStyle(color: Colors.white, fontSize: 14),
+        style: const TextStyle(color: InfurnusTheme.textDark, fontSize: 14, fontWeight: FontWeight.w600),
       ),
       onTap: () {
         Navigator.pop(context);

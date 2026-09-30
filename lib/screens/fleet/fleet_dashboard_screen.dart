@@ -18,6 +18,7 @@ class FleetDashboardScreen extends StatelessWidget {
     final assignedDrivers = drivers.where((d) => d.assignedVehicleId != null).length;
 
     return Scaffold(
+      backgroundColor: InfurnusTheme.bgWhite,
       drawer: const CustomDrawer(),
       appBar: AppBar(
         title: const Text('Fleet Owner Dashboard'),
@@ -40,7 +41,7 @@ class FleetDashboardScreen extends StatelessWidget {
                   children: [
                     const Text(
                       'Fleet Operations Overview',
-                      style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                      style: TextStyle(color: InfurnusTheme.textDark, fontSize: 18, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 14),
 
@@ -58,7 +59,7 @@ class FleetDashboardScreen extends StatelessWidget {
                           count: '${vehicles.length}',
                           subtext: '$activeVehicles Active Fleet',
                           icon: Icons.local_shipping,
-                          color: InfurnusTheme.accentOrange,
+                          color: InfurnusTheme.primaryGreen,
                           onTap: () => context.push('/fleet/vehicles'),
                         ),
                         _fleetStatCard(
@@ -74,7 +75,7 @@ class FleetDashboardScreen extends StatelessWidget {
                           count: 'Live Map',
                           subtext: 'Real-time GPS',
                           icon: Icons.map,
-                          color: InfurnusTheme.successGreen,
+                          color: InfurnusTheme.primaryGreen,
                           onTap: () => context.push('/fleet/tracking'),
                         ),
                         _fleetStatCard(
@@ -89,12 +90,15 @@ class FleetDashboardScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 24),
 
-                    // Quick Actions
+                    // Quick Actions - BLACK BUTTONS
                     Row(
                       children: [
                         Expanded(
                           child: ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(backgroundColor: InfurnusTheme.accentOrange),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: InfurnusTheme.buttonBlack, // BLACK BUTTON
+                              foregroundColor: Colors.white,
+                            ),
                             onPressed: () => context.push('/fleet/add-vehicle'),
                             icon: const Icon(Icons.add, size: 18),
                             label: const Text('Add Vehicle'),
@@ -103,7 +107,10 @@ class FleetDashboardScreen extends StatelessWidget {
                         const SizedBox(width: 12),
                         Expanded(
                           child: ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(backgroundColor: InfurnusTheme.infoBlue),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: InfurnusTheme.buttonBlack, // BLACK BUTTON
+                              foregroundColor: Colors.white,
+                            ),
                             onPressed: () => context.push('/fleet/add-driver'),
                             icon: const Icon(Icons.person_add, size: 18),
                             label: const Text('Add Driver'),
@@ -117,10 +124,10 @@ class FleetDashboardScreen extends StatelessWidget {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('Active Fleet Vehicles', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                        const Text('Active Fleet Vehicles', style: TextStyle(color: InfurnusTheme.textDark, fontWeight: FontWeight.bold, fontSize: 16)),
                         TextButton(
                           onPressed: () => context.push('/fleet/vehicles'),
-                          child: const Text('View All', style: TextStyle(color: InfurnusTheme.accentOrange)),
+                          child: const Text('View All', style: TextStyle(color: InfurnusTheme.primaryGreen, fontWeight: FontWeight.bold)),
                         ),
                       ],
                     ),
@@ -130,9 +137,9 @@ class FleetDashboardScreen extends StatelessWidget {
                       margin: const EdgeInsets.only(bottom: 10),
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
-                        color: InfurnusTheme.primaryDark,
+                        color: Colors.white,
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.white12),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -140,20 +147,24 @@ class FleetDashboardScreen extends StatelessWidget {
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(v.modelName, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                              Text('Plate: ${v.plateNumber} • ${v.category}', style: TextStyle(color: Colors.grey.shade400, fontSize: 12)),
+                              Text(v.modelName, style: const TextStyle(color: InfurnusTheme.textDark, fontWeight: FontWeight.bold)),
+                              Text('Plate: ${v.plateNumber} • ${v.category}', style: const TextStyle(color: InfurnusTheme.textMuted, fontSize: 12)),
                               Text(
                                 'Driver: ${v.assignedDriverName ?? "Unassigned"}',
                                 style: TextStyle(
-                                  color: v.assignedDriverName != null ? InfurnusTheme.successGreen : InfurnusTheme.warningAmber,
+                                  color: v.assignedDriverName != null ? InfurnusTheme.primaryGreen : InfurnusTheme.warningAmber,
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
                             ],
                           ),
-                          OutlinedButton(
-                            style: OutlinedButton.styleFrom(minimumSize: const Size(60, 32), padding: const EdgeInsets.symmetric(horizontal: 8)),
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: InfurnusTheme.buttonBlack, // BLACK BUTTON
+                              minimumSize: const Size(60, 32),
+                              padding: const EdgeInsets.symmetric(horizontal: 10),
+                            ),
                             onPressed: () => context.push('/fleet/assignment'),
                             child: const Text('Assign', style: TextStyle(fontSize: 11)),
                           ),
@@ -183,9 +194,9 @@ class FleetDashboardScreen extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: InfurnusTheme.primaryDark,
+          color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white12),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -195,13 +206,13 @@ class FleetDashboardScreen extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Icon(icon, color: color, size: 22),
-                Icon(Icons.chevron_right, color: Colors.grey.shade600, size: 18),
+                const Icon(Icons.chevron_right, color: InfurnusTheme.textMuted, size: 18),
               ],
             ),
             const SizedBox(height: 8),
-            Text(count, style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold)),
-            Text(title, style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w600)),
-            Text(subtext, style: TextStyle(color: Colors.grey.shade400, fontSize: 10)),
+            Text(count, style: const TextStyle(color: InfurnusTheme.textDark, fontSize: 17, fontWeight: FontWeight.bold)),
+            Text(title, style: const TextStyle(color: InfurnusTheme.textDark, fontSize: 12, fontWeight: FontWeight.w600)),
+            Text(subtext, style: const TextStyle(color: InfurnusTheme.textMuted, fontSize: 10)),
           ],
         ),
       ),

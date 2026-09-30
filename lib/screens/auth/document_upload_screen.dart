@@ -14,6 +14,7 @@ class DocumentUploadScreen extends StatelessWidget {
     final docs = user?.documents ?? [];
 
     return Scaffold(
+      backgroundColor: InfurnusTheme.bgWhite,
       appBar: AppBar(title: const Text('Document Upload')),
       body: SafeArea(
         child: Padding(
@@ -23,12 +24,12 @@ class DocumentUploadScreen extends StatelessWidget {
             children: [
               const Text(
                 'Required Documents',
-                style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                style: TextStyle(color: InfurnusTheme.textDark, fontSize: 20, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 4),
-              Text(
+              const Text(
                 'Upload legible photos of your official identity & operational documents.',
-                style: TextStyle(color: Colors.grey.shade400, fontSize: 13),
+                style: TextStyle(color: InfurnusTheme.textMuted, fontSize: 13),
               ),
               const SizedBox(height: 20),
 
@@ -43,17 +44,17 @@ class DocumentUploadScreen extends StatelessWidget {
                     return Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: InfurnusTheme.primaryDark,
+                        color: Colors.white,
                         borderRadius: BorderRadius.circular(14),
                         border: Border.all(
-                          color: isUploaded ? InfurnusTheme.successGreen : Colors.white12,
+                          color: isUploaded ? InfurnusTheme.primaryGreen : const Color(0xFFE2E8F0),
                         ),
                       ),
                       child: Row(
                         children: [
                           Icon(
                             isUploaded ? Icons.task_alt : Icons.upload_file,
-                            color: isUploaded ? InfurnusTheme.successGreen : InfurnusTheme.accentOrange,
+                            color: isUploaded ? InfurnusTheme.primaryGreen : InfurnusTheme.buttonBlack,
                             size: 28,
                           ),
                           const SizedBox(width: 14),
@@ -64,7 +65,7 @@ class DocumentUploadScreen extends StatelessWidget {
                                 Text(
                                   doc.name,
                                   style: const TextStyle(
-                                    color: Colors.white,
+                                    color: InfurnusTheme.textDark,
                                     fontWeight: FontWeight.bold,
                                     fontSize: 15,
                                   ),
@@ -73,7 +74,7 @@ class DocumentUploadScreen extends StatelessWidget {
                                 Text(
                                   'Status: ${doc.status}${doc.rejectionReason != null ? " (${doc.rejectionReason})" : ""}',
                                   style: TextStyle(
-                                    color: doc.status == 'Rejected' ? InfurnusTheme.dangerRed : Colors.grey.shade400,
+                                    color: doc.status == 'Rejected' ? InfurnusTheme.dangerRed : InfurnusTheme.textMuted,
                                     fontSize: 12,
                                   ),
                                 ),
@@ -82,7 +83,8 @@ class DocumentUploadScreen extends StatelessWidget {
                           ),
                           ElevatedButton(
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: isUploaded ? InfurnusTheme.primaryNavy : InfurnusTheme.accentOrange,
+                              backgroundColor: InfurnusTheme.buttonBlack, // BLACK BUTTON
+                              foregroundColor: Colors.white,
                               minimumSize: const Size(90, 36),
                               padding: const EdgeInsets.symmetric(horizontal: 12),
                             ),
@@ -109,6 +111,10 @@ class DocumentUploadScreen extends StatelessWidget {
 
               const SizedBox(height: 16),
               ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: InfurnusTheme.buttonBlack, // BLACK BUTTON
+                  foregroundColor: Colors.white,
+                ),
                 onPressed: () {
                   appState.submitForReview();
                   context.push('/verification-status');

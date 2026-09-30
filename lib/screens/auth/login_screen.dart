@@ -18,7 +18,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: InfurnusTheme.bgDark,
+      backgroundColor: InfurnusTheme.bgWhite,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),
@@ -32,30 +32,30 @@ class _LoginScreenState extends State<LoginScreen> {
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: InfurnusTheme.accentOrange.withOpacity(0.15),
+                        color: InfurnusTheme.primaryGreen.withValues(alpha: 0.15),
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(
                         Icons.local_shipping_rounded,
                         size: 48,
-                        color: InfurnusTheme.accentOrange,
+                        color: InfurnusTheme.primaryGreen,
                       ),
                     ),
                     const SizedBox(height: 12),
                     const Text(
                       'INFURNUS',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: InfurnusTheme.textDark,
                         fontSize: 28,
                         fontWeight: FontWeight.w900,
                         letterSpacing: 2,
                       ),
                     ),
                     const SizedBox(height: 4),
-                    Text(
+                    const Text(
                       'Provider & Logistics Platform',
                       style: TextStyle(
-                        color: Colors.grey.shade400,
+                        color: InfurnusTheme.textMuted,
                         fontSize: 14,
                       ),
                     ),
@@ -67,24 +67,24 @@ class _LoginScreenState extends State<LoginScreen> {
               const Text(
                 'Welcome Back',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: InfurnusTheme.textDark,
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
                 ),
               ),
               const SizedBox(height: 6),
-              Text(
+              const Text(
                 'Login to access Driver or Fleet Owner Portal',
-                style: TextStyle(color: Colors.grey.shade400, fontSize: 13),
+                style: TextStyle(color: InfurnusTheme.textMuted, fontSize: 13),
               ),
               const SizedBox(height: 24),
 
               TextField(
                 controller: _phoneController,
-                style: const TextStyle(color: Colors.white),
+                style: const TextStyle(color: InfurnusTheme.textDark),
                 decoration: const InputDecoration(
                   labelText: 'Mobile Number or Email',
-                  prefixIcon: Icon(Icons.phone_android, color: InfurnusTheme.accentOrange),
+                  prefixIcon: Icon(Icons.phone_android, color: InfurnusTheme.primaryGreen),
                 ),
               ),
               const SizedBox(height: 16),
@@ -92,15 +92,19 @@ class _LoginScreenState extends State<LoginScreen> {
               TextField(
                 controller: _passwordController,
                 obscureText: true,
-                style: const TextStyle(color: Colors.white),
+                style: const TextStyle(color: InfurnusTheme.textDark),
                 decoration: const InputDecoration(
                   labelText: 'Password / OTP',
-                  prefixIcon: Icon(Icons.lock_outline, color: InfurnusTheme.accentOrange),
+                  prefixIcon: Icon(Icons.lock_outline, color: InfurnusTheme.primaryGreen),
                 ),
               ),
               const SizedBox(height: 24),
 
               ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: InfurnusTheme.buttonBlack, // BLACK BUTTON
+                  foregroundColor: Colors.white,
+                ),
                 onPressed: () {
                   final appState = Provider.of<AppState>(context, listen: false);
                   appState.login(_phoneController.text);
@@ -111,6 +115,10 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 12),
 
               OutlinedButton(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: InfurnusTheme.buttonBlack,
+                  side: const BorderSide(color: InfurnusTheme.buttonBlack, width: 1.5),
+                ),
                 onPressed: () {
                   context.push('/otp');
                 },
@@ -121,9 +129,9 @@ class _LoginScreenState extends State<LoginScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(
+                  const Text(
                     "Don't have a provider account? ",
-                    style: TextStyle(color: Colors.grey.shade400, fontSize: 14),
+                    style: TextStyle(color: InfurnusTheme.textMuted, fontSize: 14),
                   ),
                   GestureDetector(
                     onTap: () {
@@ -132,7 +140,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     child: const Text(
                       'Register Now',
                       style: TextStyle(
-                        color: InfurnusTheme.accentOrange,
+                        color: InfurnusTheme.primaryGreen,
                         fontWeight: FontWeight.bold,
                         fontSize: 14,
                       ),

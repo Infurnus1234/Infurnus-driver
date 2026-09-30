@@ -17,6 +17,7 @@ class _ProfilePhotoScreenState extends State<ProfilePhotoScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: InfurnusTheme.bgWhite,
       appBar: AppBar(title: const Text('Profile Photo')),
       body: SafeArea(
         child: Padding(
@@ -26,13 +27,13 @@ class _ProfilePhotoScreenState extends State<ProfilePhotoScreen> {
               const SizedBox(height: 20),
               const Text(
                 'Upload Profile Photo',
-                style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
+                style: TextStyle(color: InfurnusTheme.textDark, fontSize: 22, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 6),
-              Text(
+              const Text(
                 'Please take a clear selfie portrait. Face must be unobstructed for face verification.',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey.shade400, fontSize: 13),
+                style: TextStyle(color: InfurnusTheme.textMuted, fontSize: 13),
               ),
               const SizedBox(height: 36),
 
@@ -41,10 +42,10 @@ class _ProfilePhotoScreenState extends State<ProfilePhotoScreen> {
                   width: 180,
                   height: 180,
                   decoration: BoxDecoration(
-                    color: InfurnusTheme.primaryDark,
+                    color: Colors.white,
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: _photoCaptured ? InfurnusTheme.successGreen : InfurnusTheme.accentOrange,
+                      color: _photoCaptured ? InfurnusTheme.primaryGreen : InfurnusTheme.buttonBlack,
                       width: 3,
                     ),
                   ),
@@ -52,22 +53,22 @@ class _ProfilePhotoScreenState extends State<ProfilePhotoScreen> {
                       ? const Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.check_circle, size: 60, color: InfurnusTheme.successGreen),
+                            Icon(Icons.check_circle, size: 60, color: InfurnusTheme.primaryGreen),
                             SizedBox(height: 8),
                             Text(
                               'Photo Captured!',
-                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                              style: TextStyle(color: InfurnusTheme.textDark, fontWeight: FontWeight.bold),
                             ),
                           ],
                         )
                       : const Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.person, size: 80, color: Colors.grey),
+                            Icon(Icons.person, size: 80, color: InfurnusTheme.textMuted),
                             SizedBox(height: 8),
                             Text(
                               'No Photo Selected',
-                              style: TextStyle(color: Colors.grey, fontSize: 12),
+                              style: TextStyle(color: InfurnusTheme.textMuted, fontSize: 12),
                             ),
                           ],
                         ),
@@ -79,6 +80,10 @@ class _ProfilePhotoScreenState extends State<ProfilePhotoScreen> {
                 children: [
                   Expanded(
                     child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: InfurnusTheme.buttonBlack,
+                        side: const BorderSide(color: InfurnusTheme.buttonBlack),
+                      ),
                       onPressed: () {
                         setState(() {
                           _photoCaptured = true;
@@ -94,6 +99,10 @@ class _ProfilePhotoScreenState extends State<ProfilePhotoScreen> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: InfurnusTheme.buttonBlack,
+                        side: const BorderSide(color: InfurnusTheme.buttonBlack),
+                      ),
                       onPressed: () {
                         setState(() {
                           _photoCaptured = true;
@@ -112,6 +121,10 @@ class _ProfilePhotoScreenState extends State<ProfilePhotoScreen> {
               const Spacer(),
 
               ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: InfurnusTheme.buttonBlack, // BLACK BUTTON
+                  foregroundColor: Colors.white,
+                ),
                 onPressed: () {
                   final appState = Provider.of<AppState>(context, listen: false);
                   appState.updateProfile(photoUrl: 'https://infurnus.com/photos/profile.jpg');

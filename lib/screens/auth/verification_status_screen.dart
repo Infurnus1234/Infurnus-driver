@@ -16,6 +16,7 @@ class VerificationStatusScreen extends StatelessWidget {
     final status = user?.verificationStatus ?? VerificationStatus.draft;
 
     return Scaffold(
+      backgroundColor: InfurnusTheme.bgWhite,
       appBar: AppBar(title: const Text('Application Verification Status')),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -31,7 +32,7 @@ class VerificationStatusScreen extends StatelessWidget {
                 _getStatusTitle(status),
                 textAlign: TextAlign.center,
                 style: const TextStyle(
-                  color: Colors.white,
+                  color: InfurnusTheme.textDark,
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
                 ),
@@ -40,7 +41,7 @@ class VerificationStatusScreen extends StatelessWidget {
               Text(
                 _getStatusDescription(status),
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey.shade400, fontSize: 14),
+                style: const TextStyle(color: InfurnusTheme.textMuted, fontSize: 14),
               ),
               const SizedBox(height: 32),
 
@@ -48,16 +49,16 @@ class VerificationStatusScreen extends StatelessWidget {
                 width: double.infinity,
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: InfurnusTheme.primaryDark,
+                  color: Colors.white,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.white12),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
                       'Submitted Application Progress',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                      style: TextStyle(color: InfurnusTheme.textDark, fontWeight: FontWeight.bold, fontSize: 16),
                     ),
                     const SizedBox(height: 16),
                     _timelineStep('Registration & Role Selection', true),
@@ -75,6 +76,10 @@ class VerificationStatusScreen extends StatelessWidget {
 
               if (status == VerificationStatus.approved) ...[
                 ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: InfurnusTheme.buttonBlack, // BLACK BUTTON
+                    foregroundColor: Colors.white,
+                  ),
                   onPressed: () {
                     context.go('/driver/dashboard');
                   },
@@ -90,6 +95,10 @@ class VerificationStatusScreen extends StatelessWidget {
                 ),
               ] else ...[
                 OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: InfurnusTheme.buttonBlack,
+                    side: const BorderSide(color: InfurnusTheme.buttonBlack),
+                  ),
                   onPressed: () {
                     context.push('/document-upload');
                   },
@@ -102,14 +111,15 @@ class VerificationStatusScreen extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.05),
+                  color: InfurnusTheme.greenLight,
                   borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: InfurnusTheme.greenBorder),
                 ),
                 child: Column(
                   children: [
-                    Text(
+                    const Text(
                       'SIMULATION CONTROLS (Demo Admin Action Trigger)',
-                      style: TextStyle(color: Colors.grey.shade500, fontSize: 11, fontWeight: FontWeight.bold),
+                      style: TextStyle(color: InfurnusTheme.textDark, fontSize: 11, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 8),
                     Row(
@@ -117,11 +127,11 @@ class VerificationStatusScreen extends StatelessWidget {
                       children: [
                         TextButton(
                           onPressed: () => appState.adminApproveUser(),
-                          child: const Text('Approve', style: TextStyle(color: InfurnusTheme.successGreen)),
+                          child: const Text('Approve', style: TextStyle(color: InfurnusTheme.primaryGreen, fontWeight: FontWeight.bold)),
                         ),
                         TextButton(
                           onPressed: () => appState.adminRequestChanges('Driving License image unclear.'),
-                          child: const Text('Request Changes', style: TextStyle(color: InfurnusTheme.dangerRed)),
+                          child: const Text('Request Changes', style: TextStyle(color: InfurnusTheme.dangerRed, fontWeight: FontWeight.bold)),
                         ),
                       ],
                     ),
@@ -172,15 +182,15 @@ class VerificationStatusScreen extends StatelessWidget {
         children: [
           Icon(
             isDone ? Icons.check_circle : Icons.radio_button_unchecked,
-            color: isDone ? InfurnusTheme.successGreen : Colors.grey.shade600,
+            color: isDone ? InfurnusTheme.primaryGreen : InfurnusTheme.textMuted,
             size: 20,
           ),
           const SizedBox(width: 12),
           Text(
             title,
             style: TextStyle(
-              color: isDone ? Colors.white : Colors.grey.shade500,
-              fontWeight: isDone ? FontWeight.w600 : FontWeight.normal,
+              color: isDone ? InfurnusTheme.textDark : InfurnusTheme.textMuted,
+              fontWeight: isDone ? FontWeight.bold : FontWeight.normal,
               fontSize: 13,
             ),
           ),

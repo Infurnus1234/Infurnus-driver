@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../../widgets/infurnus_logo.dart';
 import '../../core/theme.dart';
 
 class RegistrationScreen extends StatefulWidget {
@@ -17,6 +18,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: InfurnusTheme.bgWhite,
       appBar: AppBar(title: const Text('Provider Registration')),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -24,23 +26,26 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              const Center(child: InfurnusLogo(iconSize: 36, fontSize: 22)),
+              const SizedBox(height: 32),
+
               const Text(
-                'Create Account',
-                style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
+                'Create Provider Account',
+                style: TextStyle(color: InfurnusTheme.textDark, fontSize: 22, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 6),
-              Text(
+              const Text(
                 'Enter basic details to get started with Infurnus Platform',
-                style: TextStyle(color: Colors.grey.shade400, fontSize: 13),
+                style: TextStyle(color: InfurnusTheme.textMuted, fontSize: 13),
               ),
               const SizedBox(height: 24),
 
               TextField(
                 controller: _nameController,
-                style: const TextStyle(color: Colors.white),
+                style: const TextStyle(color: InfurnusTheme.textDark),
                 decoration: const InputDecoration(
                   labelText: 'Full Name',
-                  prefixIcon: Icon(Icons.person_outline, color: InfurnusTheme.accentOrange),
+                  prefixIcon: Icon(Icons.person_outline, color: InfurnusTheme.primaryGreen),
                 ),
               ),
               const SizedBox(height: 16),
@@ -48,10 +53,10 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
               TextField(
                 controller: _phoneController,
                 keyboardType: TextInputType.phone,
-                style: const TextStyle(color: Colors.white),
+                style: const TextStyle(color: InfurnusTheme.textDark),
                 decoration: const InputDecoration(
                   labelText: 'Mobile Phone Number',
-                  prefixIcon: Icon(Icons.phone_android, color: InfurnusTheme.accentOrange),
+                  prefixIcon: Icon(Icons.phone_android, color: InfurnusTheme.primaryGreen),
                 ),
               ),
               const SizedBox(height: 16),
@@ -59,15 +64,19 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
               TextField(
                 controller: _emailController,
                 keyboardType: TextInputType.emailAddress,
-                style: const TextStyle(color: Colors.white),
+                style: const TextStyle(color: InfurnusTheme.textDark),
                 decoration: const InputDecoration(
                   labelText: 'Email Address',
-                  prefixIcon: Icon(Icons.email_outlined, color: InfurnusTheme.accentOrange),
+                  prefixIcon: Icon(Icons.email_outlined, color: InfurnusTheme.primaryGreen),
                 ),
               ),
               const SizedBox(height: 32),
 
               ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: InfurnusTheme.buttonBlack, // BLACK BUTTON
+                  foregroundColor: Colors.white,
+                ),
                 onPressed: () {
                   context.push('/role-selection');
                 },
