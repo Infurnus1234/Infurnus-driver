@@ -92,7 +92,7 @@ class _FleetRevenueScreenState extends State<FleetRevenueScreen> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: p.status == 'Settled' ? InfurnusTheme.successGreen.withOpacity(0.2) : InfurnusTheme.warningAmber.withOpacity(0.2),
+                        color: p.status == 'Settled' ? InfurnusTheme.successGreen.withValues(alpha: 0.2) : InfurnusTheme.warningAmber.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(

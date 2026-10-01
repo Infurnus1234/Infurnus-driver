@@ -18,7 +18,7 @@ class RideRequestsScreen extends StatelessWidget {
         child: ListView.separated(
           padding: const EdgeInsets.all(20),
           itemCount: bookings.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 14),
+          separatorBuilder: (_, _) => const SizedBox(height: 14),
           itemBuilder: (context, index) {
             final booking = bookings[index];
 

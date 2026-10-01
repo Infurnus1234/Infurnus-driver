@@ -24,7 +24,7 @@ class VehicleManagementScreen extends StatelessWidget {
         child: ListView.separated(
           padding: const EdgeInsets.all(20),
           itemCount: vehicles.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 12),
+          separatorBuilder: (_, _) => const SizedBox(height: 12),
           itemBuilder: (context, index) {
             final v = vehicles[index];
 
@@ -33,7 +33,7 @@ class VehicleManagementScreen extends StatelessWidget {
               decoration: BoxDecoration(
                 color: InfurnusTheme.primaryDark,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: v.isActive ? InfurnusTheme.accentOrange.withOpacity(0.4) : Colors.white12),
+                border: Border.all(color: v.isActive ? InfurnusTheme.primaryGreen.withValues(alpha: 0.4) : Colors.black12),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

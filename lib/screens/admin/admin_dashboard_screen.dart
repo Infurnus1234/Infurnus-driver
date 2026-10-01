@@ -79,7 +79,7 @@ class AdminDashboardScreen extends StatelessWidget {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
-                              color: isPending ? InfurnusTheme.warningAmber.withOpacity(0.2) : InfurnusTheme.successGreen.withOpacity(0.2),
+                              color: isPending ? InfurnusTheme.warningAmber.withValues(alpha: 0.2) : InfurnusTheme.successGreen.withValues(alpha: 0.2),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(

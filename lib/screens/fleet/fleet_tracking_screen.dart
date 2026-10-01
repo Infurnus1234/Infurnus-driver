@@ -46,7 +46,7 @@ class FleetTrackingScreen extends StatelessWidget {
               child: ListView.separated(
                 padding: const EdgeInsets.all(20),
                 itemCount: vehicles.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 10),
+                separatorBuilder: (_, _) => const SizedBox(height: 10),
                 itemBuilder: (context, index) {
                   final v = vehicles[index];
 
@@ -76,7 +76,7 @@ class FleetTrackingScreen extends StatelessWidget {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
-                            color: InfurnusTheme.successGreen.withOpacity(0.2),
+                            color: InfurnusTheme.successGreen.withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: const Text('MOVING (38 km/h)', style: TextStyle(color: InfurnusTheme.successGreen, fontSize: 10, fontWeight: FontWeight.bold)),

@@ -17,7 +17,7 @@ class NotificationsScreen extends StatelessWidget {
         child: ListView.separated(
           padding: const EdgeInsets.all(20),
           itemCount: notifs.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 10),
+          separatorBuilder: (_, _) => const SizedBox(height: 10),
           itemBuilder: (context, index) {
             final item = notifs[index];
 
@@ -26,7 +26,7 @@ class NotificationsScreen extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: item.isRead ? InfurnusTheme.primaryDark : InfurnusTheme.accentOrange.withOpacity(0.1),
+                  color: item.isRead ? Colors.white : InfurnusTheme.primaryGreen.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(
                     color: item.isRead ? Colors.white12 : InfurnusTheme.accentOrange,

@@ -36,7 +36,7 @@ class _AddDriverScreenState extends State<AddDriverScreen> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: InfurnusTheme.infoBlue.withOpacity(0.15),
+                  color: InfurnusTheme.infoBlue.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: InfurnusTheme.infoBlue),
                 ),

@@ -37,7 +37,7 @@ class AssignedVehicleScreen extends StatelessWidget {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
-                            color: InfurnusTheme.successGreen.withOpacity(0.2),
+                            color: InfurnusTheme.successGreen.withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: const Text(

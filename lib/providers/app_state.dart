@@ -67,7 +67,7 @@ class AppState extends ChangeNotifier {
   List<PayoutItem> get payouts => _payouts;
 
   // Vehicles
-  List<VehicleModel> _vehicles = [
+  final List<VehicleModel> _vehicles = [
     VehicleModel(
       id: 'VEH-101',
       plateNumber: 'KA 01 EV 8899',
@@ -103,7 +103,7 @@ class AppState extends ChangeNotifier {
   List<VehicleModel> get vehicles => _vehicles;
 
   // Managed Drivers (For Fleet Owner view)
-  List<ManagedDriverModel> _managedDrivers = [
+  final List<ManagedDriverModel> _managedDrivers = [
     ManagedDriverModel(
       id: 'DRV-501',
       name: 'Rajesh Kumar',
@@ -136,7 +136,7 @@ class AppState extends ChangeNotifier {
   List<ManagedDriverModel> get managedDrivers => _managedDrivers;
 
   // Bookings / Rides
-  List<BookingModel> _bookings = [
+  final List<BookingModel> _bookings = [
     BookingModel(
       id: 'BK-8001',
       bookingType: 'Logistics',

@@ -174,7 +174,7 @@ class _LocationSearchWidgetState extends State<LocationSearchWidget> {
                 : ListView.separated(
                     shrinkWrap: true,
                     itemCount: _suggestions.length,
-                    separatorBuilder: (_, __) => const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                    separatorBuilder: (_, _) => const Divider(height: 1, color: Color(0xFFF1F5F9)),
                     itemBuilder: (context, index) {
                       final item = _suggestions[index];
                       final isSelected = _selectedLocation?.id == item.id;

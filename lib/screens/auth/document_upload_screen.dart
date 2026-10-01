@@ -36,7 +36,7 @@ class DocumentUploadScreen extends StatelessWidget {
               Expanded(
                 child: ListView.separated(
                   itemCount: docs.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 12),
+                  separatorBuilder: (_, _) => const SizedBox(height: 12),
                   itemBuilder: (context, index) {
                     final doc = docs[index];
                     final isUploaded = doc.fileUrl != null || doc.status == 'Approved';

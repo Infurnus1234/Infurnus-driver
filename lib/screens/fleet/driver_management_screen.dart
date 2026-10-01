@@ -35,7 +35,7 @@ class DriverManagementScreen extends StatelessWidget {
                 color: InfurnusTheme.primaryDark,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: isApproved ? InfurnusTheme.successGreen.withOpacity(0.4) : InfurnusTheme.warningAmber.withOpacity(0.4),
+                  color: isApproved ? InfurnusTheme.successGreen.withValues(alpha: 0.4) : InfurnusTheme.warningAmber.withValues(alpha: 0.4),
                 ),
               ),
               child: Column(
@@ -51,7 +51,7 @@ class DriverManagementScreen extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
-                          color: isApproved ? InfurnusTheme.successGreen.withOpacity(0.2) : InfurnusTheme.warningAmber.withOpacity(0.2),
+                          color: isApproved ? InfurnusTheme.successGreen.withValues(alpha: 0.2) : InfurnusTheme.warningAmber.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
