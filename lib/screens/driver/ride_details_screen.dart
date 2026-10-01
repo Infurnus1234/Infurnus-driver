@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/app_state.dart';
+import '../../widgets/location_search_widget.dart';
 import '../../core/theme.dart';
 
 class RideDetailsScreen extends StatelessWidget {
@@ -12,6 +13,7 @@ class RideDetailsScreen extends StatelessWidget {
     final booking = appState.bookings.first;
 
     return Scaffold(
+      backgroundColor: InfurnusTheme.bgWhite,
       appBar: AppBar(title: Text('Ride Details #${booking.id}')),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -21,12 +23,12 @@ class RideDetailsScreen extends StatelessWidget {
             children: [
               // Map View Simulation Container
               Container(
-                height: 200,
+                height: 180,
                 width: double.infinity,
                 decoration: BoxDecoration(
-                  color: InfurnusTheme.primaryDark,
+                  color: Colors.white,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: InfurnusTheme.accentOrange.withOpacity(0.4)),
+                  border: Border.all(color: InfurnusTheme.primaryGreen, width: 1.5),
                 ),
                 child: Stack(
                   children: [
@@ -34,16 +36,16 @@ class RideDetailsScreen extends StatelessWidget {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Icon(Icons.map_outlined, size: 48, color: InfurnusTheme.accentOrange),
+                          const Icon(Icons.map_outlined, size: 48, color: InfurnusTheme.primaryGreen),
                           const SizedBox(height: 8),
                           const Text(
                             'LIVE GPS ROUTE NAVIGATION MAP',
-                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                            style: TextStyle(color: InfurnusTheme.textDark, fontWeight: FontWeight.bold, fontSize: 13),
                           ),
                           const SizedBox(height: 4),
                           Text(
                             'Route: ${booking.routeDetails ?? "NH 44 -> Outer Ring Road"}',
-                            style: TextStyle(color: Colors.grey.shade400, fontSize: 11),
+                            style: const TextStyle(color: InfurnusTheme.textMuted, fontSize: 11),
                           ),
                         ],
                       ),
@@ -54,7 +56,7 @@ class RideDetailsScreen extends StatelessWidget {
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
-                          color: InfurnusTheme.infoBlue,
+                          color: InfurnusTheme.primaryGreen,
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(
@@ -66,29 +68,54 @@ class RideDetailsScreen extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 24),
 
-              // Customer & Pickup Details
+              // Map Location Auto-Suggestion Component
+              const Text(
+                'Map Location Search & Auto-Suggestion',
+                style: TextStyle(color: InfurnusTheme.textDark, fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'Search destination or waypoint (e.g., "Elec", "Airp", "White", "Kora"):',
+                style: TextStyle(color: InfurnusTheme.textMuted, fontSize: 12),
+              ),
+              const SizedBox(height: 12),
+
+              LocationSearchWidget(
+                label: 'Search Navigation Landmark / Destination',
+                onLocationSelected: (location) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Selected route destination: ${location.name}')),
+                  );
+                },
+              ),
+              const SizedBox(height: 24),
+
+              // Customer & Contact Details
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: InfurnusTheme.primaryDark,
+                  color: Colors.white,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.white12),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
                       'Customer & Contact',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                      style: TextStyle(color: InfurnusTheme.textDark, fontWeight: FontWeight.bold, fontSize: 15),
                     ),
                     const SizedBox(height: 8),
-                    Text('Customer Name: ${booking.customerName}', style: const TextStyle(color: Colors.white, fontSize: 13)),
-                    Text('Phone: ${booking.customerPhone}', style: TextStyle(color: Colors.grey.shade400, fontSize: 13)),
+                    Text('Customer Name: ${booking.customerName}', style: const TextStyle(color: InfurnusTheme.textDark, fontSize: 13)),
+                    Text('Phone: ${booking.customerPhone}', style: const TextStyle(color: InfurnusTheme.textMuted, fontSize: 13)),
                     const SizedBox(height: 12),
                     ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(backgroundColor: InfurnusTheme.successGreen),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: InfurnusTheme.buttonBlack, // BLACK BUTTON
+                        foregroundColor: Colors.white,
+                      ),
                       onPressed: () {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(content: Text('Calling customer ${booking.customerPhone}')),
@@ -102,24 +129,24 @@ class RideDetailsScreen extends StatelessWidget {
               ),
               const SizedBox(height: 16),
 
-              // Goods & Cargo Details (Requirement Section 8)
+              // Goods & Cargo Details
               if (booking.goodsDescription != null) ...[
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: InfurnusTheme.primaryDark,
+                    color: Colors.white,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.white12),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
                         'Goods & Cargo Information',
-                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                        style: TextStyle(color: InfurnusTheme.textDark, fontWeight: FontWeight.bold, fontSize: 15),
                       ),
                       const SizedBox(height: 8),
-                      Text(booking.goodsDescription!, style: const TextStyle(color: InfurnusTheme.accentOrange, fontSize: 13)),
+                      Text(booking.goodsDescription!, style: const TextStyle(color: InfurnusTheme.primaryGreen, fontWeight: FontWeight.bold, fontSize: 13)),
                     ],
                   ),
                 ),
@@ -129,7 +156,7 @@ class RideDetailsScreen extends StatelessWidget {
               // Logistics Delivery Status Controller
               const Text(
                 'Update Delivery Status',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                style: TextStyle(color: InfurnusTheme.textDark, fontWeight: FontWeight.bold, fontSize: 16),
               ),
               const SizedBox(height: 12),
 
@@ -153,6 +180,10 @@ class RideDetailsScreen extends StatelessWidget {
     return SizedBox(
       width: double.infinity,
       child: OutlinedButton.icon(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: InfurnusTheme.buttonBlack,
+          side: const BorderSide(color: InfurnusTheme.buttonBlack),
+        ),
         onPressed: () {
           appState.updateBookingStatus(id, statusLabel);
           ScaffoldMessenger.of(context).showSnackBar(
