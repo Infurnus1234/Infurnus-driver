@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../providers/app_state.dart';
+import '../../widgets/infurnus_app_bar.dart';
 import '../../core/theme.dart';
 
 class DocumentUploadScreen extends StatelessWidget {
@@ -15,7 +16,7 @@ class DocumentUploadScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: InfurnusTheme.bgWhite,
-      appBar: AppBar(title: const Text('Document Upload')),
+      appBar: const InfurnusAppBar(title: 'Document Upload'),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(20.0),

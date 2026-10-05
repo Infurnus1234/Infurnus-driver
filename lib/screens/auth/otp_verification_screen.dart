@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../providers/app_state.dart';
+import '../../widgets/infurnus_app_bar.dart';
 import '../../core/theme.dart';
 
 class OtpVerificationScreen extends StatefulWidget {
@@ -18,7 +19,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: InfurnusTheme.bgWhite,
-      appBar: AppBar(title: const Text('OTP Verification')),
+      appBar: const InfurnusAppBar(title: 'OTP Verification'),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24.0),

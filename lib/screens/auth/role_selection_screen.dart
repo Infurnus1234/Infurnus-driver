@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../providers/app_state.dart';
 import '../../models/app_models.dart';
+import '../../widgets/infurnus_app_bar.dart';
 import '../../core/theme.dart';
 
 class RoleSelectionScreen extends StatefulWidget {
@@ -19,15 +20,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: InfurnusTheme.bgWhite,
-      appBar: AppBar(
-        title: const Text('Role Selection'),
-        leading: Navigator.canPop(context)
-            ? IconButton(
-                icon: const Icon(Icons.arrow_back),
-                onPressed: () => context.pop(),
-              )
-            : null,
-      ),
+      appBar: const InfurnusAppBar(title: 'Role Selection'),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24.0),

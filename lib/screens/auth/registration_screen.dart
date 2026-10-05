@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../widgets/infurnus_logo.dart';
+import '../../widgets/infurnus_app_bar.dart';
 import '../../core/theme.dart';
 
 class RegistrationScreen extends StatefulWidget {
@@ -19,7 +20,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: InfurnusTheme.bgWhite,
-      appBar: AppBar(title: const Text('Provider Registration')),
+      appBar: const InfurnusAppBar(title: 'Provider Registration'),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),
