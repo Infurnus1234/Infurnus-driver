@@ -24,11 +24,12 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
     super.initState();
     final appState = Provider.of<AppState>(context, listen: false);
     final user = appState.currentUser;
-    _nameController = TextEditingController(text: user?.fullName ?? 'Vikram Sharma');
-    _emailController = TextEditingController(text: user?.email ?? 'vikram.sharma@infurnus.com');
-    _phoneController = TextEditingController(text: user?.phone ?? '+91 98765 00112');
-    _bizNameController = TextEditingController(text: user?.businessName ?? 'Vikram Fleet Services');
-    _bizAddrController = TextEditingController(text: user?.businessAddress ?? 'Plot 42, Transport Nagar, Bangalore');
+    // Use actual registered user details if present, otherwise fallback
+    _nameController = TextEditingController(text: user?.fullName.isNotEmpty == true && user?.fullName != 'New Provider User' ? user!.fullName : '');
+    _emailController = TextEditingController(text: user?.email.isNotEmpty == true && user?.email != 'provider@infurnus.com' ? user!.email : '');
+    _phoneController = TextEditingController(text: user?.phone.isNotEmpty == true && user?.phone != '+91 98765 00000' ? user!.phone : '');
+    _bizNameController = TextEditingController(text: user?.businessName ?? '');
+    _bizAddrController = TextEditingController(text: user?.businessAddress ?? '');
   }
 
   @override
@@ -39,7 +40,15 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
 
     return Scaffold(
       backgroundColor: InfurnusTheme.bgWhite,
-      appBar: AppBar(title: const Text('Personal & Business Details')),
+      appBar: AppBar(
+        title: const Text('Personal & Business Details'),
+        leading: Navigator.canPop(context)
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () => context.pop(),
+              )
+            : null,
+      ),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),

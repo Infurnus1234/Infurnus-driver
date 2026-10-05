@@ -25,25 +25,31 @@ class ModeSwitchHeader extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Row(
-            children: [
-              Icon(
-                isDriverMode ? Icons.directions_car : Icons.business_center,
-                color: InfurnusTheme.primaryGreen,
-                size: 20,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                isDriverMode ? 'ACTIVE: DRIVER MODE' : 'ACTIVE: FLEET OWNER MODE',
-                style: const TextStyle(
-                  color: InfurnusTheme.textDark,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13,
-                  letterSpacing: 0.5,
+          Expanded(
+            child: Row(
+              children: [
+                Icon(
+                  isDriverMode ? Icons.directions_car : Icons.business_center,
+                  color: InfurnusTheme.primaryGreen,
+                  size: 20,
                 ),
-              ),
-            ],
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    isDriverMode ? 'ACTIVE: DRIVER' : 'ACTIVE: FLEET',
+                    style: const TextStyle(
+                      color: InfurnusTheme.textDark,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                      letterSpacing: 0.5,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
           ),
+          const SizedBox(width: 8),
           InkWell(
             onTap: () {
               appState.toggleActiveMode();
@@ -60,21 +66,22 @@ class ModeSwitchHeader extends StatelessWidget {
               );
             },
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
                 color: InfurnusTheme.buttonBlack,
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.swap_horiz, color: Colors.white, size: 16),
+                  const Icon(Icons.swap_horiz, color: Colors.white, size: 14),
                   const SizedBox(width: 4),
                   Text(
-                    isDriverMode ? 'Switch to Fleet Mode' : 'Switch to Driver Mode',
+                    isDriverMode ? 'Switch to Fleet' : 'Switch to Driver',
                     style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
-                      fontSize: 12,
+                      fontSize: 11,
                     ),
                   ),
                 ],
