@@ -281,6 +281,14 @@ class BookingModel {
     required this.createdAt,
   });
 
+  // 10% Commission Calculation Helpers (Server-authoritative final fare based)
+  double get commissionAmount => fareAmount * 0.10;
+  double get driverNetEarning => fareAmount * 0.90;
+
+  int get fareAmountPaise => (fareAmount * 100).round();
+  int get commissionPaise => (fareAmountPaise * 0.10).round();
+  int get driverNetEarningPaise => fareAmountPaise - commissionPaise;
+
   BookingModel copyWith({
     String? id,
     String? bookingType,
