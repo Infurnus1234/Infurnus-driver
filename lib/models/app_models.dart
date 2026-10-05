@@ -101,26 +101,42 @@ class UserProfile {
   final String fullName;
   final String email;
   final String phone;
+  final String? dob;
+  final String? address;
   final String? photoUrl;
   final UserRole role;
   final VerificationStatus verificationStatus;
   final String? businessName;
   final String? businessAddress;
+  final String? vehicleInformation;
+  final String? vehicleNumber;
+  final String? vehicleType;
+  final String? rejectionReason;
   final List<DocumentItem> documents;
   final String? assignedVehicleId;
+  final List<String> verificationTimestamps;
+  final List<String> verificationHistory;
 
   UserProfile({
     required this.id,
     required this.fullName,
     required this.email,
     required this.phone,
+    this.dob,
+    this.address,
     this.photoUrl,
     required this.role,
     this.verificationStatus = VerificationStatus.draft,
     this.businessName,
     this.businessAddress,
+    this.vehicleInformation,
+    this.vehicleNumber,
+    this.vehicleType,
+    this.rejectionReason,
     this.documents = const [],
     this.assignedVehicleId,
+    this.verificationTimestamps = const [],
+    this.verificationHistory = const ['Draft created on 01 Oct 2026'],
   });
 
   UserProfile copyWith({
@@ -128,26 +144,42 @@ class UserProfile {
     String? fullName,
     String? email,
     String? phone,
+    String? dob,
+    String? address,
     String? photoUrl,
     UserRole? role,
     VerificationStatus? verificationStatus,
     String? businessName,
     String? businessAddress,
+    String? vehicleInformation,
+    String? vehicleNumber,
+    String? vehicleType,
+    String? rejectionReason,
     List<DocumentItem>? documents,
     String? assignedVehicleId,
+    List<String>? verificationTimestamps,
+    List<String>? verificationHistory,
   }) {
     return UserProfile(
       id: id ?? this.id,
       fullName: fullName ?? this.fullName,
       email: email ?? this.email,
       phone: phone ?? this.phone,
+      dob: dob ?? this.dob,
+      address: address ?? this.address,
       photoUrl: photoUrl ?? this.photoUrl,
       role: role ?? this.role,
       verificationStatus: verificationStatus ?? this.verificationStatus,
       businessName: businessName ?? this.businessName,
       businessAddress: businessAddress ?? this.businessAddress,
+      vehicleInformation: vehicleInformation ?? this.vehicleInformation,
+      vehicleNumber: vehicleNumber ?? this.vehicleNumber,
+      vehicleType: vehicleType ?? this.vehicleType,
+      rejectionReason: rejectionReason ?? this.rejectionReason,
       documents: documents ?? this.documents,
       assignedVehicleId: assignedVehicleId ?? this.assignedVehicleId,
+      verificationTimestamps: verificationTimestamps ?? this.verificationTimestamps,
+      verificationHistory: verificationHistory ?? this.verificationHistory,
     );
   }
 }
