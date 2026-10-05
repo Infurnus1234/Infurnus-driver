@@ -182,6 +182,32 @@ class AppState extends ChangeNotifier {
   ];
   List<BookingModel> get bookings => _bookings;
 
+  /// Smart Driver Matching: Returns only bookings compatible with the driver's assigned vehicle category & online status
+  List<BookingModel> get eligibleBookings {
+    if (!_isOnline || _currentUser?.verificationStatus != VerificationStatus.approved) {
+      return [];
+    }
+
+    // Find driver's assigned vehicle
+    final assignedVehicleId = _currentUser?.assignedVehicleId;
+    final assignedVehicle = _vehicles.firstWhere(
+      (v) => v.id == assignedVehicleId,
+      orElse: () => _vehicles.first,
+    );
+    final vehicleCategory = assignedVehicle.category.toLowerCase();
+
+    return _bookings.where((booking) {
+      final type = booking.bookingType.toLowerCase();
+      // Validate category compatibility
+      if (type == 'logistics' || type == 'parcel') {
+        return vehicleCategory == 'truck' || vehicleCategory == 'container' || vehicleCategory == 'van' || vehicleCategory == 'suv';
+      } else if (type == 'ride') {
+        return vehicleCategory == 'sedan' || vehicleCategory == 'hatchback' || vehicleCategory == 'suv' || vehicleCategory == 'auto' || vehicleCategory == 'bike';
+      }
+      return true;
+    }).toList();
+  }
+
   // Notifications
   final List<NotificationItem> _notifications = [
     NotificationItem(
