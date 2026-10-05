@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../providers/app_state.dart';
+import '../../widgets/infurnus_app_bar.dart';
 import '../../core/theme.dart';
 
 class RideRequestsScreen extends StatelessWidget {
@@ -13,7 +14,8 @@ class RideRequestsScreen extends StatelessWidget {
     final bookings = appState.bookings;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Ride & Booking Requests')),
+      backgroundColor: InfurnusTheme.bgWhite,
+      appBar: const InfurnusAppBar(title: 'Ride & Booking Requests'),
       body: SafeArea(
         child: ListView.separated(
           padding: const EdgeInsets.all(20),
@@ -25,9 +27,9 @@ class RideRequestsScreen extends StatelessWidget {
             return Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: InfurnusTheme.primaryDark,
+                color: Colors.white,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.white12),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -37,7 +39,7 @@ class RideRequestsScreen extends StatelessWidget {
                     children: [
                       Text(
                         '#${booking.id} • ${booking.bookingType}',
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                        style: const TextStyle(color: InfurnusTheme.textDark, fontWeight: FontWeight.bold, fontSize: 15),
                       ),
                       Text(
                         '₹ ${booking.fareAmount}',
@@ -46,19 +48,23 @@ class RideRequestsScreen extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 8),
-                  Text('Pickup: ${booking.pickupLocation}', style: TextStyle(color: Colors.grey.shade300, fontSize: 13)),
-                  Text('Dropoff: ${booking.dropoffLocation}', style: TextStyle(color: Colors.grey.shade300, fontSize: 13)),
+                  Text('Pickup: ${booking.pickupLocation}', style: const TextStyle(color: InfurnusTheme.textMuted, fontSize: 13)),
+                  Text('Dropoff: ${booking.dropoffLocation}', style: const TextStyle(color: InfurnusTheme.textMuted, fontSize: 13)),
                   if (booking.goodsDescription != null) ...[
                     const SizedBox(height: 4),
-                    Text('Goods: ${booking.goodsDescription}', style: const TextStyle(color: InfurnusTheme.accentOrange, fontSize: 12)),
+                    Text('Goods: ${booking.goodsDescription}', style: const TextStyle(color: InfurnusTheme.primaryGreen, fontSize: 12, fontWeight: FontWeight.bold)),
                   ],
                   const SizedBox(height: 12),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('Status: ${booking.status}', style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                      Text('Status: ${booking.status}', style: const TextStyle(color: InfurnusTheme.textMuted, fontSize: 12)),
                       ElevatedButton(
-                        style: ElevatedButton.styleFrom(minimumSize: const Size(110, 36)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: InfurnusTheme.buttonBlack, // BLACK BUTTON
+                          foregroundColor: Colors.white,
+                          minimumSize: const Size(110, 36),
+                        ),
                         onPressed: () {
                           appState.acceptBooking(booking.id);
                           context.push('/driver/ride-details');

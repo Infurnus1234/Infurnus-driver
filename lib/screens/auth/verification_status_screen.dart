@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../providers/app_state.dart';
 import '../../models/app_models.dart';
+import '../../widgets/infurnus_app_bar.dart';
 import '../../core/theme.dart';
 import '../../widgets/verification_badge.dart';
 
@@ -17,7 +18,7 @@ class VerificationStatusScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: InfurnusTheme.bgWhite,
-      appBar: AppBar(title: const Text('Application Verification Status')),
+      appBar: const InfurnusAppBar(title: 'Application Verification Status'),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),
