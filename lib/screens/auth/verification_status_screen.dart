@@ -106,39 +106,6 @@ class VerificationStatusScreen extends StatelessWidget {
                   child: const Text('Update Submitted Documents'),
                 ),
               ],
-
-              const SizedBox(height: 24),
-              // Simulation Controls for Demo Testing
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: InfurnusTheme.greenLight,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: InfurnusTheme.greenBorder),
-                ),
-                child: Column(
-                  children: [
-                    const Text(
-                      'SIMULATION CONTROLS (Demo Admin Action Trigger)',
-                      style: TextStyle(color: InfurnusTheme.textDark, fontSize: 11, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        TextButton(
-                          onPressed: () => appState.adminApproveUser(),
-                          child: const Text('Approve', style: TextStyle(color: InfurnusTheme.primaryGreen, fontWeight: FontWeight.bold)),
-                        ),
-                        TextButton(
-                          onPressed: () => appState.adminRequestChanges('Driving License image unclear.'),
-                          child: const Text('Request Changes', style: TextStyle(color: InfurnusTheme.dangerRed, fontWeight: FontWeight.bold)),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
             ],
           ),
         ),
