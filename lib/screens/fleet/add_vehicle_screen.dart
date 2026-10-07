@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../providers/app_state.dart';
 import '../../models/vehicle_catalog_model.dart';
 import '../../widgets/vehicle_selection_search_widget.dart';
+import '../../widgets/infurnus_app_bar.dart';
 import '../../core/theme.dart';
 
 class AddVehicleScreen extends StatefulWidget {
@@ -19,13 +20,21 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
   String _category = 'Truck';
   VehicleCatalogItem? _selectedCatalogItem;
 
+  // Track uploaded side photos
+  final Map<String, bool> _photoUploads = {
+    'Front View Photo': false,
+    'Rear View Photo': false,
+    'Left Side Photo': false,
+    'Right Side Photo': false,
+  };
+
   @override
   Widget build(BuildContext context) {
     final appState = Provider.of<AppState>(context, listen: false);
 
     return Scaffold(
       backgroundColor: InfurnusTheme.bgWhite,
-      appBar: AppBar(title: const Text('Add Fleet Vehicle')),
+      appBar: const InfurnusAppBar(title: 'Add Fleet Vehicle & Photos'),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),
@@ -89,6 +98,21 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
               ),
               const SizedBox(height: 24),
 
+              // Vehicle Photos from 3-4 Sides (New Fleet Requirement)
+              const Text(
+                'Vehicle Photos (3-4 Sides)',
+                style: TextStyle(color: InfurnusTheme.textDark, fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'Upload clear exterior photos from all sides for vehicle verification.',
+                style: TextStyle(color: InfurnusTheme.textMuted, fontSize: 12),
+              ),
+              const SizedBox(height: 12),
+
+              ..._photoUploads.keys.map((sideTitle) => _photoUploadRow(sideTitle)),
+              const SizedBox(height: 24),
+
               const Text('Vehicle Compliance Documents', style: TextStyle(color: InfurnusTheme.textDark, fontWeight: FontWeight.bold)),
               const SizedBox(height: 12),
               _docUploadRow('Vehicle RC Certificate'),
@@ -108,7 +132,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
                     category: _category,
                   );
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Vehicle "$_selectedModelName" added and submitted for verification review.')),
+                    SnackBar(content: Text('Vehicle "$_selectedModelName" with 4-side photos added & submitted for verification.')),
                   );
                   context.pop();
                 },
@@ -117,6 +141,53 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _photoUploadRow(String title) {
+    final isUploaded = _photoUploads[title] ?? false;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: isUploaded ? InfurnusTheme.primaryGreen : const Color(0xFFE2E8F0)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              Icon(
+                isUploaded ? Icons.check_circle : Icons.camera_alt_outlined,
+                color: isUploaded ? InfurnusTheme.primaryGreen : InfurnusTheme.textMuted,
+                size: 20,
+              ),
+              const SizedBox(width: 10),
+              Text(title, style: const TextStyle(color: InfurnusTheme.textDark, fontSize: 13, fontWeight: FontWeight.w600)),
+            ],
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: isUploaded ? InfurnusTheme.primaryGreen : InfurnusTheme.buttonBlack,
+              foregroundColor: Colors.white,
+              minimumSize: const Size(90, 32),
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+            ),
+            onPressed: () {
+              setState(() {
+                _photoUploads[title] = true;
+              });
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('$title uploaded successfully!')),
+              );
+            },
+            child: Text(isUploaded ? 'Uploaded ✓' : 'Upload Photo', style: const TextStyle(fontSize: 11)),
+          ),
+        ],
       ),
     );
   }
