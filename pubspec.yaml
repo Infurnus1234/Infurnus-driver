@@ -40,6 +40,7 @@ dependencies:
   # Utilities & Formatting
   intl: ^0.19.0
   google_fonts: ^6.2.1
+  http: ^1.2.0
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.

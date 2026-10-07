@@ -19,8 +19,6 @@ class _FleetRevenueScreenState extends State<FleetRevenueScreen> {
   final _bankNameController = TextEditingController(text: 'HDFC Bank');
   final _upiController = TextEditingController(text: 'vikram@hdfcbank');
 
-  bool _bankDetailsSaved = true;
-
   @override
   Widget build(BuildContext context) {
     final appState = Provider.of<AppState>(context);
@@ -270,9 +268,6 @@ class _FleetRevenueScreenState extends State<FleetRevenueScreen> {
                   foregroundColor: Colors.white,
                 ),
                 onPressed: () {
-                  setState(() {
-                    _bankDetailsSaved = true;
-                  });
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Bank account details updated successfully for weekly payouts!')),
