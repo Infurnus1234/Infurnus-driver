@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../providers/app_state.dart';
-import '../../models/app_models.dart';
 import '../../widgets/infurnus_app_bar.dart';
 import '../../core/theme.dart';
 

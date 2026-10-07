@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/app_state.dart';
+import '../../widgets/infurnus_app_bar.dart';
 import '../../core/theme.dart';
 
 class LogisticsOperationsScreen extends StatelessWidget {
@@ -12,7 +13,8 @@ class LogisticsOperationsScreen extends StatelessWidget {
     final bookings = appState.bookings.where((b) => b.bookingType == 'Logistics' || b.bookingType == 'Parcel').toList();
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Logistics Operations')),
+      backgroundColor: InfurnusTheme.bgWhite,
+      appBar: const InfurnusAppBar(title: 'Logistics Operations'),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(20.0),
@@ -22,21 +24,21 @@ class LogisticsOperationsScreen extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: InfurnusTheme.primaryDark,
+                  color: Colors.white,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: InfurnusTheme.accentOrange),
+                  border: Border.all(color: InfurnusTheme.primaryGreen),
                 ),
                 child: const Row(
                   children: [
-                    Icon(Icons.inventory_2, color: InfurnusTheme.accentOrange, size: 32),
+                    Icon(Icons.inventory_2, color: InfurnusTheme.primaryGreen, size: 32),
                     SizedBox(width: 14),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Logistics Workflow Status', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+                          Text('Logistics Workflow Status', style: TextStyle(color: InfurnusTheme.textDark, fontWeight: FontWeight.bold, fontSize: 15)),
                           SizedBox(height: 2),
-                          Text('Booking -> Acceptance -> Route -> Pickup -> Goods Tracking -> Delivery', style: TextStyle(color: Colors.grey, fontSize: 11)),
+                          Text('Booking -> Acceptance -> Route -> Pickup -> Goods Tracking -> Delivery', style: TextStyle(color: InfurnusTheme.textMuted, fontSize: 11)),
                         ],
                       ),
                     ),
@@ -45,16 +47,16 @@ class LogisticsOperationsScreen extends StatelessWidget {
               ),
               const SizedBox(height: 24),
 
-              const Text('Logistics Cargo Shipments', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+              const Text('Logistics Cargo Shipments', style: TextStyle(color: InfurnusTheme.textDark, fontWeight: FontWeight.bold, fontSize: 16)),
               const SizedBox(height: 12),
 
               ...bookings.map((booking) => Container(
                 margin: const EdgeInsets.only(bottom: 12),
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: InfurnusTheme.primaryDark,
+                  color: Colors.white,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.white12),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -62,7 +64,7 @@ class LogisticsOperationsScreen extends StatelessWidget {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text('Shipment #${booking.id}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+                        Text('Shipment #${booking.id}', style: const TextStyle(color: InfurnusTheme.textDark, fontWeight: FontWeight.bold, fontSize: 15)),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
@@ -74,17 +76,21 @@ class LogisticsOperationsScreen extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 8),
-                    Text('Route Allocation: ${booking.routeDetails ?? "Direct Transit"}', style: const TextStyle(color: InfurnusTheme.accentOrange, fontSize: 12)),
-                    Text('Goods: ${booking.goodsDescription ?? "General Merchandise"}', style: TextStyle(color: Colors.grey.shade300, fontSize: 12)),
-                    Text('Pickup: ${booking.pickupLocation}', style: TextStyle(color: Colors.grey.shade400, fontSize: 12)),
-                    Text('Delivery: ${booking.dropoffLocation}', style: TextStyle(color: Colors.grey.shade400, fontSize: 12)),
+                    Text('Route Allocation: ${booking.routeDetails ?? "Direct Transit"}', style: const TextStyle(color: InfurnusTheme.primaryGreen, fontSize: 12, fontWeight: FontWeight.bold)),
+                    Text('Goods: ${booking.goodsDescription ?? "General Merchandise"}', style: const TextStyle(color: InfurnusTheme.textDark, fontSize: 12)),
+                    Text('Pickup: ${booking.pickupLocation}', style: const TextStyle(color: InfurnusTheme.textMuted, fontSize: 12)),
+                    Text('Delivery: ${booking.dropoffLocation}', style: const TextStyle(color: InfurnusTheme.textMuted, fontSize: 12)),
                     const SizedBox(height: 12),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text('Fare: ₹${booking.fareAmount}', style: const TextStyle(color: InfurnusTheme.successGreen, fontWeight: FontWeight.bold, fontSize: 14)),
                         ElevatedButton(
-                          style: ElevatedButton.styleFrom(minimumSize: const Size(110, 34)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: InfurnusTheme.buttonBlack, // BLACK BUTTON
+                            foregroundColor: Colors.white,
+                            minimumSize: const Size(110, 34),
+                          ),
                           onPressed: () {
                             appState.updateBookingStatus(booking.id, 'Delivered');
                             ScaffoldMessenger.of(context).showSnackBar(

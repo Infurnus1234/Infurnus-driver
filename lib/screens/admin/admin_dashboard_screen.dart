@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/app_state.dart';
+import '../../widgets/infurnus_app_bar.dart';
 import '../../core/theme.dart';
 
 class AdminDashboardScreen extends StatelessWidget {
@@ -12,9 +13,9 @@ class AdminDashboardScreen extends StatelessWidget {
     final managedDrivers = appState.managedDrivers;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Admin / Super Admin Panel'),
-        backgroundColor: InfurnusTheme.primaryNavy,
+      backgroundColor: InfurnusTheme.bgWhite,
+      appBar: const InfurnusAppBar(
+        title: 'Super Admin Control Panel',
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -26,19 +27,19 @@ class AdminDashboardScreen extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: InfurnusTheme.primaryDark,
+                  color: Colors.white,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: InfurnusTheme.accentOrange, width: 1.5),
+                  border: Border.all(color: InfurnusTheme.primaryGreen, width: 1.5),
                 ),
                 child: const Row(
                   children: [
-                    Icon(Icons.admin_panel_settings, color: InfurnusTheme.accentOrange, size: 36),
+                    Icon(Icons.admin_panel_settings, color: InfurnusTheme.primaryGreen, size: 36),
                     SizedBox(width: 14),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Super Admin Control Dashboard', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-                        Text('System Authorization & Driver/Vehicle Approval Hub', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                        Text('Super Admin Control Dashboard', style: TextStyle(color: InfurnusTheme.textDark, fontWeight: FontWeight.bold, fontSize: 16)),
+                        Text('System Authorization & Driver/Vehicle Approval Hub', style: TextStyle(color: InfurnusTheme.textMuted, fontSize: 12)),
                       ],
                     ),
                   ],
@@ -46,15 +47,15 @@ class AdminDashboardScreen extends StatelessWidget {
               ),
               const SizedBox(height: 24),
 
-              // Section 1: Driver Verification Management (Requirement Section 6 Rule)
+              // Section 1: Driver Verification Management
               const Text(
                 'Driver Application Approvals (Admin Only)',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                style: TextStyle(color: InfurnusTheme.textDark, fontWeight: FontWeight.bold, fontSize: 16),
               ),
               const SizedBox(height: 4),
-              Text(
+              const Text(
                 'Note: Fleet Owners submit drivers; only Admin / Super Admin can approve/activate drivers.',
-                style: TextStyle(color: Colors.grey.shade400, fontSize: 12),
+                style: TextStyle(color: InfurnusTheme.textMuted, fontSize: 12),
               ),
               const SizedBox(height: 12),
 
@@ -65,9 +66,9 @@ class AdminDashboardScreen extends StatelessWidget {
                   margin: const EdgeInsets.only(bottom: 10),
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: InfurnusTheme.primaryDark,
+                    color: Colors.white,
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: Colors.white12),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -75,7 +76,7 @@ class AdminDashboardScreen extends StatelessWidget {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(driver.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+                          Text(driver.name, style: const TextStyle(color: InfurnusTheme.textDark, fontWeight: FontWeight.bold, fontSize: 15)),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
@@ -94,7 +95,7 @@ class AdminDashboardScreen extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(height: 4),
-                      Text('Phone: ${driver.phone} • Email: ${driver.email}', style: TextStyle(color: Colors.grey.shade400, fontSize: 12)),
+                      Text('Phone: ${driver.phone} • Email: ${driver.email}', style: const TextStyle(color: InfurnusTheme.textMuted, fontSize: 12)),
                       const SizedBox(height: 12),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.end,
@@ -115,7 +116,8 @@ class AdminDashboardScreen extends StatelessWidget {
                           const SizedBox(width: 8),
                           ElevatedButton(
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: InfurnusTheme.successGreen,
+                              backgroundColor: InfurnusTheme.buttonBlack, // BLACK BUTTON
+                              foregroundColor: Colors.white,
                               minimumSize: const Size(100, 32),
                             ),
                             onPressed: () {
@@ -136,34 +138,37 @@ class AdminDashboardScreen extends StatelessWidget {
               const SizedBox(height: 24),
 
               // Section 2: Pricing & Commission
-              const Text('Pricing & Commission Rules', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+              const Text('Pricing & Commission Rules', style: TextStyle(color: InfurnusTheme.textDark, fontWeight: FontWeight.bold, fontSize: 16)),
               const SizedBox(height: 12),
 
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: InfurnusTheme.primaryDark,
+                  color: Colors.white,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.white12),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
                 ),
                 child: const Column(
                   children: [
                     AdminConfigRow('Base Distance Rate', '₹ 25 / km'),
-                    Divider(color: Colors.white12),
+                    Divider(color: Color(0xFFE2E8F0)),
                     AdminConfigRow('Peak Hour Surge Pricing', '1.5x Dynamic'),
-                    Divider(color: Colors.white12),
-                    AdminConfigRow('Platform Fleet Commission', '12% per Ride'),
+                    Divider(color: Color(0xFFE2E8F0)),
+                    AdminConfigRow('Platform Fleet Commission', '10% per Ride'),
                   ],
                 ),
               ),
               const SizedBox(height: 24),
 
               // Section 3: Wallet & Settlement Monitoring
-              const Text('Settlement & Refunds Monitoring', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+              const Text('Settlement & Refunds Monitoring', style: TextStyle(color: InfurnusTheme.textDark, fontWeight: FontWeight.bold, fontSize: 16)),
               const SizedBox(height: 12),
 
               ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(backgroundColor: InfurnusTheme.accentOrange),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: InfurnusTheme.buttonBlack, // BLACK BUTTON
+                  foregroundColor: Colors.white,
+                ),
                 onPressed: () {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('All pending weekly payouts processed and settled.')),
@@ -193,8 +198,8 @@ class AdminConfigRow extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(color: Colors.white, fontSize: 13)),
-          Text(val, style: const TextStyle(color: InfurnusTheme.accentOrange, fontWeight: FontWeight.bold, fontSize: 13)),
+          Text(label, style: const TextStyle(color: InfurnusTheme.textDark, fontSize: 13, fontWeight: FontWeight.w600)),
+          Text(val, style: const TextStyle(color: InfurnusTheme.primaryGreen, fontWeight: FontWeight.bold, fontSize: 13)),
         ],
       ),
     );

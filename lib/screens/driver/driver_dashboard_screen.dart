@@ -100,14 +100,14 @@ class DriverDashboardScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 20),
 
-                    // Quick Stats Banner
+                    // Quick Stats Banner (Clean Earnings without mentioning commission)
                     Row(
                       children: [
                         Expanded(
                           child: _statCard(
-                            title: 'Today Earnings (Net)',
+                            title: 'Today Earnings',
                             value: '₹ 1,665.00',
-                            subtext: 'After 10% Platform Fee',
+                            subtext: 'Completed Trips Payout',
                             icon: Icons.account_balance_wallet,
                             color: InfurnusTheme.primaryGreen,
                             onTap: () => context.push('/driver/earnings'),
@@ -180,8 +180,8 @@ class DriverDashboardScreen extends StatelessWidget {
                       children: [
                         const Expanded(
                           child: Text(
-                            'Matched Requests (10% Comm.)',
-                            style: TextStyle(color: InfurnusTheme.textDark, fontSize: 14, fontWeight: FontWeight.bold),
+                            'Matched Booking Requests',
+                            style: TextStyle(color: InfurnusTheme.textDark, fontSize: 15, fontWeight: FontWeight.bold),
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
@@ -309,18 +309,9 @@ class DriverDashboardScreen extends StatelessWidget {
                   style: const TextStyle(color: InfurnusTheme.primaryGreen, fontSize: 11, fontWeight: FontWeight.bold),
                 ),
               ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    'Final Fare: ₹ ${booking.fareAmount.toStringAsFixed(2)}',
-                    style: const TextStyle(color: InfurnusTheme.textDark, fontSize: 14, fontWeight: FontWeight.bold),
-                  ),
-                  Text(
-                    'Net Earning (90%): ₹ ${booking.driverNetEarning.toStringAsFixed(2)}',
-                    style: const TextStyle(color: InfurnusTheme.primaryGreen, fontSize: 12, fontWeight: FontWeight.bold),
-                  ),
-                ],
+              Text(
+                'Earning: ₹ ${booking.driverNetEarning.toStringAsFixed(2)}',
+                style: const TextStyle(color: InfurnusTheme.primaryGreen, fontSize: 16, fontWeight: FontWeight.bold),
               ),
             ],
           ),
@@ -379,7 +370,7 @@ class DriverDashboardScreen extends StatelessWidget {
                   onPressed: () {
                     appState.acceptBooking(booking.id);
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Accepted Booking #${booking.id}! Net Earning: ₹${booking.driverNetEarning.toStringAsFixed(2)}')),
+                      SnackBar(content: Text('Accepted Booking #${booking.id}! Driver Payout: ₹${booking.driverNetEarning.toStringAsFixed(2)}')),
                     );
                     context.push('/driver/ride-details');
                   },
@@ -431,8 +422,8 @@ class DriverDashboardScreen extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            'Driver Net Payout (90%): ₹ ${booking.driverNetEarning.toStringAsFixed(2)} (10% Fee ₹${booking.commissionAmount.toStringAsFixed(2)})',
-            style: const TextStyle(color: InfurnusTheme.primaryGreen, fontSize: 12, fontWeight: FontWeight.bold),
+            'Your Payout: ₹ ${booking.driverNetEarning.toStringAsFixed(2)}',
+            style: const TextStyle(color: InfurnusTheme.primaryGreen, fontSize: 13, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 12),
           ElevatedButton.icon(

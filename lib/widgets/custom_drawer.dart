@@ -14,6 +14,7 @@ class CustomDrawer extends StatelessWidget {
     final appState = Provider.of<AppState>(context);
     final user = appState.currentUser;
     final activeMode = appState.activeMode;
+    final isPureDriver = user?.role == UserRole.driver;
 
     return Drawer(
       backgroundColor: Colors.white,
@@ -61,38 +62,39 @@ class CustomDrawer extends StatelessWidget {
             child: ListView(
               padding: EdgeInsets.zero,
               children: [
-                // Driver items
-                if (user?.role == UserRole.driver ||
+                // Pure Driver or Driver Mode items
+                if (isPureDriver ||
                     (user?.role == UserRole.driverFleetOwner && activeMode == ActiveMode.driverMode)) ...[
                   _drawerTile(
                     context: context,
                     icon: Icons.dashboard,
-                    title: 'Driver Dashboard',
+                    title: 'Driver Dashboard & Active Trip',
                     route: '/driver/dashboard',
                   ),
                   _drawerTile(
                     context: context,
-                    icon: Icons.directions_car,
-                    title: 'Ride Requests',
+                    icon: Icons.history,
+                    title: 'Ride Requests & Previous Trips',
                     route: '/driver/rides',
                   ),
                   _drawerTile(
                     context: context,
                     icon: Icons.minor_crash,
-                    title: 'Assigned Vehicle',
+                    title: 'Assigned Vehicle Details',
                     route: '/driver/assigned-vehicle',
                   ),
                   _drawerTile(
                     context: context,
                     icon: Icons.account_balance_wallet,
-                    title: 'Earnings',
+                    title: 'Driver Earnings',
                     route: '/driver/earnings',
                   ),
                 ],
 
                 // Fleet Owner items
-                if (user?.role == UserRole.fleetOwner ||
-                    (user?.role == UserRole.driverFleetOwner && activeMode == ActiveMode.fleetOwnerMode)) ...[
+                if (!isPureDriver &&
+                    (user?.role == UserRole.fleetOwner ||
+                        (user?.role == UserRole.driverFleetOwner && activeMode == ActiveMode.fleetOwnerMode))) ...[
                   _drawerTile(
                     context: context,
                     icon: Icons.domain,
@@ -131,15 +133,16 @@ class CustomDrawer extends StatelessWidget {
                   ),
                 ],
 
-                // Common Items
+                // Common Items (Profile & Notifications)
                 const Divider(color: Colors.black12, height: 24),
 
-                _drawerTile(
-                  context: context,
-                  icon: Icons.assignment,
-                  title: 'Logistics Operations',
-                  route: '/logistics/bookings',
-                ),
+                if (!isPureDriver)
+                  _drawerTile(
+                    context: context,
+                    icon: Icons.assignment,
+                    title: 'Logistics Operations',
+                    route: '/logistics/bookings',
+                  ),
                 _drawerTile(
                   context: context,
                   icon: Icons.verified,
@@ -159,32 +162,33 @@ class CustomDrawer extends StatelessWidget {
                   route: '/notifications',
                 ),
 
-                const Divider(color: Colors.black12, height: 24),
-
-                // Portals Section
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                  child: Text(
-                    'PORTAL PANELS',
-                    style: TextStyle(
-                      color: InfurnusTheme.textMuted,
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
+                // Portals Section (Only for Fleet Owner / Admin / Vendor)
+                if (!isPureDriver) ...[
+                  const Divider(color: Colors.black12, height: 24),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    child: Text(
+                      'PORTAL PANELS',
+                      style: TextStyle(
+                        color: InfurnusTheme.textMuted,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
-                ),
-                _drawerTile(
-                  context: context,
-                  icon: Icons.store,
-                  title: 'Business Vendor Panel',
-                  route: '/vendor/dashboard',
-                ),
-                _drawerTile(
-                  context: context,
-                  icon: Icons.admin_panel_settings,
-                  title: 'Admin Web Panel',
-                  route: '/admin/dashboard',
-                ),
+                  _drawerTile(
+                    context: context,
+                    icon: Icons.store,
+                    title: 'Business Vendor Panel',
+                    route: '/vendor/dashboard',
+                  ),
+                  _drawerTile(
+                    context: context,
+                    icon: Icons.admin_panel_settings,
+                    title: 'Admin Web Panel',
+                    route: '/admin/dashboard',
+                  ),
+                ],
               ],
             ),
           ),
