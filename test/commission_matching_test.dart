@@ -14,7 +14,7 @@ void main() {
         customerPhone: '+919876543210',
         distanceKm: 12.0,
         baseFare: 100.00, // Base ₹100
-        taxRate: 0.18,    // 18% GST
+        taxRate: 0.18, // 18% GST
         createdAt: 'Just now',
       );
 
@@ -37,7 +37,7 @@ void main() {
 
   group('Feature 2 — Ride Accept / Reject & Smart Matching Tests', () {
     test('AppState eligibleBookings filters bookings based on driver availability and vehicle category', () {
-      final appState = AppState();
+      final appState = AppState(demo: true);
 
       // Initially offline, should return empty eligible bookings
       expect(appState.isOnline, isFalse);
@@ -53,7 +53,7 @@ void main() {
     });
 
     test('Accepting a booking updates booking status to Accepted', () {
-      final appState = AppState();
+      final appState = AppState(demo: true);
       appState.toggleOnlineStatus();
 
       final bookingId = appState.bookings.first.id;

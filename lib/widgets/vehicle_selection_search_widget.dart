@@ -1,5 +1,7 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
+
 import '../models/vehicle_catalog_model.dart';
 import '../repositories/vehicle_catalog_repository.dart';
 import '../core/theme.dart';
@@ -15,10 +17,12 @@ class VehicleSelectionSearchWidget extends StatefulWidget {
   });
 
   @override
-  State<VehicleSelectionSearchWidget> createState() => _VehicleSelectionSearchWidgetState();
+  State<VehicleSelectionSearchWidget> createState() =>
+      _VehicleSelectionSearchWidgetState();
 }
 
-class _VehicleSelectionSearchWidgetState extends State<VehicleSelectionSearchWidget> {
+class _VehicleSelectionSearchWidgetState
+    extends State<VehicleSelectionSearchWidget> {
   final _searchController = TextEditingController();
   final _repository = VehicleCatalogRepository();
   Timer? _debounceTimer;
@@ -43,7 +47,7 @@ class _VehicleSelectionSearchWidgetState extends State<VehicleSelectionSearchWid
 
   void _onSearchChanged(String query) {
     if (_debounceTimer?.isActive ?? false) _debounceTimer!.cancel();
-    
+
     setState(() => _isLoading = true);
 
     _debounceTimer = Timer(const Duration(milliseconds: 250), () {
@@ -83,7 +87,11 @@ class _VehicleSelectionSearchWidgetState extends State<VehicleSelectionSearchWid
                     color: InfurnusTheme.primaryGreen,
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(Icons.directions_car, color: Colors.white, size: 24),
+                  child: const Icon(
+                    Icons.directions_car,
+                    color: Colors.white,
+                    size: 24,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -102,14 +110,21 @@ class _VehicleSelectionSearchWidgetState extends State<VehicleSelectionSearchWid
                           ),
                           const SizedBox(width: 8),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
                               color: InfurnusTheme.buttonBlack,
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: const Text(
                               'SELECTED',
-                              style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
                         ],
@@ -117,7 +132,10 @@ class _VehicleSelectionSearchWidgetState extends State<VehicleSelectionSearchWid
                       const SizedBox(height: 2),
                       Text(
                         'Category: ${_selectedItem!.category} • Fuel: ${_selectedItem!.fuelType} • Payload: ${_selectedItem!.payloadCapacity}',
-                        style: const TextStyle(color: InfurnusTheme.textMuted, fontSize: 12),
+                        style: const TextStyle(
+                          color: InfurnusTheme.textMuted,
+                          fontSize: 12,
+                        ),
                       ),
                     ],
                   ),
@@ -144,27 +162,37 @@ class _VehicleSelectionSearchWidgetState extends State<VehicleSelectionSearchWid
           onChanged: _onSearchChanged,
           style: const TextStyle(color: InfurnusTheme.textDark),
           decoration: InputDecoration(
-            labelText: 'Search Vehicle Model (e.g. Alto, Fortuner, Tata Ace)...',
+            labelText:
+                'Search Vehicle Model (e.g. Alto, Fortuner, Tata Ace)...',
             hintText: 'Type vehicle name or brand',
-            prefixIcon: const Icon(Icons.search, color: InfurnusTheme.primaryGreen),
+            prefixIcon: const Icon(
+              Icons.search,
+              color: InfurnusTheme.primaryGreen,
+            ),
             suffixIcon: _searchController.text.isNotEmpty
                 ? IconButton(
-                    icon: const Icon(Icons.clear, color: InfurnusTheme.textMuted),
+                    icon: const Icon(
+                      Icons.clear,
+                      color: InfurnusTheme.textMuted,
+                    ),
                     onPressed: () {
                       _searchController.clear();
                       _onSearchChanged('');
                     },
                   )
                 : (_isLoading
-                    ? const Padding(
-                        padding: EdgeInsets.all(12.0),
-                        child: SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: InfurnusTheme.primaryGreen),
-                        ),
-                      )
-                    : null),
+                      ? const Padding(
+                          padding: EdgeInsets.all(12.0),
+                          child: SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: InfurnusTheme.primaryGreen,
+                            ),
+                          ),
+                        )
+                      : null),
           ),
         ),
         const SizedBox(height: 12),
@@ -185,13 +213,20 @@ class _VehicleSelectionSearchWidgetState extends State<VehicleSelectionSearchWid
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.search_off, color: InfurnusTheme.textMuted, size: 36),
+                          const Icon(
+                            Icons.search_off,
+                            color: InfurnusTheme.textMuted,
+                            size: 36,
+                          ),
                           const SizedBox(height: 8),
                           Text(
                             _searchController.text.isEmpty
                                 ? 'Type to search vehicle catalog'
                                 : 'No matching vehicles found for "${_searchController.text}"',
-                            style: const TextStyle(color: InfurnusTheme.textMuted, fontSize: 13),
+                            style: const TextStyle(
+                              color: InfurnusTheme.textMuted,
+                              fontSize: 13,
+                            ),
                           ),
                         ],
                       ),
@@ -200,35 +235,53 @@ class _VehicleSelectionSearchWidgetState extends State<VehicleSelectionSearchWid
                 : ListView.separated(
                     shrinkWrap: true,
                     itemCount: _suggestions.length,
-                    separatorBuilder: (_, _) => const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                    separatorBuilder: (_, _) =>
+                        const Divider(height: 1, color: Color(0xFFF1F5F9)),
                     itemBuilder: (context, index) {
                       final item = _suggestions[index];
                       final isSelected = _selectedItem?.id == item.id;
 
                       return Material(
-                        color: isSelected ? InfurnusTheme.greenLight : Colors.white,
+                        color: isSelected
+                            ? InfurnusTheme.greenLight
+                            : Colors.white,
                         child: ListTile(
                           dense: true,
                           leading: Icon(
                             Icons.local_shipping_outlined,
-                            color: isSelected ? InfurnusTheme.primaryGreen : InfurnusTheme.textMuted,
+                            color: isSelected
+                                ? InfurnusTheme.primaryGreen
+                                : InfurnusTheme.textMuted,
                             size: 20,
                           ),
                           title: Text(
                             item.fullName,
                             style: TextStyle(
                               color: InfurnusTheme.textDark,
-                              fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                              fontWeight: isSelected
+                                  ? FontWeight.bold
+                                  : FontWeight.w600,
                               fontSize: 14,
                             ),
                           ),
                           subtitle: Text(
                             '${item.category} • ${item.fuelType} (${item.payloadCapacity})',
-                            style: const TextStyle(color: InfurnusTheme.textMuted, fontSize: 11),
+                            style: const TextStyle(
+                              color: InfurnusTheme.textMuted,
+                              fontSize: 11,
+                            ),
                           ),
                           trailing: isSelected
-                              ? const Icon(Icons.check_circle, color: InfurnusTheme.primaryGreen, size: 18)
-                              : const Icon(Icons.chevron_right, color: InfurnusTheme.textMuted, size: 16),
+                              ? const Icon(
+                                  Icons.check_circle,
+                                  color: InfurnusTheme.primaryGreen,
+                                  size: 18,
+                                )
+                              : const Icon(
+                                  Icons.chevron_right,
+                                  color: InfurnusTheme.textMuted,
+                                  size: 16,
+                                ),
                           onTap: () {
                             setState(() {
                               _selectedItem = item;

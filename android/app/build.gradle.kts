@@ -1,8 +1,18 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
+
+val googleProperties = Properties()
+val googlePropertiesFile = rootProject.file("local.properties")
+if (googlePropertiesFile.exists()) googlePropertiesFile.inputStream().use { googleProperties.load(it) }
+val googleWebClientId = googleProperties.getProperty("GOOGLE_WEB_CLIENT_ID")
+    ?: (project.findProperty("GOOGLE_WEB_CLIENT_ID") as? String)
+    ?: System.getenv("GOOGLE_WEB_CLIENT_ID")
+    ?: ""
 
 android {
     namespace = "com.infurnus.driver.infurnus_driver"
@@ -27,6 +37,7 @@ android {
         // flag during build.
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        if (googleWebClientId.isNotBlank()) resValue("string", "default_web_client_id", googleWebClientId)
     }
 
     buildTypes {

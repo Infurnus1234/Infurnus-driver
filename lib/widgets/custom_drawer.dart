@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+
 import '../providers/app_state.dart';
 import '../models/app_models.dart';
 import '../core/theme.dart';
@@ -22,9 +23,7 @@ class CustomDrawer extends StatelessWidget {
         children: [
           // Header
           UserAccountsDrawerHeader(
-            decoration: const BoxDecoration(
-              color: InfurnusTheme.primaryGreen,
-            ),
+            decoration: const BoxDecoration(color: InfurnusTheme.primaryGreen),
             currentAccountPicture: CircleAvatar(
               backgroundColor: InfurnusTheme.buttonBlack,
               child: Text(
@@ -48,7 +47,8 @@ class CustomDrawer extends StatelessWidget {
                     ),
                   ),
                 ),
-                if (user != null) VerificationBadge(status: user.verificationStatus),
+                if (user != null)
+                  VerificationBadge(status: user.verificationStatus),
               ],
             ),
             accountEmail: Text(
@@ -64,7 +64,8 @@ class CustomDrawer extends StatelessWidget {
               children: [
                 // Pure Driver or Driver Mode items
                 if (isPureDriver ||
-                    (user?.role == UserRole.driverFleetOwner && activeMode == ActiveMode.driverMode)) ...[
+                    (user?.role == UserRole.driverFleetOwner &&
+                        activeMode == ActiveMode.driverMode)) ...[
                   _drawerTile(
                     context: context,
                     icon: Icons.dashboard,
@@ -94,7 +95,8 @@ class CustomDrawer extends StatelessWidget {
                 // Fleet Owner items
                 if (!isPureDriver &&
                     (user?.role == UserRole.fleetOwner ||
-                        (user?.role == UserRole.driverFleetOwner && activeMode == ActiveMode.fleetOwnerMode))) ...[
+                        (user?.role == UserRole.driverFleetOwner &&
+                            activeMode == ActiveMode.fleetOwnerMode))) ...[
                   _drawerTile(
                     context: context,
                     icon: Icons.domain,
@@ -224,7 +226,11 @@ class CustomDrawer extends StatelessWidget {
       leading: Icon(icon, color: InfurnusTheme.primaryGreen, size: 22),
       title: Text(
         title,
-        style: const TextStyle(color: InfurnusTheme.textDark, fontSize: 14, fontWeight: FontWeight.w600),
+        style: const TextStyle(
+          color: InfurnusTheme.textDark,
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+        ),
       ),
       onTap: () {
         Navigator.pop(context);

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+
 import '../../providers/app_state.dart';
 import '../../core/theme.dart';
 
@@ -18,7 +19,10 @@ class VehicleManagementScreen extends StatelessWidget {
         backgroundColor: InfurnusTheme.accentOrange,
         onPressed: () => context.push('/fleet/add-vehicle'),
         icon: const Icon(Icons.add, color: Colors.white),
-        label: const Text('Add New Vehicle', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        label: const Text(
+          'Add New Vehicle',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
       ),
       body: SafeArea(
         child: ListView.separated(
@@ -33,7 +37,11 @@ class VehicleManagementScreen extends StatelessWidget {
               decoration: BoxDecoration(
                 color: InfurnusTheme.primaryDark,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: v.isActive ? InfurnusTheme.primaryGreen.withValues(alpha: 0.4) : Colors.black12),
+                border: Border.all(
+                  color: v.isActive
+                      ? InfurnusTheme.primaryGreen.withValues(alpha: 0.4)
+                      : Colors.black12,
+                ),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -41,26 +49,57 @@ class VehicleManagementScreen extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(v.modelName, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                      Text(
+                        v.modelName,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
                       Switch(
                         value: v.isActive,
-                        activeColor: InfurnusTheme.successGreen,
-                        onChanged: (_) => appState.toggleVehicleActiveStatus(v.id),
+                        activeThumbColor: InfurnusTheme.successGreen,
+                        onChanged: (_) =>
+                            appState.toggleVehicleActiveStatus(v.id),
                       ),
                     ],
                   ),
-                  Text('Plate Number: ${v.plateNumber}', style: const TextStyle(color: InfurnusTheme.accentOrange, fontWeight: FontWeight.bold, fontSize: 13)),
-                  Text('Category: ${v.category} • Status: ${v.verificationStatus}', style: TextStyle(color: Colors.grey.shade400, fontSize: 12)),
+                  Text(
+                    'Plate Number: ${v.plateNumber}',
+                    style: const TextStyle(
+                      color: InfurnusTheme.accentOrange,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
+                  ),
+                  Text(
+                    'Category: ${v.category} • Status: ${v.verificationStatus}',
+                    style: TextStyle(color: Colors.grey.shade400, fontSize: 12),
+                  ),
                   const SizedBox(height: 8),
-                  Text('Assigned Driver: ${v.assignedDriverName ?? "None (Available)"}', style: TextStyle(color: v.assignedDriverName != null ? InfurnusTheme.successGreen : InfurnusTheme.warningAmber, fontSize: 12)),
+                  Text(
+                    'Assigned Driver: ${v.assignedDriverName ?? "None (Available)"}',
+                    style: TextStyle(
+                      color: v.assignedDriverName != null
+                          ? InfurnusTheme.successGreen
+                          : InfurnusTheme.warningAmber,
+                      fontSize: 12,
+                    ),
+                  ),
                   const SizedBox(height: 12),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       OutlinedButton(
-                        style: OutlinedButton.styleFrom(minimumSize: const Size(100, 36)),
+                        style: OutlinedButton.styleFrom(
+                          minimumSize: const Size(100, 36),
+                        ),
                         onPressed: () => context.push('/fleet/vehicle-details'),
-                        child: const Text('View Documents', style: TextStyle(fontSize: 12)),
+                        child: const Text(
+                          'View Documents',
+                          style: TextStyle(fontSize: 12),
+                        ),
                       ),
                     ],
                   ),

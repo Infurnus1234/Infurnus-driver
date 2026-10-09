@@ -1,102 +1,75 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import '../../providers/app_state.dart';
-import '../../widgets/infurnus_app_bar.dart';
-import '../../core/theme.dart';
+import 'package:go_router/go_router.dart';
+
+import '../../providers/driver_session.dart';
 
 class OtpVerificationScreen extends StatefulWidget {
   const OtpVerificationScreen({super.key});
-
   @override
   State<OtpVerificationScreen> createState() => _OtpVerificationScreenState();
 }
 
 class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
-  final List<TextEditingController> _controllers = List.generate(4, (_) => TextEditingController(text: '9'));
+  final _otp = TextEditingController();
+  @override
+  void dispose() {
+    _otp.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
+    final session = context.watch<DriverSession>();
     return Scaffold(
-      backgroundColor: InfurnusTheme.bgWhite,
-      appBar: const InfurnusAppBar(title: 'OTP Verification'),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              const SizedBox(height: 20),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: InfurnusTheme.greenLight,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.mark_email_read_outlined, size: 50, color: InfurnusTheme.primaryGreen),
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'Enter Verification Code',
-                style: TextStyle(color: InfurnusTheme.textDark, fontSize: 20, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'We sent a 4-digit verification code to your registered mobile number.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: InfurnusTheme.textMuted, fontSize: 13),
-              ),
-              const SizedBox(height: 32),
-
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: List.generate(4, (index) {
-                  return SizedBox(
-                    width: 55,
-                    child: TextField(
-                      controller: _controllers[index],
-                      textAlign: TextAlign.center,
-                      keyboardType: TextInputType.number,
-                      maxLength: 1,
-                      style: const TextStyle(color: InfurnusTheme.textDark, fontSize: 22, fontWeight: FontWeight.bold),
-                      decoration: const InputDecoration(
-                        counterText: '',
-                        fillColor: Colors.white,
-                      ),
-                    ),
-                  );
-                }),
-              ),
-              const SizedBox(height: 32),
-
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: InfurnusTheme.buttonBlack, // BLACK BUTTON
-                  foregroundColor: Colors.white,
-                ),
-                onPressed: () {
-                  final appState = Provider.of<AppState>(context, listen: false);
-                  if (appState.currentUser == null) {
-                    context.go('/role-selection');
-                  } else {
-                    context.go('/driver/dashboard');
-                  }
-                },
-                child: const Text('Verify & Continue'),
-              ),
-              const SizedBox(height: 16),
-
-              TextButton(
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Resent OTP to registered phone number.')),
-                  );
-                },
-                child: const Text('Resend OTP', style: TextStyle(color: InfurnusTheme.primaryGreen, fontWeight: FontWeight.bold)),
-              ),
-            ],
-          ),
+      appBar: AppBar(
+        title: const Text('OTP Verification'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: session.busy ? null : () => context.go('/login'),
         ),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(24),
+        children: [
+          const Text('Enter Verification Code', style: TextStyle(fontSize: 24)),
+          const SizedBox(height: 16),
+          const Text(
+            'Enter the six-digit code sent to your registered contact.',
+          ),
+          TextField(
+            controller: _otp,
+            maxLength: 6,
+            keyboardType: TextInputType.number,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            autofillHints: const [AutofillHints.oneTimeCode],
+            decoration: const InputDecoration(labelText: 'Verification code'),
+          ),
+          if (session.error != null)
+            Text(session.error!, style: const TextStyle(color: Colors.red)),
+          ElevatedButton(
+            onPressed: session.busy
+                ? null
+                : () async {
+                    final signup = session.signupId != null;
+                    await session.verify(_otp.text);
+                    _otp.clear();
+                    if (context.mounted && session.authenticated) {
+                      context.go(signup ? '/onboarding' : session.landingPath);
+                    }
+                  },
+            child: Text(session.busy ? 'Verifying…' : 'Verify & Continue'),
+          ),
+          TextButton(
+            onPressed: session.busy
+                ? null
+                : () async {
+                    await session.resend();
+                  },
+            child: const Text('Resend OTP'),
+          ),
+        ],
       ),
     );
   }

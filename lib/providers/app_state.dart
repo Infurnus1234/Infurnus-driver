@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+
 import '../models/app_models.dart';
 
 class AppState extends ChangeNotifier {
@@ -79,9 +80,24 @@ class AppState extends ChangeNotifier {
       verificationStatus: 'Approved',
       isActive: true,
       documents: [
-        DocumentItem(id: 'DOC-V1', name: 'Vehicle Registration Certificate (RC)', type: 'RC', status: 'Approved'),
-        DocumentItem(id: 'DOC-V2', name: 'Vehicle Insurance Policy', type: 'Insurance', status: 'Approved'),
-        DocumentItem(id: 'DOC-V3', name: 'Fitness Certificate', type: 'Fitness', status: 'Approved'),
+        DocumentItem(
+          id: 'DOC-V1',
+          name: 'Vehicle Registration Certificate (RC)',
+          type: 'RC',
+          status: 'Approved',
+        ),
+        DocumentItem(
+          id: 'DOC-V2',
+          name: 'Vehicle Insurance Policy',
+          type: 'Insurance',
+          status: 'Approved',
+        ),
+        DocumentItem(
+          id: 'DOC-V3',
+          name: 'Fitness Certificate',
+          type: 'Fitness',
+          status: 'Approved',
+        ),
       ],
     ),
     VehicleModel(
@@ -95,8 +111,18 @@ class AppState extends ChangeNotifier {
       verificationStatus: 'Approved',
       isActive: true,
       documents: [
-        DocumentItem(id: 'DOC-V4', name: 'Vehicle RC', type: 'RC', status: 'Approved'),
-        DocumentItem(id: 'DOC-V5', name: 'Vehicle Insurance', type: 'Insurance', status: 'Approved'),
+        DocumentItem(
+          id: 'DOC-V4',
+          name: 'Vehicle RC',
+          type: 'RC',
+          status: 'Approved',
+        ),
+        DocumentItem(
+          id: 'DOC-V5',
+          name: 'Vehicle Insurance',
+          type: 'Insurance',
+          status: 'Approved',
+        ),
       ],
     ),
   ];
@@ -149,7 +175,8 @@ class AppState extends ChangeNotifier {
       status: 'Pending',
       paymentMethod: 'Online',
       paymentStatus: 'Paid',
-      goodsDescription: '12 Box Industrial Electrical Components (Weight: 450 kg)',
+      goodsDescription:
+          '12 Box Industrial Electrical Components (Weight: 450 kg)',
       routeDetails: 'NH 44 -> Outer Ring Road -> ITPL Main Rd',
       createdAt: '10 mins ago',
     ),
@@ -190,7 +217,8 @@ class AppState extends ChangeNotifier {
 
   /// Smart Driver Matching: Returns only bookings compatible with the driver's assigned vehicle category & online status
   List<BookingModel> get eligibleBookings {
-    if (!_isOnline || _currentUser?.verificationStatus != VerificationStatus.approved) {
+    if (!_isOnline ||
+        _currentUser?.verificationStatus != VerificationStatus.approved) {
       return [];
     }
 
@@ -206,9 +234,16 @@ class AppState extends ChangeNotifier {
       final type = booking.bookingType.toLowerCase();
       // Validate category compatibility
       if (type == 'logistics' || type == 'parcel') {
-        return vehicleCategory == 'truck' || vehicleCategory == 'container' || vehicleCategory == 'van' || vehicleCategory == 'suv';
+        return vehicleCategory == 'truck' ||
+            vehicleCategory == 'container' ||
+            vehicleCategory == 'van' ||
+            vehicleCategory == 'suv';
       } else if (type == 'ride') {
-        return vehicleCategory == 'sedan' || vehicleCategory == 'hatchback' || vehicleCategory == 'suv' || vehicleCategory == 'auto' || vehicleCategory == 'bike';
+        return vehicleCategory == 'sedan' ||
+            vehicleCategory == 'hatchback' ||
+            vehicleCategory == 'suv' ||
+            vehicleCategory == 'auto' ||
+            vehicleCategory == 'bike';
       }
       return true;
     }).toList();
@@ -225,7 +260,8 @@ class AppState extends ChangeNotifier {
     NotificationItem(
       id: 'NOTIF-2',
       title: 'New Logistics Booking Received',
-      body: 'A new high-value cargo trip #BK-8001 is available in your vicinity.',
+      body:
+          'A new high-value cargo trip #BK-8001 is available in your vicinity.',
       timestamp: '15 mins ago',
     ),
     NotificationItem(
@@ -238,7 +274,17 @@ class AppState extends ChangeNotifier {
   List<NotificationItem> get notifications => _notifications;
 
   // Constructor with initial demo user
-  AppState() {
+  AppState({bool demo = false}) {
+    if (!demo) {
+      _walletBalance = 0;
+      _transactions.clear();
+      _payouts.clear();
+      _vehicles.clear();
+      _managedDrivers.clear();
+      _bookings.clear();
+      _notifications.clear();
+      return;
+    }
     _currentUser = UserProfile(
       id: 'USER-101',
       fullName: 'Vikram Sharma',
@@ -301,9 +347,24 @@ class AppState extends ChangeNotifier {
       role: role,
       verificationStatus: VerificationStatus.draft,
       documents: [
-        DocumentItem(id: 'DOC-L1', name: 'Driving License', type: 'License', status: 'Pending'),
-        DocumentItem(id: 'DOC-L2', name: 'Aadhaar Card', type: 'Aadhaar', status: 'Pending'),
-        DocumentItem(id: 'DOC-L3', name: 'PAN Card', type: 'PAN', status: 'Pending'),
+        DocumentItem(
+          id: 'DOC-L1',
+          name: 'Driving License',
+          type: 'License',
+          status: 'Pending',
+        ),
+        DocumentItem(
+          id: 'DOC-L2',
+          name: 'Aadhaar Card',
+          type: 'Aadhaar',
+          status: 'Pending',
+        ),
+        DocumentItem(
+          id: 'DOC-L3',
+          name: 'PAN Card',
+          type: 'PAN',
+          status: 'Pending',
+        ),
       ],
     );
     _isLoggedIn = true;
@@ -440,8 +501,18 @@ class AppState extends ChangeNotifier {
       verificationStatus: 'Under Review',
       isActive: true,
       documents: [
-        DocumentItem(id: 'DOC-V-NEW1', name: 'Vehicle RC', type: 'RC', status: 'Pending'),
-        DocumentItem(id: 'DOC-V-NEW2', name: 'Vehicle Insurance', type: 'Insurance', status: 'Pending'),
+        DocumentItem(
+          id: 'DOC-V-NEW1',
+          name: 'Vehicle RC',
+          type: 'RC',
+          status: 'Pending',
+        ),
+        DocumentItem(
+          id: 'DOC-V-NEW2',
+          name: 'Vehicle Insurance',
+          type: 'Insurance',
+          status: 'Pending',
+        ),
       ],
     );
     _vehicles.add(newVehicle);

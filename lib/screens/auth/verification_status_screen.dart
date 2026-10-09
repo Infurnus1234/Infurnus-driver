@@ -1,166 +1,139 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import '../../providers/app_state.dart';
-import '../../models/app_models.dart';
-import '../../widgets/infurnus_app_bar.dart';
-import '../../core/theme.dart';
-import '../../widgets/verification_badge.dart';
+import 'package:go_router/go_router.dart';
+
+import '../../providers/driver_session.dart';
+import '../../models/onboarding_rules.dart';
+import '../../models/provider_status.dart';
+import '../../widgets/google_sign_in_button.dart';
 
 class VerificationStatusScreen extends StatelessWidget {
   const VerificationStatusScreen({super.key});
-
   @override
   Widget build(BuildContext context) {
-    final appState = Provider.of<AppState>(context);
-    final user = appState.currentUser;
-    final status = user?.verificationStatus ?? VerificationStatus.draft;
-
+    final s = context.watch<DriverSession>();
+    if (!s.authenticated) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (context.mounted) context.go('/login');
+      });
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
     return Scaffold(
-      backgroundColor: InfurnusTheme.bgWhite,
-      appBar: const InfurnusAppBar(title: 'Application Verification Status'),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              const SizedBox(height: 20),
-              VerificationBadge(status: status),
-              const SizedBox(height: 24),
-
-              Text(
-                _getStatusTitle(status),
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: InfurnusTheme.textDark,
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                _getStatusDescription(status),
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: InfurnusTheme.textMuted, fontSize: 14),
-              ),
-              const SizedBox(height: 32),
-
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Submitted Application Progress',
-                      style: TextStyle(color: InfurnusTheme.textDark, fontWeight: FontWeight.bold, fontSize: 16),
-                    ),
-                    const SizedBox(height: 16),
-                    _timelineStep('Registration & Role Selection', true),
-                    _timelineStep('Personal & Business Details', true),
-                    _timelineStep('Identity Document Upload', true),
-                    _timelineStep(
-                      'Admin Verification & Review',
-                      status == VerificationStatus.approved || status == VerificationStatus.underReview,
-                    ),
-                    _timelineStep('Platform Access Approval', status == VerificationStatus.approved),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 32),
-
-              if (status == VerificationStatus.approved) ...[
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: InfurnusTheme.buttonBlack, // BLACK BUTTON
-                    foregroundColor: Colors.white,
-                  ),
-                  onPressed: () {
-                    context.go('/driver/dashboard');
-                  },
-                  child: const Text('Go to Provider Dashboard'),
-                ),
-              ] else if (status == VerificationStatus.rejected || status == VerificationStatus.changesRequired) ...[
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(backgroundColor: InfurnusTheme.dangerRed),
-                  onPressed: () {
-                    context.push('/application-rejected');
-                  },
-                  child: const Text('View Rejection Details & Resubmit'),
-                ),
-              ] else ...[
-                OutlinedButton(
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: InfurnusTheme.buttonBlack,
-                    side: const BorderSide(color: InfurnusTheme.buttonBlack),
-                  ),
-                  onPressed: () {
-                    context.push('/document-upload');
-                  },
-                  child: const Text('Update Submitted Documents'),
-                ),
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  String _getStatusTitle(VerificationStatus status) {
-    switch (status) {
-      case VerificationStatus.approved:
-        return 'Application Approved!';
-      case VerificationStatus.underReview:
-        return 'Application Under Admin Review';
-      case VerificationStatus.rejected:
-        return 'Application Rejected';
-      case VerificationStatus.changesRequired:
-        return 'Changes Required on Submission';
-      default:
-        return 'Documents Submitted';
-    }
-  }
-
-  String _getStatusDescription(VerificationStatus status) {
-    switch (status) {
-      case VerificationStatus.approved:
-        return 'Your provider profile and documents have been verified by Admin. You can now accept rides, manage vehicles, or assign drivers.';
-      case VerificationStatus.underReview:
-        return 'Our Super Admin team is reviewing your uploaded documents. Verification typically takes 1-2 business hours.';
-      case VerificationStatus.rejected:
-        return 'Your provider application was not approved. Click below to review feedback and resubmit.';
-      case VerificationStatus.changesRequired:
-        return 'Admin has requested updates for specific uploaded documents before final approval.';
-      default:
-        return 'Please complete uploading all required documents to begin verification.';
-    }
-  }
-
-  Widget _timelineStep(String title, bool isDone) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12.0),
-      child: Row(
+      appBar: AppBar(title: const Text('Driver verification')),
+      body: ListView(
+        padding: const EdgeInsets.all(20),
         children: [
-          Icon(
-            isDone ? Icons.check_circle : Icons.radio_button_unchecked,
-            color: isDone ? InfurnusTheme.primaryGreen : InfurnusTheme.textMuted,
-            size: 20,
+          const Text(
+            'Statuses and review decisions are supplied by INFURNUS. Refresh to check for updates.',
           ),
-          const SizedBox(width: 12),
-          Text(
-            title,
-            style: TextStyle(
-              color: isDone ? InfurnusTheme.textDark : InfurnusTheme.textMuted,
-              fontWeight: isDone ? FontWeight.bold : FontWeight.normal,
-              fontSize: 13,
+          GoogleSignInButton(
+            label: 'Link Google account',
+            enabled: !s.busy,
+            onIdToken: (token) async {
+              final success = await s.linkGoogle(token);
+              if (context.mounted && success) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'Google linked. You can now sign in with Google. Driver approval remains unchanged.',
+                    ),
+                  ),
+                );
+              }
+            },
+          ),
+          if (s.error != null)
+            Text(s.error!, style: const TextStyle(color: Colors.red)),
+          Card(
+            child: ListTile(
+              title: const Text('Driver profile'),
+              subtitle: Text(
+                '${statusLabel(s.profile?['verificationStatus'])}\n${s.profile?['rejectionReason'] ?? ''}',
+              ),
             ),
+          ),
+          if (s.profile?['licenseExpiry'] != null &&
+              s.profile!['licenseExpiry'].toString().compareTo(
+                    OnboardingRules.today(),
+                  ) <
+                  0)
+            const Text(
+              'Driving licence expired. Update your licence and request review.',
+            ),
+          for (final d in s.documents)
+            Card(
+              child: ListTile(
+                title: Text(
+                  ((d['documentMetadata'] as Map?)?['documentCode'] ??
+                          d['documentType'])
+                      .toString()
+                      .replaceAll('_', ' '),
+                ),
+                subtitle: Text(
+                  '${OnboardingRules.expired(d) ? 'Expired — resubmission required' : d['verificationStatus']}\n${d['rejectionReason'] ?? ''}',
+                ),
+              ),
+            ),
+          for (final a in s.approvals)
+            Card(
+              child: ListTile(
+                title: Text(a['request_type'].toString().replaceAll('_', ' ')),
+                subtitle: Text(
+                  '${statusLabel(a['status'])}\n${a['rejection_reason'] ?? ''}${a['requested_changes'] == null ? '' : '\nRequested changes: ${a['requested_changes']}'}',
+                ),
+              ),
+            ),
+          for (final a in s.applications)
+            Card(
+              child: ListTile(
+                title: const Text('Fleet application'),
+                subtitle: Text('${a['status']}\n${a['reviewReason'] ?? ''}'),
+              ),
+            ),
+          if (s.applications.any((a) => a['status'] == 'CHANGES_REQUESTED'))
+            const Text(
+              'Correct your details/documents and contact your fleet reviewer. The backend has no driver application amendment endpoint.',
+            ),
+          Text(
+            s.assignedVehicle == null
+                ? 'No approved active vehicle assigned.'
+                : 'Assigned vehicle: ${s.assignedVehicle!['plateNumber']}',
+          ),
+          FilledButton(
+            onPressed: s.busy ? null : s.refresh,
+            child: Text(s.busy ? 'Refreshing…' : 'Refresh status'),
+          ),
+          OutlinedButton(
+            onPressed: s.busy ? null : () => context.go('/onboarding'),
+            child: const Text('Continue / correct onboarding'),
+          ),
+          OutlinedButton(
+            onPressed: s.busy ? null : () => context.go('/provider-assets'),
+            child: const Text('Owned vehicles & vehicle documents'),
+          ),
+          if (s.api.hasFleetRole)
+            TextButton(
+              onPressed: s.busy
+                  ? null
+                  : () async {
+                      final ok = await s.switchMode('fleet_owner');
+                      if (context.mounted && ok) context.go(s.landingPath);
+                    },
+              child: const Text('Switch to Fleet mode'),
+            ),
+          if (s.dashboardAllowed)
+            FilledButton(
+              onPressed: () => context.go('/driver/dashboard'),
+              child: const Text('Open driver dashboard'),
+            ),
+          TextButton(
+            onPressed: s.busy
+                ? null
+                : () async {
+                    await s.logout();
+                    if (context.mounted) context.go('/login');
+                  },
+            child: const Text('Sign out'),
           ),
         ],
       ),

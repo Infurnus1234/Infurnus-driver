@@ -2,7 +2,7 @@ name: infurnus_driver
 description: "A new Flutter project."
 publish_to: 'none'
 
-version: 1.0.0+1
+version: 1.0.0+7
 
 environment:
   sdk: ^3.13.3
@@ -20,7 +20,17 @@ dependencies:
   # Utilities & Formatting
   intl: ^0.19.0
   google_fonts: ^6.2.1
+  flutter_secure_storage: ^9.2.2
+  url_launcher: ^6.3.0
   http: ^1.2.0
+  google_sign_in: ^7.2.0
+  google_sign_in_web: ^1.1.0
+  http_parser: ^4.1.2
+  image_picker: ^1.2.0
+  file_picker: ^10.3.3
+  mime: ^2.0.0
+  geolocator: ^14.0.2
+  socket_io_client: ^3.1.2
 
   # Cupertino Icons
   cupertino_icons: ^1.0.8

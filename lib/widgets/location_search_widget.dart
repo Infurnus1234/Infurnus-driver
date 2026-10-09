@@ -1,5 +1,7 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
+
 import '../models/location_model.dart';
 import '../repositories/location_catalog_repository.dart';
 import '../core/theme.dart';
@@ -81,7 +83,11 @@ class _LocationSearchWidgetState extends State<LocationSearchWidget> {
             ),
             child: Row(
               children: [
-                const Icon(Icons.location_on, color: InfurnusTheme.primaryGreen, size: 26),
+                const Icon(
+                  Icons.location_on,
+                  color: InfurnusTheme.primaryGreen,
+                  size: 26,
+                ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -98,13 +104,20 @@ class _LocationSearchWidgetState extends State<LocationSearchWidget> {
                       const SizedBox(height: 2),
                       Text(
                         '${_selectedLocation!.address} (${_selectedLocation!.landmark})',
-                        style: const TextStyle(color: InfurnusTheme.textMuted, fontSize: 12),
+                        style: const TextStyle(
+                          color: InfurnusTheme.textMuted,
+                          fontSize: 12,
+                        ),
                       ),
                     ],
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close, color: InfurnusTheme.textMuted, size: 20),
+                  icon: const Icon(
+                    Icons.close,
+                    color: InfurnusTheme.textMuted,
+                    size: 20,
+                  ),
                   onPressed: () {
                     setState(() {
                       _selectedLocation = null;
@@ -127,25 +140,34 @@ class _LocationSearchWidgetState extends State<LocationSearchWidget> {
           decoration: InputDecoration(
             labelText: widget.label,
             hintText: widget.hint,
-            prefixIcon: const Icon(Icons.map_outlined, color: InfurnusTheme.primaryGreen),
+            prefixIcon: const Icon(
+              Icons.map_outlined,
+              color: InfurnusTheme.primaryGreen,
+            ),
             suffixIcon: _searchController.text.isNotEmpty
                 ? IconButton(
-                    icon: const Icon(Icons.clear, color: InfurnusTheme.textMuted),
+                    icon: const Icon(
+                      Icons.clear,
+                      color: InfurnusTheme.textMuted,
+                    ),
                     onPressed: () {
                       _searchController.clear();
                       _onSearchChanged('');
                     },
                   )
                 : (_isLoading
-                    ? const Padding(
-                        padding: EdgeInsets.all(12.0),
-                        child: SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: InfurnusTheme.primaryGreen),
-                        ),
-                      )
-                    : null),
+                      ? const Padding(
+                          padding: EdgeInsets.all(12.0),
+                          child: SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: InfurnusTheme.primaryGreen,
+                            ),
+                          ),
+                        )
+                      : null),
           ),
         ),
         const SizedBox(height: 10),
@@ -167,44 +189,65 @@ class _LocationSearchWidgetState extends State<LocationSearchWidget> {
                         _searchController.text.isEmpty
                             ? 'Type location name or area for suggestions'
                             : 'No map location suggestions found for "${_searchController.text}"',
-                        style: const TextStyle(color: InfurnusTheme.textMuted, fontSize: 12),
+                        style: const TextStyle(
+                          color: InfurnusTheme.textMuted,
+                          fontSize: 12,
+                        ),
                       ),
                     ),
                   )
                 : ListView.separated(
                     shrinkWrap: true,
                     itemCount: _suggestions.length,
-                    separatorBuilder: (_, _) => const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                    separatorBuilder: (_, _) =>
+                        const Divider(height: 1, color: Color(0xFFF1F5F9)),
                     itemBuilder: (context, index) {
                       final item = _suggestions[index];
                       final isSelected = _selectedLocation?.id == item.id;
 
                       return Material(
-                        color: isSelected ? InfurnusTheme.greenLight : Colors.white,
+                        color: isSelected
+                            ? InfurnusTheme.greenLight
+                            : Colors.white,
                         child: ListTile(
                           dense: true,
                           leading: Icon(
                             Icons.place,
-                            color: isSelected ? InfurnusTheme.primaryGreen : InfurnusTheme.textMuted,
+                            color: isSelected
+                                ? InfurnusTheme.primaryGreen
+                                : InfurnusTheme.textMuted,
                             size: 20,
                           ),
                           title: Text(
                             item.name,
                             style: TextStyle(
                               color: InfurnusTheme.textDark,
-                              fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                              fontWeight: isSelected
+                                  ? FontWeight.bold
+                                  : FontWeight.w600,
                               fontSize: 13,
                             ),
                           ),
                           subtitle: Text(
                             '${item.address} • ${item.landmark}',
-                            style: const TextStyle(color: InfurnusTheme.textMuted, fontSize: 11),
+                            style: const TextStyle(
+                              color: InfurnusTheme.textMuted,
+                              fontSize: 11,
+                            ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
                           trailing: isSelected
-                              ? const Icon(Icons.check_circle, color: InfurnusTheme.primaryGreen, size: 18)
-                              : const Icon(Icons.north_west, color: InfurnusTheme.textMuted, size: 14),
+                              ? const Icon(
+                                  Icons.check_circle,
+                                  color: InfurnusTheme.primaryGreen,
+                                  size: 18,
+                                )
+                              : const Icon(
+                                  Icons.north_west,
+                                  color: InfurnusTheme.textMuted,
+                                  size: 14,
+                                ),
                           onTap: () {
                             setState(() {
                               _selectedLocation = item;
