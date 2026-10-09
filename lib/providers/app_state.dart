@@ -135,7 +135,7 @@ class AppState extends ChangeNotifier {
   ];
   List<ManagedDriverModel> get managedDrivers => _managedDrivers;
 
-  // Bookings / Rides
+  // Bookings / Rides (Using baseFare with 18% GST calculation model)
   final List<BookingModel> _bookings = [
     BookingModel(
       id: 'BK-8001',
@@ -145,8 +145,10 @@ class AppState extends ChangeNotifier {
       customerName: 'AeroTech Logistics Ltd',
       customerPhone: '+91 91234 56789',
       distanceKm: 28.5,
-      fareAmount: 1850.00,
+      baseFare: 1000.00, // Base ₹1000 + 18% GST = ₹1180 Total
       status: 'Pending',
+      paymentMethod: 'Online',
+      paymentStatus: 'Paid',
       goodsDescription: '12 Box Industrial Electrical Components (Weight: 450 kg)',
       routeDetails: 'NH 44 -> Outer Ring Road -> ITPL Main Rd',
       createdAt: '10 mins ago',
@@ -159,8 +161,10 @@ class AppState extends ChangeNotifier {
       customerName: 'Ananya Roy',
       customerPhone: '+91 98761 12233',
       distanceKm: 41.2,
-      fareAmount: 1200.00,
+      baseFare: 100.00, // Example: Base ₹100.00 + 18% GST = ₹118.00 Total
       status: 'Accepted',
+      paymentMethod: 'Cash',
+      paymentStatus: 'Pending',
       goodsDescription: '2 Passenger Luggage Bags',
       routeDetails: 'Bellary Road Express Highway',
       createdAt: '25 mins ago',
@@ -173,8 +177,10 @@ class AppState extends ChangeNotifier {
       customerName: 'TechHub Office Supplies',
       customerPhone: '+91 90000 11111',
       distanceKm: 6.4,
-      fareAmount: 320.00,
+      baseFare: 250.00,
       status: 'Delivered',
+      paymentMethod: 'Online',
+      paymentStatus: 'Paid',
       goodsDescription: 'Document Pack & Hard Drives',
       routeDetails: 'Old Airport Rd -> MG Road',
       createdAt: 'Yesterday',
