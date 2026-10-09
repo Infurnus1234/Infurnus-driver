@@ -292,8 +292,11 @@ class BookingModel {
   final String customerName;
   final String customerPhone;
   final double distanceKm;
-  final double fareAmount;
+  final double baseFare; // e.g. ₹100.00
+  final double taxRate; // e.g. 0.18 (18% GST)
   final String status; // 'Pending', 'Accepted', 'In Transit', 'Goods Picked Up', 'Delivered', 'Cancelled'
+  final String paymentMethod; // 'Online', 'Cash'
+  final String paymentStatus; // 'Paid', 'Pending', 'Failed'
   final String? goodsDescription;
   final String? routeDetails;
   final String createdAt;
@@ -306,20 +309,33 @@ class BookingModel {
     required this.customerName,
     required this.customerPhone,
     required this.distanceKm,
-    required this.fareAmount,
+    required this.baseFare,
+    this.taxRate = 0.18, // 18% configurable tax
     this.status = 'Pending',
+    this.paymentMethod = 'Online',
+    this.paymentStatus = 'Pending',
     this.goodsDescription,
     this.routeDetails,
     required this.createdAt,
   });
 
-  // 10% Commission Calculation Helpers (Server-authoritative final fare based)
-  double get commissionAmount => fareAmount * 0.10;
-  double get driverNetEarning => fareAmount * 0.90;
+  // Financial calculations adhering strictly to payment integration requirements:
+  // - Customer Total = Base Fare + GST (e.g. ₹100 + 18% = ₹118)
+  // - Infurnus Commission = 10% of Base Fare (e.g. 10% of ₹100 = ₹10)
+  // - Driver Net Earning = 90% of Base Fare (e.g. 90% of ₹100 = ₹90)
+  double get gstAmount => baseFare * taxRate;
+  double get totalCustomerFare => baseFare + gstAmount;
+  double get commissionAmount => baseFare * 0.10;
+  double get driverNetEarning => baseFare * 0.90;
 
-  int get fareAmountPaise => (fareAmount * 100).round();
-  int get commissionPaise => (fareAmountPaise * 0.10).round();
-  int get driverNetEarningPaise => fareAmountPaise - commissionPaise;
+  // For backward compatibility
+  double get fareAmount => totalCustomerFare;
+
+  int get baseFarePaise => (baseFare * 100).round();
+  int get gstAmountPaise => (gstAmount * 100).round();
+  int get totalCustomerFarePaise => (totalCustomerFare * 100).round();
+  int get commissionPaise => (baseFarePaise * 0.10).round();
+  int get driverNetEarningPaise => baseFarePaise - commissionPaise;
 
   BookingModel copyWith({
     String? id,
@@ -329,8 +345,11 @@ class BookingModel {
     String? customerName,
     String? customerPhone,
     double? distanceKm,
-    double? fareAmount,
+    double? baseFare,
+    double? taxRate,
     String? status,
+    String? paymentMethod,
+    String? paymentStatus,
     String? goodsDescription,
     String? routeDetails,
     String? createdAt,
@@ -343,8 +362,11 @@ class BookingModel {
       customerName: customerName ?? this.customerName,
       customerPhone: customerPhone ?? this.customerPhone,
       distanceKm: distanceKm ?? this.distanceKm,
-      fareAmount: fareAmount ?? this.fareAmount,
+      baseFare: baseFare ?? this.baseFare,
+      taxRate: taxRate ?? this.taxRate,
       status: status ?? this.status,
+      paymentMethod: paymentMethod ?? this.paymentMethod,
+      paymentStatus: paymentStatus ?? this.paymentStatus,
       goodsDescription: goodsDescription ?? this.goodsDescription,
       routeDetails: routeDetails ?? this.routeDetails,
       createdAt: createdAt ?? this.createdAt,
