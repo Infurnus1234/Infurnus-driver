@@ -79,7 +79,7 @@ void main() {
                     'status': 'PENDING',
                   },
                   'target': {
-                    'updated_at': '2026-10-08T01:02:03.123456Z',
+                    'updated_at': '2026-10-08T01:02:03.123456+00:00',
                     'license_number': 'fixture',
                   },
                   'documents': [],
@@ -114,7 +114,7 @@ void main() {
       final review = calls.singleWhere((r) => r.url.path.endsWith('/review'));
       expect(jsonDecode(review.body), {
         'status': 'REJECTED',
-        'expectedUpdatedAt': '2026-10-08T01:02:03.123456Z',
+        'expectedUpdatedAt': '2026-10-08T01:02:03.123456+00:00',
         'reason': 'Unreadable licence',
       });
       expect(review.headers['authorization'], startsWith('Bearer '));
