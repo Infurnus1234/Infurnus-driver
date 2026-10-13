@@ -10,6 +10,7 @@ import '../screens/auth/verification_status_screen.dart';
 import '../screens/driver/production_driver_screen.dart';
 import '../screens/fleet/provider_assets_screen.dart';
 import '../screens/admin/provider_review_screen.dart';
+import '../screens/common/support_tickets_screen.dart';
 
 final appRouter = GoRouter(
   initialLocation: '/login',
@@ -28,6 +29,7 @@ final appRouter = GoRouter(
       return session.api.isAdmin ? null : session.landingPath;
     }
     if (session.api.isAdmin) return '/admin/dashboard';
+    if (path == '/support-tickets') return null;
     if (path.startsWith('/fleet')) {
       return session.api.hasFleetRole &&
               session.api.providerMode == 'fleet_owner'
@@ -42,6 +44,10 @@ final appRouter = GoRouter(
     return session.dashboardAllowed ? null : session.landingPath;
   },
   routes: [
+    GoRoute(
+      path: '/support-tickets',
+      builder: (_, _) => const SupportTicketsScreen(),
+    ),
     GoRoute(path: '/login', builder: (_, _) => const LoginScreen()),
     GoRoute(path: '/register', builder: (_, _) => const RegistrationScreen()),
     GoRoute(path: '/otp', builder: (_, _) => const OtpVerificationScreen()),

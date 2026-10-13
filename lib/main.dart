@@ -5,6 +5,7 @@ import 'providers/app_state.dart';
 import 'providers/driver_session.dart';
 import 'router/app_router.dart';
 import 'core/theme.dart';
+import 'services/startup_permissions.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -17,6 +18,13 @@ void main() {
       child: const InfurnusApp(),
     ),
   );
+  WidgetsBinding.instance.addPostFrameCallback((_) async {
+    try {
+      await requestStartupLocation();
+    } catch (_) {
+      debugPrint('Startup location permission unavailable');
+    }
+  });
 }
 
 class InfurnusApp extends StatelessWidget {

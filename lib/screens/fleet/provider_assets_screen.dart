@@ -344,6 +344,12 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
         ),
         actions: [
           IconButton(
+            tooltip: 'Support tickets',
+            icon: const Icon(Icons.support_agent),
+            onPressed: () => context.push('/support-tickets'),
+          ),
+
+          IconButton(
             onPressed: assets.busy ? null : assets.refresh,
             icon: const Icon(Icons.refresh),
           ),
