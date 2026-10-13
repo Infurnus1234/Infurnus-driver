@@ -8,28 +8,28 @@ void main() {
   group('VehicleCatalogRepository Search Tests', () {
     final repo = VehicleCatalogRepository();
 
-    test('Searching "al" returns Alto, Alto K10, Alto 800', () async {
-      final results = await repo.searchVehicles('al');
-      final names = results.map((v) => v.modelName).toList();
-
-      expect(names, contains('Alto'));
-      expect(names, contains('Alto K10'));
-      expect(names, contains('Alto 800'));
+    test('Empty search query returns empty list (does not dump full list)', () async {
+      final results = await repo.searchVehicles('');
+      expect(results, isEmpty);
     });
 
-    test('Searching "for" returns Fortuner, EcoSport, Endeavour, Transit Van', () async {
-      final results = await repo.searchVehicles('for');
-      final names = results.map((v) => v.modelName).toList();
+    test('Searching new vehicle categories (E-Rickshaw, Force Traveller, 407, Scorpio N)', () async {
+      final erickshaw = await repo.searchVehicles('rickshaw');
+      expect(erickshaw.map((v) => v.modelName), contains('E-Rickshaw'));
 
-      expect(names, contains('Fortuner'));
-      expect(names, contains('EcoSport'));
-      expect(names, contains('Endeavour'));
-      expect(names, contains('Transit Van'));
+      final force = await repo.searchVehicles('force');
+      expect(force.map((v) => v.modelName), contains('Force Traveller'));
+
+      final truck407 = await repo.searchVehicles('407');
+      expect(truck407.map((v) => v.modelName), contains('407'));
+
+      final scorpio = await repo.searchVehicles('scorpio');
+      expect(scorpio.map((v) => v.modelName), contains('Scorpio N'));
     });
 
     test('Search is case-insensitive', () async {
-      final upperResults = await repo.searchVehicles('ALTO');
-      final lowerResults = await repo.searchVehicles('alto');
+      final upperResults = await repo.searchVehicles('SCORPIO');
+      final lowerResults = await repo.searchVehicles('scorpio');
 
       expect(upperResults.length, equals(lowerResults.length));
     });
@@ -50,11 +50,11 @@ void main() {
 
       expect(find.byType(TextField), findsOneWidget);
 
-      await tester.enterText(find.byType(TextField), 'al');
+      await tester.enterText(find.byType(TextField), 'scorpio');
       await tester.pump(const Duration(milliseconds: 300));
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('Alto'), findsAtLeastNWidgets(1));
+      expect(find.textContaining('Scorpio N'), findsAtLeastNWidgets(1));
     });
   });
 }
