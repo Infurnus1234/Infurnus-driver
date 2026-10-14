@@ -11,6 +11,9 @@ import '../screens/auth/welcome_screen.dart';
 import '../screens/driver/production_driver_screen.dart';
 import '../screens/driver/my_trips_screen.dart';
 import '../screens/driver/wallet_screen.dart';
+import '../screens/driver/navigate_to_pickup_screen.dart';
+import '../screens/driver/on_ride_screen.dart';
+import '../screens/driver/trip_completed_screen.dart';
 import '../screens/fleet/provider_assets_screen.dart';
 import '../screens/admin/provider_review_screen.dart';
 import '../screens/common/support_tickets_screen.dart';
@@ -74,6 +77,18 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/driver/wallet',
       builder: (_, _) => const WalletScreen(),
+    ),
+    GoRoute(
+      path: '/driver/navigate-pickup',
+      builder: (_, _) => const NavigateToPickupScreen(),
+    ),
+    GoRoute(
+      path: '/driver/on-ride',
+      builder: (_, _) => const OnRideScreen(),
+    ),
+    GoRoute(
+      path: '/driver/trip-completed',
+      builder: (_, _) => const TripCompletedScreen(),
     ),
     GoRoute(
       path: '/provider-assets',
