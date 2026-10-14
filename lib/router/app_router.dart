@@ -7,7 +7,10 @@ import '../screens/auth/registration_screen.dart';
 import '../screens/auth/otp_verification_screen.dart';
 import '../screens/auth/driver_onboarding_screen.dart';
 import '../screens/auth/verification_status_screen.dart';
+import '../screens/auth/welcome_screen.dart';
 import '../screens/driver/production_driver_screen.dart';
+import '../screens/driver/my_trips_screen.dart';
+import '../screens/driver/wallet_screen.dart';
 import '../screens/fleet/provider_assets_screen.dart';
 import '../screens/admin/provider_review_screen.dart';
 
@@ -15,7 +18,7 @@ final appRouter = GoRouter(
   initialLocation: '/login',
   redirect: (context, state) {
     final session = context.read<DriverSession>(), path = state.uri.path;
-    if (path == '/login' || path == '/register') {
+    if (path == '/welcome' || path == '/login' || path == '/register') {
       return session.authenticated ? session.landingPath : null;
     }
     if (path == '/otp') {
@@ -23,7 +26,7 @@ final appRouter = GoRouter(
           ? session.landingPath
           : null;
     }
-    if (!session.authenticated) return '/login';
+    if (!session.authenticated) return '/welcome';
     if (path.startsWith('/admin')) {
       return session.api.isAdmin ? null : session.landingPath;
     }
@@ -42,6 +45,7 @@ final appRouter = GoRouter(
     return session.dashboardAllowed ? null : session.landingPath;
   },
   routes: [
+    GoRoute(path: '/welcome', builder: (_, _) => const WelcomeScreen()),
     GoRoute(path: '/login', builder: (_, _) => const LoginScreen()),
     GoRoute(path: '/register', builder: (_, _) => const RegistrationScreen()),
     GoRoute(path: '/otp', builder: (_, _) => const OtpVerificationScreen()),
@@ -56,6 +60,14 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/driver/dashboard',
       builder: (_, _) => const ProductionDriverScreen(),
+    ),
+    GoRoute(
+      path: '/driver/trips',
+      builder: (_, _) => const MyTripsScreen(),
+    ),
+    GoRoute(
+      path: '/driver/wallet',
+      builder: (_, _) => const WalletScreen(),
     ),
     GoRoute(
       path: '/provider-assets',
