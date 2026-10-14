@@ -175,6 +175,12 @@ class _DriverOnboardingScreenState extends State<DriverOnboardingScreen> {
         ),
         actions: [
           IconButton(
+            tooltip: 'Support tickets',
+            icon: const Icon(Icons.support_agent),
+            onPressed: () => context.push('/support-tickets'),
+          ),
+
+          IconButton(
             tooltip: 'Sign out',
             icon: const Icon(Icons.logout),
             onPressed: session.busy

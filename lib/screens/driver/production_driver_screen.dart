@@ -90,6 +90,12 @@ class _ProductionDriverScreenState extends State<ProductionDriverScreen> {
         title: const Text('Driver Dashboard'),
         actions: [
           IconButton(
+            tooltip: 'Support tickets',
+            icon: const Icon(Icons.support_agent),
+            onPressed: () => context.push('/support-tickets'),
+          ),
+
+          IconButton(
             tooltip: 'Owned vehicles & documents',
             icon: const Icon(Icons.local_shipping),
             onPressed: session.busy
