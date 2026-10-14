@@ -49,12 +49,12 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'KYC & Background Verification',
-                style: TextStyle(color: InfurnusTheme.textDark, fontSize: 20, fontWeight: FontWeight.bold),
+                'Tell us about yourself',
+                style: TextStyle(color: InfurnusTheme.textDark, fontSize: 22, fontWeight: FontWeight.bold),
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 6),
               const Text(
-                'Complete official driver and vehicle KYC details for admin review.',
+                'Fill in your basic details to get started',
                 style: TextStyle(color: InfurnusTheme.textMuted, fontSize: 13),
               ),
               const SizedBox(height: 24),
@@ -149,8 +149,10 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
 
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: InfurnusTheme.buttonBlack, // BLACK BUTTON
+                  backgroundColor: InfurnusTheme.buttonBlack,
                   foregroundColor: Colors.white,
+                  minimumSize: const Size.fromHeight(50),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                 ),
                 onPressed: () {
                   final appState = Provider.of<AppState>(context, listen: false);
@@ -159,13 +161,16 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
                     email: _emailController.text,
                     phone: _phoneController.text,
                   );
-                  // Update KYC specific fields in user profile
-                  if (appState.currentUser != null) {
-                    // Update user profile with KYC fields
-                  }
                   context.push('/profile-photo');
                 },
-                child: const Text('Next: Upload Profile Photo'),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text('Continue', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    SizedBox(width: 8),
+                    Icon(Icons.arrow_forward, size: 18),
+                  ],
+                ),
               ),
             ],
           ),

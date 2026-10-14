@@ -29,7 +29,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'Select Your Account Role',
+                'Select Your Role',
                 style: TextStyle(
                   color: InfurnusTheme.textDark,
                   fontSize: 22,
@@ -38,7 +38,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
               ),
               const SizedBox(height: 6),
               const Text(
-                'Choose how you want to operate on Infurnus.',
+                'Choose the role that best describes you',
                 style: TextStyle(color: InfurnusTheme.textMuted, fontSize: 13),
               ),
               const SizedBox(height: 24),
@@ -46,33 +46,35 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
               _roleCard(
                 role: UserRole.driver,
                 title: 'Driver',
-                subtitle: 'Operate vehicles, accept ride requests, track earnings and delivery routes.',
+                subtitle: 'Drive and earn with your own or assigned vehicle',
                 icon: Icons.directions_car,
               ),
-              const SizedBox(height: 12),
-
-              _roleCard(
-                role: UserRole.driverFleetOwner,
-                title: 'Driver + Fleet Owner',
-                subtitle: 'Dual capabilities! Operate as an active driver AND manage a fleet of vehicles and drivers with seamless Mode Switching.',
-                icon: Icons.swap_horiz_rounded,
-                isRecommended: true,
-              ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 14),
 
               _roleCard(
                 role: UserRole.fleetOwner,
                 title: 'Fleet Owner',
-                subtitle: 'Manage multiple vehicles, assign drivers, view fleet real-time tracking and revenue wallet.',
+                subtitle: 'Manage vehicles and drivers',
                 icon: Icons.business_center,
+              ),
+              const SizedBox(height: 14),
+
+              _roleCard(
+                role: UserRole.driverFleetOwner,
+                title: 'Driver + Fleet Owner',
+                subtitle: 'Drive and also manage your fleet',
+                icon: Icons.swap_horiz_rounded,
+                isRecommended: true,
               ),
 
               const Spacer(),
 
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: InfurnusTheme.buttonBlack, // BLACK BUTTON
+                  backgroundColor: InfurnusTheme.buttonBlack,
                   foregroundColor: Colors.white,
+                  minimumSize: const Size.fromHeight(50),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                 ),
                 onPressed: () {
                   final appState = Provider.of<AppState>(
@@ -91,7 +93,14 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                   }
                   context.push('/personal-details');
                 },
-                child: const Text('Continue to Personal Details'),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text('Continue', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    SizedBox(width: 8),
+                    Icon(Icons.arrow_forward, size: 18),
+                  ],
+                ),
               ),
             ],
           ),

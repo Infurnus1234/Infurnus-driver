@@ -13,125 +13,131 @@ class ProfilePhotoScreen extends StatefulWidget {
 }
 
 class _ProfilePhotoScreenState extends State<ProfilePhotoScreen> {
-  bool _photoCaptured = false;
+  bool _photoCaptured = true;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: InfurnusTheme.bgWhite,
-      appBar: const InfurnusAppBar(title: 'Profile Photo'),
+      appBar: const InfurnusAppBar(title: 'Upload Profile Photo'),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24.0),
           child: Column(
             children: [
-              const SizedBox(height: 20),
+              const SizedBox(height: 12),
               const Text(
-                'Upload Profile Photo',
-                style: TextStyle(color: InfurnusTheme.textDark, fontSize: 22, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 6),
-              const Text(
-                'Please take a clear selfie portrait. Face must be unobstructed for face verification.',
-                textAlign: TextAlign.center,
+                'Add a clear photo of your face',
                 style: TextStyle(color: InfurnusTheme.textMuted, fontSize: 13),
-              ),
-              const SizedBox(height: 36),
-
-              Center(
-                child: Container(
-                  width: 180,
-                  height: 180,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: _photoCaptured ? InfurnusTheme.primaryGreen : InfurnusTheme.buttonBlack,
-                      width: 3,
-                    ),
-                  ),
-                  child: _photoCaptured
-                      ? const Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.check_circle, size: 60, color: InfurnusTheme.primaryGreen),
-                            SizedBox(height: 8),
-                            Text(
-                              'Photo Captured!',
-                              style: TextStyle(color: InfurnusTheme.textDark, fontWeight: FontWeight.bold),
-                            ),
-                          ],
-                        )
-                      : const Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.person, size: 80, color: InfurnusTheme.textMuted),
-                            SizedBox(height: 8),
-                            Text(
-                              'No Photo Selected',
-                              style: TextStyle(color: InfurnusTheme.textMuted, fontSize: 12),
-                            ),
-                          ],
-                        ),
-                ),
               ),
               const SizedBox(height: 32),
 
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: InfurnusTheme.buttonBlack,
-                        side: const BorderSide(color: InfurnusTheme.buttonBlack),
+              // Profile Avatar with green camera badge (Reference Screen 6)
+              Center(
+                child: Stack(
+                  children: [
+                    Container(
+                      width: 140,
+                      height: 140,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: InfurnusTheme.primaryGreen,
+                          width: 3,
+                        ),
                       ),
-                      onPressed: () {
-                        setState(() {
-                          _photoCaptured = true;
-                        });
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Simulated Camera Portrait Capture.')),
-                        );
-                      },
-                      icon: const Icon(Icons.camera_alt),
-                      label: const Text('Take Selfie'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: InfurnusTheme.buttonBlack,
-                        side: const BorderSide(color: InfurnusTheme.buttonBlack),
+                      child: ClipOval(
+                        child: Container(
+                          color: const Color(0xFFE2E8F0),
+                          child: const Icon(
+                            Icons.person,
+                            size: 80,
+                            color: Color(0xFF94A3B8),
+                          ),
+                        ),
                       ),
-                      onPressed: () {
-                        setState(() {
-                          _photoCaptured = true;
-                        });
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Selected image from Gallery.')),
-                        );
-                      },
-                      icon: const Icon(Icons.photo_library),
-                      label: const Text('Gallery'),
                     ),
-                  ),
-                ],
+                    Positioned(
+                      bottom: 0,
+                      right: 0,
+                      child: GestureDetector(
+                        onTap: () {
+                          setState(() => _photoCaptured = true);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Profile photo captured.')),
+                          );
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: const BoxDecoration(
+                            color: InfurnusTheme.primaryGreen,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.camera_alt,
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 36),
+
+              // Tips Card (Reference Screen 6)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: const [
+                    Text(
+                      'Tips:',
+                      style: TextStyle(
+                        color: InfurnusTheme.textDark,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                    ),
+                    SizedBox(height: 8),
+                    Text('• Use clear photo', style: TextStyle(color: InfurnusTheme.textMuted, fontSize: 12)),
+                    SizedBox(height: 4),
+                    Text('• Make sure your face is visible', style: TextStyle(color: InfurnusTheme.textMuted, fontSize: 12)),
+                    SizedBox(height: 4),
+                    Text('• Do not use sunglasses', style: TextStyle(color: InfurnusTheme.textMuted, fontSize: 12)),
+                  ],
+                ),
               ),
 
               const Spacer(),
 
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: InfurnusTheme.buttonBlack, // BLACK BUTTON
+                  backgroundColor: InfurnusTheme.buttonBlack,
                   foregroundColor: Colors.white,
+                  minimumSize: const Size.fromHeight(50),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                 ),
                 onPressed: () {
                   final appState = Provider.of<AppState>(context, listen: false);
                   appState.updateProfile(photoUrl: 'https://infurnus.com/photos/profile.jpg');
                   context.push('/document-upload');
                 },
-                child: const Text('Next: Document Submission'),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text('Continue', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    SizedBox(width: 8),
+                    Icon(Icons.arrow_forward, size: 18),
+                  ],
+                ),
               ),
             ],
           ),

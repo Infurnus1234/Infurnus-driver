@@ -2,10 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../providers/app_state.dart';
-import '../../models/app_models.dart';
 import '../../widgets/infurnus_app_bar.dart';
+import '../../widgets/driver_bottom_nav.dart';
 import '../../core/theme.dart';
-import '../../widgets/verification_badge.dart';
 
 class ProviderProfileScreen extends StatelessWidget {
   const ProviderProfileScreen({super.key});
@@ -14,45 +13,67 @@ class ProviderProfileScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final appState = Provider.of<AppState>(context);
     final user = appState.currentUser;
+    final name = user?.fullName.isNotEmpty == true && user?.fullName != 'New Provider User'
+        ? user!.fullName
+        : 'Niranjan Bhardwaj';
 
     return Scaffold(
       backgroundColor: InfurnusTheme.bgWhite,
-      appBar: const InfurnusAppBar(title: 'Provider Profile'),
+      appBar: const InfurnusAppBar(title: 'Profile', showBack: false),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20.0),
+          padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 12.0),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Center(
-                child: Column(
-                  children: [
-                    CircleAvatar(
-                      radius: 40,
-                      backgroundColor: InfurnusTheme.buttonBlack,
-                      child: Text(
-                        user?.fullName.isNotEmpty == true ? user!.fullName[0] : 'P',
-                        style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold),
-                      ),
+              // Profile Header
+              Row(
+                children: [
+                  CircleAvatar(
+                    radius: 36,
+                    backgroundColor: const Color(0xFFE2E8F0),
+                    child: Text(
+                      name[0],
+                      style: const TextStyle(color: InfurnusTheme.textDark, fontSize: 26, fontWeight: FontWeight.bold),
                     ),
-                    const SizedBox(height: 12),
-                    Text(
-                      user?.fullName ?? 'Provider User',
-                      style: const TextStyle(color: InfurnusTheme.textDark, fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          name,
+                          style: const TextStyle(
+                            color: InfurnusTheme.textDark,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: const [
+                            Icon(Icons.check_circle, color: InfurnusTheme.primaryGreen, size: 14),
+                            SizedBox(width: 4),
+                            Text(
+                              'Verified Driver',
+                              style: TextStyle(
+                                color: InfurnusTheme.primaryGreen,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      user?.role.displayName ?? 'Driver',
-                      style: const TextStyle(color: InfurnusTheme.primaryGreen, fontWeight: FontWeight.bold, fontSize: 13),
-                    ),
-                    const SizedBox(height: 8),
-                    if (user != null) VerificationBadge(status: user.verificationStatus),
-                  ],
-                ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 28),
+              const SizedBox(height: 24),
 
+              // Menu Options (Reference Screen 20)
               Container(
-                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(16),
@@ -60,67 +81,136 @@ class ProviderProfileScreen extends StatelessWidget {
                 ),
                 child: Column(
                   children: [
-                    _profileDetailTile('Mobile Phone', user?.phone ?? 'N/A', Icons.phone),
-                    const Divider(color: Color(0xFFE2E8F0)),
-                    _profileDetailTile('Email Address', user?.email ?? 'N/A', Icons.email),
-                    if (user?.businessName != null) ...[
-                      const Divider(color: Color(0xFFE2E8F0)),
-                      _profileDetailTile('Business Name', user!.businessName!, Icons.business),
-                    ],
-                    if (user?.businessAddress != null) ...[
-                      const Divider(color: Color(0xFFE2E8F0)),
-                      _profileDetailTile('Fleet Address', user!.businessAddress!, Icons.location_on),
-                    ],
+                    _profileMenuItem(
+                      icon: Icons.person_outline,
+                      title: 'Personal Information',
+                      onTap: () => context.push('/personal-details'),
+                    ),
+                    _menuDivider(),
+                    _profileMenuItem(
+                      icon: Icons.directions_car_outlined,
+                      title: 'Vehicle Details',
+                      onTap: () => context.push('/provider-assets'),
+                    ),
+                    _menuDivider(),
+                    _profileMenuItem(
+                      icon: Icons.description_outlined,
+                      title: 'Documents',
+                      badge: '3/5 Verified',
+                      badgeColor: InfurnusTheme.primaryGreen,
+                      onTap: () => context.push('/document-upload'),
+                    ),
+                    _menuDivider(),
+                    _profileMenuItem(
+                      icon: Icons.account_balance_outlined,
+                      title: 'Bank Details',
+                      onTap: () => context.push('/driver/wallet'),
+                    ),
+                    _menuDivider(),
+                    _profileMenuItem(
+                      icon: Icons.contact_phone_outlined,
+                      title: 'Emergency Contact',
+                      onTap: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Emergency Contact: Police 112 | Infurnus SOS 1800-000-999')),
+                        );
+                      },
+                    ),
+                    _menuDivider(),
+                    _profileMenuItem(
+                      icon: Icons.settings_outlined,
+                      title: 'Settings',
+                      onTap: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('App Settings: Notifications & Audio alerts active.')),
+                        );
+                      },
+                    ),
+                    _menuDivider(),
+                    _profileMenuItem(
+                      icon: Icons.help_outline,
+                      title: 'Help & Support',
+                      onTap: () => context.push('/support'),
+                    ),
+                    _menuDivider(),
+                    _profileMenuItem(
+                      icon: Icons.logout,
+                      title: 'Logout',
+                      isDestructive: true,
+                      onTap: () {
+                        appState.logout();
+                        context.go('/login');
+                      },
+                    ),
                   ],
                 ),
               ),
               const SizedBox(height: 24),
-
-              OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: InfurnusTheme.buttonBlack,
-                  side: const BorderSide(color: InfurnusTheme.buttonBlack),
-                ),
-                onPressed: () => context.push('/personal-details'),
-                icon: const Icon(Icons.edit, size: 18),
-                label: const Text('Edit Profile & Business Info'),
-              ),
-              const SizedBox(height: 12),
-
-              OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: InfurnusTheme.buttonBlack,
-                  side: const BorderSide(color: InfurnusTheme.buttonBlack),
-                ),
-                onPressed: () => context.push('/verification-status'),
-                icon: const Icon(Icons.verified, size: 18),
-                label: const Text('View Document Status'),
-              ),
             ],
           ),
         ),
       ),
+      bottomNavigationBar: const DriverBottomNav(currentIndex: 4),
     );
   }
 
-  Widget _profileDetailTile(String title, String value, IconData icon) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Row(
+  Widget _profileMenuItem({
+    required IconData icon,
+    required String title,
+    String? badge,
+    Color? badgeColor,
+    bool isDestructive = false,
+    required VoidCallback onTap,
+  }) {
+    return ListTile(
+      onTap: onTap,
+      leading: Icon(
+        icon,
+        color: isDestructive ? InfurnusTheme.dangerRed : InfurnusTheme.textDark,
+        size: 20,
+      ),
+      title: Text(
+        title,
+        style: TextStyle(
+          color: isDestructive ? InfurnusTheme.dangerRed : InfurnusTheme.textDark,
+          fontSize: 14,
+          fontWeight: isDestructive ? FontWeight.bold : FontWeight.w600,
+        ),
+      ),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: InfurnusTheme.primaryGreen, size: 20),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: const TextStyle(color: InfurnusTheme.textMuted, fontSize: 11)),
-                Text(value, style: const TextStyle(color: InfurnusTheme.textDark, fontSize: 13, fontWeight: FontWeight.w600)),
-              ],
+          if (badge != null) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: (badgeColor ?? InfurnusTheme.primaryGreen).withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                badge,
+                style: TextStyle(
+                  color: badgeColor ?? InfurnusTheme.primaryGreen,
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
+            const SizedBox(width: 8),
+          ],
+          Icon(
+            Icons.chevron_right,
+            color: isDestructive ? InfurnusTheme.dangerRed : const Color(0xFF94A3B8),
+            size: 18,
           ),
         ],
       ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
     );
   }
+
+  Widget _menuDivider() {
+    return const Divider(height: 1, color: Color(0xFFF1F5F9), indent: 16, endIndent: 16);
+  }
 }
+

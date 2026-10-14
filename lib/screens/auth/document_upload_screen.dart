@@ -16,20 +16,15 @@ class DocumentUploadScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: InfurnusTheme.bgWhite,
-      appBar: const InfurnusAppBar(title: 'Document Upload'),
+      appBar: const InfurnusAppBar(title: 'Upload Documents'),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(20.0),
+          padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 12.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'Required Documents',
-                style: TextStyle(color: InfurnusTheme.textDark, fontSize: 20, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 4),
-              const Text(
-                'Upload legible photos of your official identity & operational documents.',
+                'Upload the required documents for verification',
                 style: TextStyle(color: InfurnusTheme.textMuted, fontSize: 13),
               ),
               const SizedBox(height: 20),
@@ -53,10 +48,17 @@ class DocumentUploadScreen extends StatelessWidget {
                       ),
                       child: Row(
                         children: [
-                          Icon(
-                            isUploaded ? Icons.task_alt : Icons.upload_file,
-                            color: isUploaded ? InfurnusTheme.primaryGreen : InfurnusTheme.buttonBlack,
-                            size: 28,
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: isUploaded ? InfurnusTheme.greenLight : const Color(0xFFF1F5F9),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Icon(
+                              Icons.description_outlined,
+                              color: isUploaded ? InfurnusTheme.primaryGreen : InfurnusTheme.buttonBlack,
+                              size: 24,
+                            ),
                           ),
                           const SizedBox(width: 14),
                           Expanded(
@@ -68,41 +70,35 @@ class DocumentUploadScreen extends StatelessWidget {
                                   style: const TextStyle(
                                     color: InfurnusTheme.textDark,
                                     fontWeight: FontWeight.bold,
-                                    fontSize: 15,
+                                    fontSize: 14,
                                   ),
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  'Status: ${doc.status}${doc.rejectionReason != null ? " (${doc.rejectionReason})" : ""}',
+                                  isUploaded ? 'Document uploaded & verified' : 'Upload document',
                                   style: TextStyle(
-                                    color: doc.status == 'Rejected' ? InfurnusTheme.dangerRed : InfurnusTheme.textMuted,
+                                    color: isUploaded ? InfurnusTheme.primaryGreen : InfurnusTheme.textMuted,
                                     fontSize: 12,
                                   ),
                                 ),
                               ],
                             ),
                           ),
-                          ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: InfurnusTheme.buttonBlack, // BLACK BUTTON
-                              foregroundColor: Colors.white,
-                              minimumSize: const Size(90, 36),
-                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                          if (isUploaded)
+                            const Icon(Icons.check_circle, color: InfurnusTheme.primaryGreen, size: 22)
+                          else
+                            IconButton(
+                              onPressed: () {
+                                appState.submitDocument(
+                                  doc.id,
+                                  'https://infurnus.com/docs/${doc.type.toLowerCase()}.pdf',
+                                );
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Uploaded ${doc.name}')),
+                                );
+                              },
+                              icon: const Icon(Icons.arrow_circle_up, color: InfurnusTheme.buttonBlack, size: 26),
                             ),
-                            onPressed: () {
-                              appState.submitDocument(
-                                doc.id,
-                                'https://infurnus.com/docs/${doc.type.toLowerCase()}.pdf',
-                              );
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('Uploaded ${doc.name}')),
-                              );
-                            },
-                            child: Text(
-                              isUploaded ? 'Replace' : 'Upload',
-                              style: const TextStyle(fontSize: 12),
-                            ),
-                          ),
                         ],
                       ),
                     );
@@ -110,18 +106,27 @@ class DocumentUploadScreen extends StatelessWidget {
                 ),
               ),
 
-              const SizedBox(height: 16),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: InfurnusTheme.buttonBlack, // BLACK BUTTON
+                  backgroundColor: InfurnusTheme.buttonBlack,
                   foregroundColor: Colors.white,
+                  minimumSize: const Size.fromHeight(50),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                 ),
                 onPressed: () {
                   appState.submitForReview();
                   context.push('/verification-status');
                 },
-                child: const Text('Submit Application for Verification'),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text('Continue', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    SizedBox(width: 8),
+                    Icon(Icons.arrow_forward, size: 18),
+                  ],
+                ),
               ),
+              const SizedBox(height: 10),
             ],
           ),
         ),
