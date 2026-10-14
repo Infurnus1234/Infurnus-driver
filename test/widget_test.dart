@@ -23,6 +23,28 @@ void main() {
     },
   );
 
+  testWidgets(
+    'Debug preview button is visible on LoginScreen and opens dashboard with test banner',
+    (tester) async {
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider(create: (_) => AppState()),
+            ChangeNotifierProvider(create: (_) => DriverSession()),
+          ],
+          child: const InfurnusApp(),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Preview Dashboard (Testing Only)'), findsOneWidget);
+
+      await tester.tap(find.text('Preview Dashboard (Testing Only)'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('TEST PREVIEW — NOT AUTHENTICATED'), findsOneWidget);
+    },
+  );
+
   test('Production state contains no seeded user, rides or financial data', () {
     final state = AppState();
     expect(state.isLoggedIn, isFalse);

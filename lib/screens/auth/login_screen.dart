@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
@@ -142,7 +143,6 @@ class _LoginScreenState extends State<LoginScreen> {
                         const SizedBox(height: 6),
                       ],
                     ),
-                    // Green SMS badge
                     Positioned(
                       right: 10,
                       child: Container(
@@ -359,6 +359,27 @@ class _LoginScreenState extends State<LoginScreen> {
                       ],
                     ),
             ),
+
+            // Debug Preview Dashboard Button (Directly below Send OTP)
+            if (kDebugMode) ...[
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.orange.shade800,
+                  side: BorderSide(color: Colors.orange.shade800, width: 1.5),
+                  minimumSize: const Size.fromHeight(48),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+                icon: const Icon(Icons.bug_report),
+                label: const Text('Preview Dashboard (Testing Only)', style: TextStyle(fontWeight: FontWeight.bold)),
+                onPressed: session.busy
+                    ? null
+                    : () {
+                        session.enablePreview();
+                        context.go('/driver/dashboard');
+                      },
+              ),
+            ],
 
             const SizedBox(height: 16),
 

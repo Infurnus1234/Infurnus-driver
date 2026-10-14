@@ -66,6 +66,32 @@ void main() {
     api.dispose();
   });
 
+  test('password login normalizes 10-digit mobile number to +91', () async {
+    final api = ApiService(
+      client: MockClient((request) async {
+        expect(jsonDecode(request.body), {
+          'phone': '+919876543210',
+          'password': 'test-password',
+        });
+        return success({'challengeId': 'challenge-10digit'});
+      }),
+    );
+    expect(
+      await api.login('9876543210', 'test-password'),
+      'challenge-10digit',
+    );
+    api.dispose();
+  });
+
+  test('password login rejects invalid phone number format', () async {
+    final api = ApiService(client: MockClient((_) async => success({})));
+    await expectLater(
+      api.login('123', 'test-password'),
+      throwsA(isA<ApiException>()),
+    );
+    api.dispose();
+  });
+
   test('connection failure cannot become simulated login success', () async {
     final api = ApiService(
       client: MockClient((_) async => throw http.ClientException('offline')),

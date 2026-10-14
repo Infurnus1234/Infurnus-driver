@@ -222,33 +222,12 @@ class ApiService {
           !invalidLinkIdentity) {
         clearSession();
       }
-      final code = error is Map ? error['code']?.toString() : null;
-      String userMessage = error is Map
-          ? error['message']?.toString() ?? 'Request failed.'
-          : 'Request failed (${response.statusCode}).';
-      if (code == 'VALIDATION_ERROR' || userMessage == 'Request validation failed') {
-        userMessage = path.startsWith('/auth/login')
-            ? 'Please enter a valid mobile number or email and password.'
-            : 'Please check the information entered and try again.';
-      } else if (code == 'INVALID_CREDENTIALS') {
-        userMessage = 'Incorrect mobile number, email, or password. Please try again.';
-      } else if (code == 'USER_NOT_FOUND') {
-        userMessage = 'No account found with these details. Please register first.';
-      } else if (code == 'INVALID_OTP') {
-        userMessage = 'The verification code entered is incorrect. Please try again.';
-      } else if (code == 'OTP_EXPIRED') {
-        userMessage = 'The verification code has expired. Please request a new code.';
-      } else if (code == 'RATE_LIMIT_EXCEEDED' || response.statusCode == 429) {
-        userMessage = 'Too many attempts. Please try again after a few minutes.';
-      } else if (code == 'ACCOUNT_LOCKED' || code == 'ACCOUNT_SUSPENDED') {
-        userMessage = 'Your account has been locked or suspended. Please contact support.';
-      } else if (response.statusCode >= 500) {
-        userMessage = 'The server encountered an error. Please retry shortly.';
-      }
       throw ApiException(
-        userMessage,
+        error is Map
+            ? error['message']?.toString() ?? 'Request failed.'
+            : 'Request failed (${response.statusCode}).',
         response.statusCode,
-        code,
+        error is Map ? error['code']?.toString() : null,
       );
     }
     if (response.statusCode == 204) return null;
@@ -308,42 +287,41 @@ class ApiService {
   Future<String> login(String identifier, String password) async {
     clearSession();
     identifier = identifier.trim();
+    if (identifier.isEmpty || password.isEmpty) {
+      throw const ApiException('Enter your login identifier and password.');
+    }
+    String? email;
+    String? phone;
     if (identifier.contains('@')) {
-      final data = await request(
-        'POST',
-        '/auth/login',
-        body: {'email': identifier, 'password': password},
-      );
-      return data['challengeId'] as String;
-    }
-
-    var cleanPhone = identifier.replaceAll(RegExp(r'[\s()-\.]'), '');
-    if (cleanPhone.startsWith('0')) cleanPhone = cleanPhone.substring(1);
-
-    // If 10 digits without country code, default to +91
-    final phoneToTry = RegExp(r'^\d{10}$').hasMatch(cleanPhone)
-        ? '+91$cleanPhone'
-        : cleanPhone;
-
-    try {
-      final data = await request(
-        'POST',
-        '/auth/login',
-        body: {'phone': phoneToTry, 'password': password},
-      );
-      return data['challengeId'] as String;
-    } on ApiException catch (e) {
-      if (phoneToTry != cleanPhone &&
-          (e.code == 'INVALID_CREDENTIALS' || e.code == 'USER_NOT_FOUND')) {
-        final data = await request(
-          'POST',
-          '/auth/login',
-          body: {'phone': cleanPhone, 'password': password},
-        );
-        return data['challengeId'] as String;
+      email = identifier;
+      if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(email)) {
+        throw const ApiException('Enter a valid email address.');
       }
-      rethrow;
+    } else {
+      final digits = identifier.replaceAll(RegExp(r'[^\d+]'), '');
+      if (digits.startsWith('+')) {
+        phone = digits;
+      } else if (digits.length == 10) {
+        phone = '+91$digits';
+      } else if (digits.length > 10 && digits.startsWith('91') && digits.length == 12) {
+        phone = '+$digits';
+      } else {
+        phone = digits;
+      }
+      if (!RegExp(r'^\+?[1-9]\d{7,14}$').hasMatch(phone)) {
+        throw const ApiException('Enter a valid mobile number or email address.');
+      }
     }
+    final data = await request(
+      'POST',
+      '/auth/login',
+      body: {
+        'email': ?email,
+        'phone': ?phone,
+        'password': password,
+      },
+    );
+    return data['challengeId'] as String;
   }
 
   Future<String> resendLogin(String challengeId) async {

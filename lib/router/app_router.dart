@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
@@ -30,6 +31,9 @@ final appRouter = GoRouter(
   initialLocation: '/login',
   redirect: (context, state) {
     final session = context.read<DriverSession>(), path = state.uri.path;
+    if (kDebugMode && session.isPreview && path == '/driver/dashboard') {
+      return null;
+    }
     if (path == '/welcome' ||
         path == '/login' ||
         path == '/register' ||

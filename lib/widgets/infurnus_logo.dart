@@ -20,7 +20,7 @@ class InfurnusLogo extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          padding: EdgeInsets.all(iconSize * 0.3),
+          padding: EdgeInsets.all(iconSize * 0.15),
           decoration: BoxDecoration(
             color: InfurnusTheme.primaryGreen,
             borderRadius: BorderRadius.circular(16),
@@ -32,10 +32,19 @@ class InfurnusLogo extends StatelessWidget {
               ),
             ],
           ),
-          child: Icon(
-            Icons.local_shipping_rounded,
-            size: iconSize,
-            color: Colors.white,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Image.asset(
+              'assets/images/infurnus_logo.png',
+              width: iconSize,
+              height: iconSize,
+              fit: BoxFit.contain,
+              errorBuilder: (context, error, stackTrace) => Icon(
+                Icons.local_shipping_rounded,
+                size: iconSize,
+                color: Colors.white,
+              ),
+            ),
           ),
         ),
         const SizedBox(height: 10),

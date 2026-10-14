@@ -20,6 +20,19 @@ class DriverSession extends ChangeNotifier {
   Position? position;
   String? challengeId;
   String? signupId;
+  bool isPreview = false;
+
+  void enablePreview() {
+    if (kDebugMode) {
+      isPreview = true;
+      _notify();
+    }
+  }
+
+  void disablePreview() {
+    isPreview = false;
+    _notify();
+  }
   Map<String, dynamic>? account;
   Map<String, dynamic>? assignmentPreview;
   List<Map<String, dynamic>> documents = [];
@@ -843,6 +856,7 @@ class DriverSession extends ChangeNotifier {
     _socket = null;
     _accountVerified = false;
     onboardingLoaded = false;
+    isPreview = false;
     account = null;
     assignmentPreview = null;
     documents = [];
