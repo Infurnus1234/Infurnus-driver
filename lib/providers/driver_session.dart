@@ -25,6 +25,45 @@ class DriverSession extends ChangeNotifier {
   void enablePreview() {
     if (kDebugMode) {
       isPreview = true;
+      profile ??= {
+        'id': 'preview-driver-id',
+        'firstName': 'Rajesh',
+        'lastName': 'Kumar',
+        'verificationStatus': 'APPROVED',
+        'availabilityStatus': 'available',
+        'licenseExpiry': '2030-12-31',
+      };
+      assignedVehicle ??= {
+        'id': 'preview-vehicle-id',
+        'plateNumber': 'BR 01 EV 9988',
+        'make': 'Tata',
+        'model': 'Ace EV',
+        'category': 'THREE_WHEELER',
+      };
+      history ??= {
+        'totalTrips': 14,
+        'totalEarnings': 3280,
+      };
+      if (rides.isEmpty) {
+        rides = [
+          {
+            'id': 'PREVIEW-RIDE-101',
+            'pickupAddress': 'Boring Road, Patna',
+            'destinationAddress': 'Patna Junction',
+            'status': 'requested',
+            'vehicleCategory': 'Tata Ace EV',
+            'fareEstimate': 280,
+          },
+          {
+            'id': 'PREVIEW-RIDE-102',
+            'pickupAddress': 'Kankarbagh, Patna',
+            'destinationAddress': 'AIIMS Patna',
+            'status': 'requested',
+            'vehicleCategory': 'Tata Ace EV',
+            'fareEstimate': 450,
+          },
+        ];
+      }
       _notify();
     }
   }

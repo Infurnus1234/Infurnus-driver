@@ -371,7 +371,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                 ),
                 icon: const Icon(Icons.bug_report),
-                label: const Text('Preview Dashboard (Testing Only)', style: TextStyle(fontWeight: FontWeight.bold)),
+                label: const Text('🐛 Preview Dashboard (Testing Only)', style: TextStyle(fontWeight: FontWeight.bold)),
                 onPressed: session.busy
                     ? null
                     : () {

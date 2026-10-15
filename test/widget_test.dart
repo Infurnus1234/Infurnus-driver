@@ -42,9 +42,9 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.text('Preview Dashboard (Testing Only)'), findsOneWidget);
+      expect(find.textContaining('Preview Dashboard (Testing Only)'), findsOneWidget);
 
-      await tester.tap(find.text('Preview Dashboard (Testing Only)'));
+      await tester.tap(find.textContaining('Preview Dashboard (Testing Only)'));
       await tester.pumpAndSettle();
 
       expect(find.text('TEST PREVIEW — NOT AUTHENTICATED'), findsOneWidget);

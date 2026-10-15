@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../providers/driver_session.dart';
 import '../../services/api_service.dart';
 import '../../widgets/driver_bottom_nav.dart';
+import '../../core/theme.dart';
 
 /// Driver operations use server-confirmed identity, eligibility and ride state.
 class ProductionDriverScreen extends StatefulWidget {
@@ -299,23 +300,37 @@ class _ProductionDriverScreenState extends State<ProductionDriverScreen> {
                 child: Column(
                   children: [
                     _rideTile(ride),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        TextButton(
-                          onPressed: session.busy
-                              ? null
-                              : () => session.decline(ride['id'] as String),
-                          child: const Text('Decline'),
-                        ),
-                        ElevatedButton(
-                          onPressed: session.busy
-                              ? null
-                              : () => session.accept(ride['id'] as String),
-                          child: const Text('Accept'),
-                        ),
-                        const SizedBox(width: 12),
-                      ],
+                    Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: Colors.red,
+                                side: const BorderSide(color: Colors.red),
+                              ),
+                              onPressed: session.busy
+                                  ? null
+                                  : () => session.decline(ride['id'] as String),
+                              child: const Text('Decline'),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: InfurnusTheme.primaryGreen,
+                                foregroundColor: Colors.white,
+                              ),
+                              onPressed: session.busy
+                                  ? null
+                                  : () => session.accept(ride['id'] as String),
+                              child: const Text('Accept'),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
