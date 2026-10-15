@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../providers/driver_session.dart';
 import '../../services/api_service.dart';
+import '../../widgets/driver_bottom_nav.dart';
 
 /// Driver operations use server-confirmed identity, eligibility and ride state.
 class ProductionDriverScreen extends StatefulWidget {
@@ -372,6 +373,7 @@ class _ProductionDriverScreenState extends State<ProductionDriverScreen> {
           ],
         ),
       ),
+      bottomNavigationBar: const DriverBottomNav(currentIndex: 0),
     );
   }
 

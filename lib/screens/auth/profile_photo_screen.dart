@@ -13,6 +13,7 @@ class ProfilePhotoScreen extends StatefulWidget {
 }
 
 class _ProfilePhotoScreenState extends State<ProfilePhotoScreen> {
+  // ignore: unused_field
   bool _photoCaptured = true;
 
   @override

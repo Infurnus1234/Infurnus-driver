@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:infurnus_driver/main.dart';
@@ -26,6 +27,11 @@ void main() {
   testWidgets(
     'Debug preview button is visible on LoginScreen and opens dashboard with test banner',
     (tester) async {
+      tester.view.physicalSize = const Size(800, 1200);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+      addTearDown(() => tester.view.resetDevicePixelRatio());
+
       await tester.pumpWidget(
         MultiProvider(
           providers: [
