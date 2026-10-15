@@ -13,7 +13,6 @@ class ProfilePhotoScreen extends StatefulWidget {
 }
 
 class _ProfilePhotoScreenState extends State<ProfilePhotoScreen> {
-  // ignore: unused_field
   bool _photoCaptured = true;
 
   @override
@@ -50,10 +49,10 @@ class _ProfilePhotoScreenState extends State<ProfilePhotoScreen> {
                       child: ClipOval(
                         child: Container(
                           color: const Color(0xFFE2E8F0),
-                          child: const Icon(
-                            Icons.person,
+                          child: Icon(
+                            _photoCaptured ? Icons.check_circle_rounded : Icons.person,
                             size: 80,
-                            color: Color(0xFF94A3B8),
+                            color: _photoCaptured ? InfurnusTheme.primaryGreen : const Color(0xFF94A3B8),
                           ),
                         ),
                       ),

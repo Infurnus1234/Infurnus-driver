@@ -20,14 +20,18 @@ class InfurnusLogo extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          padding: EdgeInsets.all(iconSize * 0.15),
+          padding: EdgeInsets.all(iconSize * 0.1),
           decoration: BoxDecoration(
-            color: InfurnusTheme.primaryGreen,
+            color: Colors.black,
             borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: InfurnusTheme.primaryGreen.withValues(alpha: 0.6),
+              width: 1.5,
+            ),
             boxShadow: [
               BoxShadow(
-                color: InfurnusTheme.primaryGreen.withValues(alpha: 0.3),
-                blurRadius: 12,
+                color: InfurnusTheme.primaryGreen.withValues(alpha: 0.25),
+                blurRadius: 10,
                 offset: const Offset(0, 4),
               ),
             ],
@@ -42,19 +46,19 @@ class InfurnusLogo extends StatelessWidget {
               errorBuilder: (context, error, stackTrace) => Icon(
                 Icons.local_shipping_rounded,
                 size: iconSize,
-                color: Colors.white,
+                color: InfurnusTheme.primaryGreen,
               ),
             ),
           ),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 8),
         Text(
           'INFURNUS',
           style: TextStyle(
             color: InfurnusTheme.textDark,
             fontSize: fontSize,
             fontWeight: FontWeight.w900,
-            letterSpacing: 2.5,
+            letterSpacing: 2.2,
           ),
         ),
         if (showSubtitle) ...[
