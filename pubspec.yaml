@@ -31,6 +31,9 @@ dependencies:
   mime: ^2.0.0
   geolocator: ^14.0.2
   socket_io_client: ^3.1.2
+  firebase_core: ^3.10.0
+  firebase_messaging: ^15.1.5
+  flutter_local_notifications: ^17.2.2
 
   # Cupertino Icons
   cupertino_icons: ^1.0.8
@@ -53,14 +56,14 @@ flutter_launcher_icons:
   android: "launcher_icon"
   ios: true
   image_path_ios: "assets/images/infurnus_logo.png"
-  adaptive_icon_background: "#FFFFFF"
-  adaptive_icon_foreground: "assets/images/infurnus_logo.png"
+  adaptive_icon_background: "#000000"
+  adaptive_icon_foreground: "assets/images/infurnus_driver_adaptive_foreground.png"
 
 flutter_native_splash:
-  color: "#FFFFFF"
+  color: "#000000"
   image: "assets/images/infurnus_logo.png"
   android_12:
-    color: "#FFFFFF"
+    color: "#000000"
     image: "assets/images/infurnus_logo.png"
   ios: true
   web: false

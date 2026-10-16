@@ -6,6 +6,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 
 import '../services/api_service.dart';
+import '../services/notification_service.dart';
 import '../models/onboarding_rules.dart';
 import '../models/provider_status.dart';
 
@@ -290,6 +291,7 @@ class DriverSession extends ChangeNotifier {
       if (!busy && authenticated && !editing) unawaited(refresh());
     });
     await _load();
+    unawaited(DriverNotificationService(api: api).init());
   }
 
   Future<bool> restore() => run(() async {

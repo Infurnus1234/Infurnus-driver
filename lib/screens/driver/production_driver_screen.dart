@@ -6,6 +6,8 @@ import 'package:go_router/go_router.dart';
 import '../../providers/driver_session.dart';
 import '../../services/api_service.dart';
 import '../../widgets/driver_bottom_nav.dart';
+import '../../widgets/waiting_timer_widget.dart';
+import '../../widgets/dispatch_countdown_widget.dart';
 import '../../core/theme.dart';
 
 /// Driver operations use server-confirmed identity, eligibility and ride state.
@@ -411,6 +413,12 @@ class _ProductionDriverScreenState extends State<ProductionDriverScreen> {
                               ),
                             ],
                           ),
+                          if (trip['status'] == 'driver_arrived') ...[
+                            const SizedBox(height: 8),
+                            WaitingTimerWidget(
+                              arrivalTime: DateTime.tryParse(trip['updatedAt']?.toString() ?? '') ?? DateTime.now(),
+                            ),
+                          ],
                           if (next != null) ...[
                             const SizedBox(height: 12),
                             ElevatedButton(
@@ -442,6 +450,13 @@ class _ProductionDriverScreenState extends State<ProductionDriverScreen> {
                 child: Column(
                   children: [
                     _rideTile(ride),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: DispatchCountdownWidget(
+                        expiresAt: DateTime.tryParse(ride['dispatchExpiresAt']?.toString() ?? '') ?? DateTime.now().add(const Duration(seconds: 15)),
+                        onExpired: () => session.decline(ride['id'] as String),
+                      ),
+                    ),
                     Padding(
                       padding: const EdgeInsets.all(12),
                       child: Row(
