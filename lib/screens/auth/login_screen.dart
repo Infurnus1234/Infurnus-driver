@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart' show kDebugMode;
+import 'package:flutter/foundation.dart' show kReleaseMode;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
@@ -361,7 +361,7 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
 
             // Debug Preview Dashboard Button (Directly below Send OTP)
-            if (kDebugMode) ...[
+            if (!kReleaseMode) ...[
               const SizedBox(height: 12),
               OutlinedButton.icon(
                 style: OutlinedButton.styleFrom(

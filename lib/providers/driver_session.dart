@@ -23,7 +23,7 @@ class DriverSession extends ChangeNotifier {
   bool isPreview = false;
 
   void enablePreview() {
-    if (kDebugMode) {
+    if (!kReleaseMode) {
       isPreview = true;
       profile ??= {
         'id': 'preview-driver-id',

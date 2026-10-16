@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart' show kDebugMode;
+import 'package:flutter/foundation.dart' show kReleaseMode;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
@@ -72,7 +72,7 @@ class _ProductionDriverScreenState extends State<ProductionDriverScreen> {
   @override
   Widget build(BuildContext context) {
     final session = context.watch<DriverSession>();
-    if (!session.authenticated && !(kDebugMode && session.isPreview)) {
+    if (!session.authenticated && !(!kReleaseMode && session.isPreview)) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (context.mounted) context.go(session.landingPath);
       });
