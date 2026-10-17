@@ -76,103 +76,43 @@ class _LoginScreenState extends State<LoginScreen> {
           // Background graphic & Car Fleet Banner matching user specifications
           Positioned.fill(
             child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Colors.black.withValues(alpha: 0.2), Colors.black.withValues(alpha: 0.85), Colors.black],
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
+              decoration: const BoxDecoration(
+                image: DecorationImage(
+                  image: AssetImage('assets/images/login_background.png'),
+                  fit: BoxFit.cover,
                 ),
               ),
-              child: SafeArea(
-                child: Column(
-                  children: [
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.arrow_back, color: Colors.white),
-                          onPressed: () {
-                            if (context.canPop()) {
-                              context.pop();
-                            } else {
-                              context.go('/welcome');
-                            }
-                          },
-                        ),
-                      ],
-                    ),
-                    const Spacer(),
-                    // Car Logistics Graphic Card
-                    Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 24),
-                      height: 140,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            InfurnusTheme.primaryGreen.withValues(alpha: 0.3),
-                            Colors.black87,
-                          ],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(18),
-                        border: Border.all(
-                          color: InfurnusTheme.primaryGreen.withValues(alpha: 0.5),
-                          width: 1.5,
-                        ),
-                      ),
-                      child: Stack(
-                        alignment: Alignment.center,
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Colors.black.withValues(alpha: 0.2), Colors.black.withValues(alpha: 0.85), Colors.black],
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                  ),
+                ),
+                child: SafeArea(
+                  child: Column(
+                    children: [
+                      const SizedBox(height: 12),
+                      Row(
                         children: [
-                          Positioned(
-                            right: -10,
-                            bottom: -10,
-                            child: Icon(
-                              Icons.electric_car_rounded,
-                              size: 110,
-                              color: InfurnusTheme.primaryGreen.withValues(alpha: 0.15),
-                            ),
-                          ),
-                          const Padding(
-                            padding: EdgeInsets.all(16.0),
-                            child: Row(
-                              children: [
-                                Icon(Icons.local_shipping_rounded, size: 40, color: InfurnusTheme.primaryGreen),
-                                SizedBox(width: 16),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Text(
-                                        'INDIA’S #1 FLEET & RIDE',
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      SizedBox(height: 4),
-                                      Text(
-                                        'Seamless OTP Login & Instant Dispatch',
-                                        style: TextStyle(
-                                          color: Colors.white70,
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
+                          IconButton(
+                            icon: const Icon(Icons.arrow_back, color: Colors.white),
+                            onPressed: () {
+                              if (context.canPop()) {
+                                context.pop();
+                              } else {
+                                context.go('/welcome');
+                              }
+                            },
                           ),
                         ],
                       ),
-                    ),
-                    const SizedBox(height: 24),
-                    const InfurnusLogo(iconSize: 42, fontSize: 24, showSubtitle: true),
-                    const SizedBox(height: 30),
-                  ],
+                      const Spacer(),
+                      const InfurnusLogo(iconSize: 42, fontSize: 24, showSubtitle: true),
+                      const SizedBox(height: 30),
+                    ],
+                  ),
                 ),
               ),
             ),

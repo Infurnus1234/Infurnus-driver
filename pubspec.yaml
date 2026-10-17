@@ -50,6 +50,7 @@ flutter:
 
   assets:
     - assets/images/infurnus_logo.png
+    - assets/images/login_background.png
 
 flutter_launcher_icons:
   image_path: "assets/images/infurnus_logo.png"
