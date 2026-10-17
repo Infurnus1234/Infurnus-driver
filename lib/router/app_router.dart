@@ -31,7 +31,7 @@ final appRouter = GoRouter(
   initialLocation: '/login',
   redirect: (context, state) {
     final session = context.read<DriverSession>(), path = state.uri.path;
-    if (!kReleaseMode && session.isPreview && path == '/driver/dashboard') {
+    if (!kReleaseMode && session.isPreview) {
       return null;
     }
     if (path == '/welcome' ||

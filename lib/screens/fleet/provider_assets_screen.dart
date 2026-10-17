@@ -242,9 +242,20 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
         trailing: IconButton(
           tooltip: doc == null ? 'Upload' : 'Replace / resubmit',
           icon: const Icon(Icons.upload_file),
-          onPressed: _assets!.busy || _assets!.partner == null
+          onPressed: _assets!.busy
               ? null
-              : () => _upload(rule, vehicleId: vehicleId),
+              : () {
+                  if (_assets!.partner == null) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Please create your provider/business profile first.'),
+                      ),
+                    );
+                    _business();
+                    return;
+                  }
+                  _upload(rule, vehicleId: vehicleId);
+                },
         ),
       ),
     );

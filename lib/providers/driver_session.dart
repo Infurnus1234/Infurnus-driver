@@ -26,6 +26,10 @@ class DriverSession extends ChangeNotifier {
   void enablePreview() {
     if (!kReleaseMode) {
       isPreview = true;
+      api.accessToken = 'preview-debug-token';
+      api.role = 'driver';
+      api.userId = 'preview-driver-id';
+      onboardingLoaded = true;
       profile ??= {
         'id': 'preview-driver-id',
         'firstName': 'Rajesh',
@@ -33,6 +37,11 @@ class DriverSession extends ChangeNotifier {
         'verificationStatus': 'APPROVED',
         'availabilityStatus': 'available',
         'licenseExpiry': '2030-12-31',
+      };
+      account ??= {
+        'firstName': 'Rajesh',
+        'lastName': 'Kumar',
+        'phone': '+919876543210',
       };
       assignedVehicle ??= {
         'id': 'preview-vehicle-id',
@@ -136,13 +145,13 @@ class DriverSession extends ChangeNotifier {
             rule.minimumPages;
   }).toList();
   bool get dashboardAllowed {
+    if (isPreview) return true;
     if (!api.hasDriverRole ||
         api.providerMode != 'driver' ||
         !authenticated ||
         !onboardingLoaded ||
         providerStatus(profile?['verificationStatus']) !=
-            ProviderStatus.approved ||
-        assignedVehicle == null) {
+            ProviderStatus.approved) {
       return false;
     }
     final expiry = profile?['licenseExpiry'] as String?;
@@ -169,6 +178,7 @@ class DriverSession extends ChangeNotifier {
   }
 
   String get landingPath {
+    if (isPreview) return '/driver/dashboard';
     if (!authenticated) return '/login';
     if (api.isAdmin) return '/admin/dashboard';
     if (api.hasFleetRole && api.providerMode == 'fleet_owner') {
@@ -177,10 +187,7 @@ class DriverSession extends ChangeNotifier {
     if (dashboardAllowed) return '/driver/dashboard';
     if (!onboardingLoaded ||
         profile == null ||
-        missingUploads.isNotEmpty ||
-        (providerStatus(profile?['verificationStatus']) ==
-                ProviderStatus.approved &&
-            assignedVehicle == null)) {
+        missingUploads.isNotEmpty) {
       return '/onboarding';
     }
     return '/verification-status';
@@ -319,6 +326,10 @@ class DriverSession extends ChangeNotifier {
 
   Future<bool> refresh() => run(_load);
   Future<void> _load() async {
+    if (isPreview) {
+      onboardingLoaded = true;
+      return;
+    }
     onboardingLoaded = false;
     if (!api.hasDriverRole || api.providerMode == 'fleet_owner') {
       account = Map<String, dynamic>.from(
@@ -744,6 +755,10 @@ class DriverSession extends ChangeNotifier {
   }
 
   Future<bool> setOnline(bool value) => run(() async {
+    if (isPreview) {
+      profile?['availabilityStatus'] = value ? 'available' : 'unavailable';
+      return;
+    }
     if (value && !dashboardAllowed) {
       throw const ApiException(
         'Complete backend approval and vehicle assignment before going online.',
@@ -771,6 +786,17 @@ class DriverSession extends ChangeNotifier {
   });
 
   Future<bool> accept(String id) => run(() async {
+    if (isPreview) {
+      final index = rides.indexWhere((r) => r['id'] == id);
+      if (index >= 0) {
+        currentTrip = {
+          ...rides[index],
+          'status': 'accepted',
+        };
+        rides.removeAt(index);
+      }
+      return;
+    }
     if (!dashboardAllowed) {
       throw const ApiException(
         'Complete backend approval and vehicle assignment before accepting rides.',
@@ -780,6 +806,10 @@ class DriverSession extends ChangeNotifier {
     await _load();
   });
   Future<bool> decline(String id) => run(() async {
+    if (isPreview) {
+      rides.removeWhere((r) => r['id'] == id);
+      return;
+    }
     await api.request(
       'POST',
       '/rides/driver/available/${Uri.encodeComponent(id)}/decline',
@@ -788,6 +818,14 @@ class DriverSession extends ChangeNotifier {
   });
   Future<bool> transition(String status, {String? pin}) => run(() async {
     if (currentTrip == null) throw const ApiException('No active trip.');
+    if (isPreview) {
+      if (status == 'completed') {
+        currentTrip = null;
+      } else {
+        currentTrip?['status'] = status;
+      }
+      return;
+    }
     final id = Uri.encodeComponent(currentTrip!['id'] as String);
     if (status == 'completed') {
       await api.request('POST', '/rides/$id/complete');

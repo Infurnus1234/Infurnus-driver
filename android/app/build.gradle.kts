@@ -13,22 +13,25 @@ if (gradle.startParameter.taskNames.any { it.contains("release", ignoreCase = tr
 
 plugins {
     id("com.android.application")
+    id("com.google.gms.google-services")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
 
-val googleProperties = Properties()
-val googlePropertiesFile = rootProject.file("local.properties")
-if (googlePropertiesFile.exists()) googlePropertiesFile.inputStream().use { googleProperties.load(it) }
-val googleWebClientId = googleProperties.getProperty("GOOGLE_WEB_CLIENT_ID")
+val localProperties = Properties()
+val localPropertiesFile = rootProject.file("local.properties")
+if (localPropertiesFile.exists()) {
+    localPropertiesFile.inputStream().use { localProperties.load(it) }
+}
+val googleWebClientId = localProperties.getProperty("GOOGLE_WEB_CLIENT_ID")
     ?: (project.findProperty("GOOGLE_WEB_CLIENT_ID") as? String)
     ?: System.getenv("GOOGLE_WEB_CLIENT_ID")
     ?: ""
 
 android {
     namespace = "com.infurnus.driver.infurnus_driver"
-    compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
+    compileSdk = 37
+    ndkVersion = "30.0.16248370"
 
     signingConfigs {
         create("release") {
@@ -42,6 +45,7 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        isCoreLibraryDesugaringEnabled = true
     }
 
     defaultConfig {
@@ -75,4 +79,8 @@ kotlin {
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 }

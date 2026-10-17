@@ -1,3 +1,4 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -7,8 +8,13 @@ import 'router/app_router.dart';
 import 'core/theme.dart';
 import 'services/startup_permissions.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  try {
+    await Firebase.initializeApp();
+  } catch (e) {
+    debugPrint('Firebase main initialization info: $e');
+  }
   runApp(
     MultiProvider(
       providers: [

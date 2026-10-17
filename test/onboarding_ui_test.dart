@@ -213,10 +213,10 @@ void main() {
       expect(find.text('Files'), findsOneWidget);
       await tester.tap(find.text('Cancel'));
       await tester.pumpAndSettle();
-      await tester.ensureVisible(find.text('Vehicle documents'));
-      await tester.tap(find.text('Vehicle documents'));
+      await tester.ensureVisible(find.text('Review & submit'));
+      await tester.tap(find.text('Review & submit'));
       await tester.pumpAndSettle();
-      expect(find.text('Manage owned vehicle documents'), findsOneWidget);
+      expect(find.textContaining('Driver profile:'), findsOneWidget);
       await tester.pumpWidget(const SizedBox());
       session.dispose();
     },

@@ -177,7 +177,6 @@ class _LocationSearchWidgetState extends State<LocationSearchWidget> {
           constraints: const BoxConstraints(maxHeight: 220),
           child: Container(
             decoration: BoxDecoration(
-              color: Colors.white,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: const Color(0xFFE2E8F0)),
             ),

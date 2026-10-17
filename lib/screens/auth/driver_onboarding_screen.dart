@@ -17,10 +17,6 @@ class _DriverOnboardingScreenState extends State<DriverOnboardingScreen> {
   final _fields = <String, TextEditingController>{};
   final _firstName = TextEditingController();
   final _lastName = TextEditingController();
-  final _code = TextEditingController();
-  final _partner = TextEditingController();
-  final _category = TextEditingController();
-  String _sector = 'passenger';
   int _step = 0;
   bool _initialized = false;
   static const _labels = {
@@ -44,9 +40,6 @@ class _DriverOnboardingScreenState extends State<DriverOnboardingScreen> {
     }
     _firstName.dispose();
     _lastName.dispose();
-    _code.dispose();
-    _partner.dispose();
-    _category.dispose();
     super.dispose();
   }
 
@@ -57,14 +50,12 @@ class _DriverOnboardingScreenState extends State<DriverOnboardingScreen> {
     for (final code in [
       'profile_photo',
       'driver_license',
-      'vehicle_rc',
       'identity',
       'pan',
       'other',
     ]) {
       all.putIfAbsent(code, () => DocumentRule(code));
     }
-    // Keep correction available when a previously uploaded document's policy is removed.
     for (final document in session.documents) {
       final code =
           (document['documentMetadata'] as Map?)?['documentCode'] ??
@@ -79,10 +70,8 @@ class _DriverOnboardingScreenState extends State<DriverOnboardingScreen> {
         .toList();
     return Column(
       children: [
-        Text(
-          vehicle
-              ? 'Vehicle documents are determined by the assigned or previewed vehicle category.'
-              : 'Required documents come from the production document policy. Other supported documents are optional.',
+        const Text(
+          'Required documents come from the production document policy. Other supported documents are optional.',
         ),
         for (final rule in shown)
           Card(
@@ -104,13 +93,6 @@ class _DriverOnboardingScreenState extends State<DriverOnboardingScreen> {
                             DocumentUploadDialog(session: session, rule: rule),
                       ),
               ),
-            ),
-          ),
-        if (shown.isEmpty)
-          const Padding(
-            padding: EdgeInsets.all(16),
-            child: Text(
-              'No vehicle document requirements are configured for this category.',
             ),
           ),
       ],
@@ -140,46 +122,18 @@ class _DriverOnboardingScreenState extends State<DriverOnboardingScreen> {
           ? 1
           : session.missingUploads.isNotEmpty
           ? 2
-          : session.assignedVehicle == null
-          ? 3
-          : 5;
+          : 3;
       _initialized = true;
     }
     return Scaffold(
       appBar: AppBar(
         title: const Text('Driver onboarding'),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(48),
-          child: Row(
-            children: [
-              TextButton(
-                onPressed: session.busy
-                    ? null
-                    : () => context.go('/provider-assets'),
-                child: const Text('Owned vehicle / provider profile'),
-              ),
-              if (session.api.hasFleetRole)
-                TextButton(
-                  onPressed: session.busy
-                      ? null
-                      : () async {
-                          final ok = await session.switchMode('fleet_owner');
-                          if (context.mounted && ok) {
-                            context.go(session.landingPath);
-                          }
-                        },
-                  child: const Text('Fleet mode'),
-                ),
-            ],
-          ),
-        ),
         actions: [
           IconButton(
             tooltip: 'Support tickets',
             icon: const Icon(Icons.support_agent),
             onPressed: () => context.push('/support-tickets'),
           ),
-
           IconButton(
             tooltip: 'Sign out',
             icon: const Icon(Icons.logout),
@@ -243,7 +197,7 @@ class _DriverOnboardingScreenState extends State<DriverOnboardingScreen> {
                             });
                             if (!ok || !mounted) return;
                           }
-                          if (_step == 5) {
+                          if (_step == 3) {
                             final ok = await session.submitOnboarding();
                             if (ok && context.mounted) {
                               context.go('/verification-status');
@@ -260,7 +214,7 @@ class _DriverOnboardingScreenState extends State<DriverOnboardingScreen> {
                       FilledButton(
                         onPressed: details.onStepContinue,
                         child: Text(
-                          _step == 5
+                          _step == 3
                               ? 'Submit for verification'
                               : _step == 1
                               ? 'Save & continue'
@@ -327,107 +281,6 @@ class _DriverOnboardingScreenState extends State<DriverOnboardingScreen> {
                       content: _documents(session, false),
                     ),
                     Step(
-                      title: const Text('Vehicle association'),
-                      content: Column(
-                        children: [
-                          if (session.assignedVehicle != null)
-                            Text(
-                              'Assigned vehicle: ${session.assignedVehicle!['plateNumber']} • ${session.assignedVehicle!['make']} ${session.assignedVehicle!['model']}',
-                            ),
-                          const Text(
-                            'Your fleet manages vehicle registration and approval. Driver approval and active fleet membership are required before claiming an assignment.',
-                          ),
-                          TextField(
-                            controller: _code,
-                            maxLength: 20,
-                            decoration: const InputDecoration(
-                              labelText: 'Fleet assignment code',
-                            ),
-                          ),
-                          TextButton(
-                            onPressed: session.busy
-                                ? null
-                                : () => session.previewAssignment(_code.text),
-                            child: const Text(
-                              'Check vehicle & document policy',
-                            ),
-                          ),
-                          if (session.assignmentPreview != null)
-                            Text(
-                              'Vehicle: ${session.assignmentPreview!['vehicle']['plateNumber']} • ${session.assignmentPreview!['vehicle']['category']}',
-                            ),
-                          FilledButton(
-                            onPressed:
-                                session.busy ||
-                                    session.profile?['verificationStatus'] !=
-                                        'approved' ||
-                                    session.assignmentPreview == null
-                                ? null
-                                : () => session.claimAssignment(_code.text),
-                            child: const Text('Claim approved assignment'),
-                          ),
-                          const Divider(),
-                          const Text(
-                            'Apply to a fleet using the partner reference supplied by that fleet. This is separate from the vehicle assignment code.',
-                          ),
-                          TextField(
-                            controller: _partner,
-                            decoration: const InputDecoration(
-                              labelText: 'Fleet partner reference (UUID)',
-                            ),
-                          ),
-                          DropdownButton<String>(
-                            value: _sector,
-                            isExpanded: true,
-                            items: [
-                              for (final v in [
-                                'passenger',
-                                'logistics',
-                                'service',
-                                'premium',
-                                'rental',
-                              ])
-                                DropdownMenuItem(value: v, child: Text(v)),
-                            ],
-                            onChanged: session.busy
-                                ? null
-                                : (v) => setState(() => _sector = v!),
-                          ),
-                          TextField(
-                            controller: _category,
-                            decoration: const InputDecoration(
-                              labelText: 'Requested vehicle category supplied by fleet',
-                            ),
-                          ),
-                          TextButton(
-                            onPressed: session.busy || session.profile == null
-                                ? null
-                                : () => session.applyToFleet({
-                                    'partnerId': _partner.text.trim(),
-                                    'requestedSector': _sector,
-                                    'requestedVehicleCategory': _category.text
-                                        .trim(),
-                                  }),
-                            child: const Text('Submit fleet application'),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Step(
-                      title: const Text('Vehicle documents'),
-                      content: Column(
-                        children: [
-                          const Text(
-                            'Owned vehicle documents must be associated with the vehicle and provider profile. Fleet-owned documents are managed by the Fleet Owner.',
-                          ),
-                          TextButton(
-                            onPressed: () => context.go('/provider-assets'),
-                            child: const Text('Manage owned vehicle documents'),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Step(
                       title: const Text('Review & submit'),
                       content: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -442,7 +295,7 @@ class _DriverOnboardingScreenState extends State<DriverOnboardingScreen> {
                             'Missing required uploads: ${session.missingUploads.isEmpty ? 'None' : session.missingUploads.map((r) => r.label).join(', ')}',
                           ),
                           const Text(
-                            'Submission requests backend review. It does not approve your profile or documents. You can submit driver verification before vehicle assignment.',
+                            'Submission requests backend review for your driver profile and documents.',
                           ),
                         ],
                       ),

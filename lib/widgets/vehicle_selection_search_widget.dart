@@ -202,7 +202,6 @@ class _VehicleSelectionSearchWidgetState
           constraints: const BoxConstraints(maxHeight: 240),
           child: Container(
             decoration: BoxDecoration(
-              color: Colors.white,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: const Color(0xFFE2E8F0)),
             ),

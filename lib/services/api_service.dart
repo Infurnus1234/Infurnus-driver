@@ -46,11 +46,10 @@ class ApiService {
   bool get hasFleetRole => ['fleet_owner', 'driver_fleet_owner'].contains(role);
   bool get isAdmin => ['admin', 'super_admin'].contains(role);
   final Map<String, String> _cookies = {};
-  String? _authToken;
+  String? accessToken;
   String? _csrfToken;
   String? userId;
   Future<void>? _refreshing;
-  String? get accessToken => _authToken;
   ApiService({http.Client? client, SessionStore? store})
     : _client = client ?? http.Client(),
       _store =
@@ -58,10 +57,10 @@ class ApiService {
           (client == null ? SecureSessionStore() : MemorySessionStore());
 
   Future<void> _saveSession() {
-    final value = _authToken == null
+    final value = accessToken == null
         ? null
         : jsonEncode({
-            'accessToken': _authToken,
+            'accessToken': accessToken,
             'csrfToken': _csrfToken,
             'userId': userId,
             'cookies': _cookies,
@@ -80,7 +79,7 @@ class ApiService {
     if (saved == null) return false;
     try {
       final data = jsonDecode(saved) as Map<String, dynamic>;
-      _authToken = data['accessToken'] as String;
+      accessToken = data['accessToken'] as String;
       _csrfToken = data['csrfToken'] as String?;
       userId = data['userId'] as String;
       role = data['role'] as String;
@@ -101,7 +100,7 @@ class ApiService {
   }
 
   void clearSession({bool persist = true}) {
-    _authToken = null;
+    accessToken = null;
     userId = null;
     _csrfToken = null;
     _cookies.clear();
@@ -146,7 +145,7 @@ class ApiService {
       'Accept': 'application/json',
       'Content-Type': ?(files == null ? 'application/json' : null),
       'X-Provider-Mode': providerMode,
-      'Authorization': ?(_authToken == null ? null : 'Bearer $_authToken'),
+      'Authorization': ?(accessToken == null ? null : 'Bearer $accessToken'),
       'X-CSRF-Token': ?_csrfToken,
       if (_cookies.isNotEmpty)
         'Cookie': _cookies.entries.map((e) => '${e.key}=${e.value}').join('; '),
@@ -176,7 +175,7 @@ class ApiService {
     }
     if (response.statusCode == 401 &&
         retry &&
-        _authToken != null &&
+        accessToken != null &&
         !path.startsWith('/auth/')) {
       try {
         await (_refreshing ??= _refresh());
@@ -218,7 +217,7 @@ class ApiService {
           error is Map &&
           error['code'] == 'INVALID_GOOGLE_TOKEN';
       if (response.statusCode == 401 &&
-          _authToken != null &&
+          accessToken != null &&
           !invalidLinkIdentity) {
         clearSession();
       }
@@ -276,7 +275,8 @@ class ApiService {
   Future<void> _refresh() async {
     try {
       final data = await request('POST', '/auth/refresh', retry: false);
-      _authToken = data['accessToken'] as String;
+      accessToken = data['accessToken'] as String;
+      _csrfToken = data['csrfToken'] as String? ?? _csrfToken;
       await _saveSession();
     } on ApiException catch (e) {
       if (e.status == 401 || e.status == 403) clearSession();
@@ -357,7 +357,8 @@ class ApiService {
         'Authentication did not return an access token.',
       );
     }
-    _authToken = token;
+    accessToken = token;
+    _csrfToken = data['csrfToken'] as String? ?? _csrfToken;
     userId = data['userId'] as String?;
     try {
       final parts = token.split('.');
