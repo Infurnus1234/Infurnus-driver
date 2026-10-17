@@ -6,7 +6,6 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../providers/driver_session.dart';
 import '../../widgets/google_sign_in_button.dart';
-import '../../widgets/infurnus_logo.dart';
 import '../../core/theme.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -57,7 +56,6 @@ class _LoginScreenState extends State<LoginScreen> {
         ? '+91$rawInput'
         : rawInput;
 
-    // Passwordless OTP login request
     final success = await session.login(fullIdentifier, 'InfurnusOTPLogin@123');
     if (!mounted) return;
     if (success) {
@@ -70,42 +68,51 @@ class _LoginScreenState extends State<LoginScreen> {
     final session = context.watch<DriverSession>();
 
     return Scaffold(
-      backgroundColor: const Color(0xFF021B0E),
+      backgroundColor: Colors.black,
       body: Stack(
         children: [
-          // Custom Green Road Header Background
+          // Top Poster Artwork Background (No extra logo widget)
           Positioned(
             top: 0,
             left: 0,
             right: 0,
-            height: MediaQuery.of(context).size.height * 0.38,
+            height: MediaQuery.of(context).size.height * 0.42,
             child: Stack(
               children: [
                 Positioned.fill(
-                  child: CustomPaint(
-                    painter: _GreenRoadPainter(),
+                  child: Image.asset(
+                    'assets/images/login_background.png',
+                    fit: BoxFit.cover,
+                    alignment: Alignment.topCenter,
+                  ),
+                ),
+                Positioned.fill(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          Colors.black.withValues(alpha: 0.15),
+                          Colors.black.withValues(alpha: 0.5),
+                        ],
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                      ),
+                    ),
                   ),
                 ),
                 SafeArea(
-                  child: Column(
+                  child: Row(
                     children: [
-                      Row(
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.arrow_back, color: Colors.white),
-                            onPressed: () {
-                              if (context.canPop()) {
-                                context.pop();
-                              } else {
-                                context.go('/welcome');
-                              }
-                            },
-                          ),
-                        ],
+                      IconButton(
+                        icon: const Icon(Icons.arrow_back, color: Colors.white),
+                        onPressed: () {
+                          if (context.canPop()) {
+                            context.pop();
+                          } else {
+                            context.go('/welcome');
+                          }
+                        },
                       ),
-                      const Spacer(),
-                      const InfurnusLogo(iconSize: 52, fontSize: 24, showSubtitle: true),
-                      const SizedBox(height: 16),
                     ],
                   ),
                 ),
@@ -128,7 +135,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ],
               ),
-              padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
+              padding: const EdgeInsets.fromLTRB(24, 26, 24, 20),
               child: SafeArea(
                 top: false,
                 child: SingleChildScrollView(
@@ -148,7 +155,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       const SizedBox(height: 20),
 
-                      // Phone / Email Input Container
+                      // Phone or Email Input Container
                       if (!_useEmail)
                         Container(
                           decoration: BoxDecoration(
@@ -214,7 +221,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                       const SizedBox(height: 12),
 
-                      // Remember Login Checkbox
+                      // Remember my login checkbox
                       Row(
                         children: [
                           SizedBox(
@@ -339,7 +346,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       const Divider(color: Color(0xFFE2E8F0)),
                       const SizedBox(height: 10),
 
-                      // Google Sign In Button
+                      // Google Sign In & Create Account
                       GoogleSignInButton(
                         label: 'Sign in with Google',
                         enabled: !session.busy,
@@ -366,7 +373,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                       const SizedBox(height: 10),
 
-                      // Footer text
+                      // Terms & Privacy footer
                       Text(
                         'By continuing, you agree to our Terms of Service, Privacy Policy & Content Policy',
                         textAlign: TextAlign.center,
@@ -386,65 +393,4 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
     );
   }
-}
-
-/// Custom Painter drawing dark green neon road graphics matching reference mockup
-class _GreenRoadPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final rect = Rect.fromLTWH(0, 0, size.width, size.height);
-    final bgGradient = LinearGradient(
-      colors: [
-        const Color(0xFF021B0E),
-        const Color(0xFF032B17),
-        const Color(0xFF01140A),
-      ],
-      begin: Alignment.topCenter,
-      end: Alignment.bottomCenter,
-    );
-    canvas.drawRect(rect, Paint()..shader = bgGradient.createShader(rect));
-
-    final roadPaint = Paint()
-      ..color = const Color(0xFF10B981).withValues(alpha: 0.35)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 22;
-
-    final roadPath = Path()
-      ..moveTo(size.width * 0.2, 0)
-      ..quadraticBezierTo(
-        size.width * 0.8,
-        size.height * 0.4,
-        size.width * 0.95,
-        size.height,
-      );
-
-    canvas.drawPath(roadPath, roadPaint);
-
-    final glowPaint = Paint()
-      ..color = const Color(0xFF39FF14).withValues(alpha: 0.6)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 4;
-
-    canvas.drawPath(roadPath, glowPaint);
-
-    // Dashed road center markings
-    final dashPaint = Paint()
-      ..color = Colors.white70
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3;
-
-    final dashPath = Path()
-      ..moveTo(size.width * 0.2, 0)
-      ..quadraticBezierTo(
-        size.width * 0.8,
-        size.height * 0.4,
-        size.width * 0.95,
-        size.height,
-      );
-
-    canvas.drawPath(dashPath, dashPaint);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
