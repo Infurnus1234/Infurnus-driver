@@ -57,7 +57,7 @@ class _LoginScreenState extends State<LoginScreen> {
         ? '+91$rawInput'
         : rawInput;
 
-    // Passwordless OTP login request using backend default authentication challenge
+    // Passwordless OTP login request
     final success = await session.login(fullIdentifier, 'InfurnusOTPLogin@123');
     if (!mounted) return;
     if (success) {
@@ -70,30 +70,25 @@ class _LoginScreenState extends State<LoginScreen> {
     final session = context.watch<DriverSession>();
 
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: const Color(0xFF021B0E),
       body: Stack(
         children: [
-          // Background graphic & Car Fleet Banner matching user specifications
-          Positioned.fill(
-            child: Container(
-              decoration: const BoxDecoration(
-                image: DecorationImage(
-                  image: AssetImage('assets/images/login_background.png'),
-                  fit: BoxFit.cover,
-                ),
-              ),
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Colors.black.withValues(alpha: 0.2), Colors.black.withValues(alpha: 0.85), Colors.black],
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
+          // Custom Green Road Header Background
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: MediaQuery.of(context).size.height * 0.38,
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: CustomPaint(
+                    painter: _GreenRoadPainter(),
                   ),
                 ),
-                child: SafeArea(
+                SafeArea(
                   child: Column(
                     children: [
-                      const SizedBox(height: 12),
                       Row(
                         children: [
                           IconButton(
@@ -109,24 +104,31 @@ class _LoginScreenState extends State<LoginScreen> {
                         ],
                       ),
                       const Spacer(),
-                      const InfurnusLogo(iconSize: 42, fontSize: 24, showSubtitle: true),
-                      const SizedBox(height: 30),
+                      const InfurnusLogo(iconSize: 52, fontSize: 24, showSubtitle: true),
+                      const SizedBox(height: 16),
                     ],
                   ),
                 ),
-              ),
+              ],
             ),
           ),
 
-          // Bottom Sheet / Card overlay matching Zomato's design in user screenshot
+          // Single Clean White Bottom Sheet
           Align(
             alignment: Alignment.bottomCenter,
             child: Container(
               decoration: const BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black26,
+                    blurRadius: 16,
+                    offset: Offset(0, -4),
+                  ),
+                ],
               ),
-              padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
+              padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
               child: SafeArea(
                 top: false,
                 child: SingleChildScrollView(
@@ -146,7 +148,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       const SizedBox(height: 20),
 
-                      // Phone or Email Input Container
+                      // Phone / Email Input Container
                       if (!_useEmail)
                         Container(
                           decoration: BoxDecoration(
@@ -212,7 +214,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                       const SizedBox(height: 12),
 
-                      // Remember my login checkbox
+                      // Remember Login Checkbox
                       Row(
                         children: [
                           SizedBox(
@@ -273,7 +275,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                       const SizedBox(height: 12),
 
-                      // Primary Continue Button (Black button as requested)
+                      // Primary Continue Button
                       ElevatedButton(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: InfurnusTheme.buttonBlack,
@@ -288,38 +290,56 @@ class _LoginScreenState extends State<LoginScreen> {
                                 width: 20,
                                 child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                               )
-                            : Text(
-                                'Continue',
-                                style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.bold),
+                            : Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    'Continue',
+                                    style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.bold),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  const Icon(Icons.arrow_forward, size: 18),
+                                ],
                               ),
                       ),
 
                       // Debug Preview Dashboard Button
                       if (!kReleaseMode) ...[
                         const SizedBox(height: 10),
-                        OutlinedButton.icon(
+                        OutlinedButton(
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.orange.shade800,
-                            side: BorderSide(color: Colors.orange.shade800, width: 1.5),
+                            foregroundColor: InfurnusTheme.primaryGreen,
+                            side: const BorderSide(color: InfurnusTheme.primaryGreen, width: 1.5),
                             minimumSize: const Size.fromHeight(44),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                           ),
-                          icon: const Icon(Icons.bug_report, size: 18),
-                          label: const Text('🐛 Preview Dashboard (Testing Only)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                           onPressed: session.busy
                               ? null
                               : () {
                                   session.enablePreview();
                                   context.go('/driver/dashboard');
                                 },
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.bug_report, size: 18, color: InfurnusTheme.primaryGreen),
+                              const SizedBox(width: 6),
+                              const Icon(Icons.phone, size: 16, color: InfurnusTheme.primaryGreen),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Preview Dashboard (Testing Only)',
+                                style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 12, color: InfurnusTheme.textDark),
+                              ),
+                            ],
+                          ),
                         ),
                       ],
 
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 14),
                       const Divider(color: Color(0xFFE2E8F0)),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 10),
 
-                      // Google Sign In & Create Account
+                      // Google Sign In Button
                       GoogleSignInButton(
                         label: 'Sign in with Google',
                         enabled: !session.busy,
@@ -331,7 +351,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         },
                       ),
 
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 8),
                       TextButton(
                         onPressed: session.busy ? null : () => context.go('/register'),
                         child: Text(
@@ -344,9 +364,9 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ),
 
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 10),
 
-                      // Terms, Privacy & Content Policy Footer matching user mockup
+                      // Footer text
                       Text(
                         'By continuing, you agree to our Terms of Service, Privacy Policy & Content Policy',
                         textAlign: TextAlign.center,
@@ -366,4 +386,65 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
     );
   }
+}
+
+/// Custom Painter drawing dark green neon road graphics matching reference mockup
+class _GreenRoadPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Rect.fromLTWH(0, 0, size.width, size.height);
+    final bgGradient = LinearGradient(
+      colors: [
+        const Color(0xFF021B0E),
+        const Color(0xFF032B17),
+        const Color(0xFF01140A),
+      ],
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+    );
+    canvas.drawRect(rect, Paint()..shader = bgGradient.createShader(rect));
+
+    final roadPaint = Paint()
+      ..color = const Color(0xFF10B981).withValues(alpha: 0.35)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 22;
+
+    final roadPath = Path()
+      ..moveTo(size.width * 0.2, 0)
+      ..quadraticBezierTo(
+        size.width * 0.8,
+        size.height * 0.4,
+        size.width * 0.95,
+        size.height,
+      );
+
+    canvas.drawPath(roadPath, roadPaint);
+
+    final glowPaint = Paint()
+      ..color = const Color(0xFF39FF14).withValues(alpha: 0.6)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 4;
+
+    canvas.drawPath(roadPath, glowPaint);
+
+    // Dashed road center markings
+    final dashPaint = Paint()
+      ..color = Colors.white70
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3;
+
+    final dashPath = Path()
+      ..moveTo(size.width * 0.2, 0)
+      ..quadraticBezierTo(
+        size.width * 0.8,
+        size.height * 0.4,
+        size.width * 0.95,
+        size.height,
+      );
+
+    canvas.drawPath(dashPath, dashPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
