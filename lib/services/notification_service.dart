@@ -51,12 +51,10 @@ class DriverNotificationService {
         
         final fcmToken = await messaging.getToken();
         if (fcmToken != null) {
-          debugPrint('Driver FCM Token: $fcmToken');
           await registerDeviceToken(fcmToken);
         }
 
         messaging.onTokenRefresh.listen((newToken) {
-          debugPrint('Driver FCM Token refreshed: $newToken');
           registerDeviceToken(newToken);
         });
 
