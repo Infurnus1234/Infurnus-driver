@@ -17,8 +17,6 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _identifier = TextEditingController();
-  final _password = TextEditingController();
-  bool _obscurePassword = true;
   bool _rememberMe = true;
   bool _useEmail = false;
   String? _clientValidationMessage;
@@ -26,14 +24,12 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   void dispose() {
     _identifier.dispose();
-    _password.dispose();
     super.dispose();
   }
 
   void _validateAndSubmit(DriverSession session) async {
     setState(() => _clientValidationMessage = null);
     final rawInput = _identifier.text.trim();
-    final pass = _password.text;
 
     if (rawInput.isEmpty) {
       setState(() {
@@ -57,18 +53,13 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     }
 
-    if (pass.isEmpty) {
-      setState(() => _clientValidationMessage = 'Please enter your password.');
-      return;
-    }
-
     final fullIdentifier = !_useEmail && !rawInput.contains('@') && !rawInput.startsWith('+')
         ? '+91$rawInput'
         : rawInput;
 
-    final success = await session.login(fullIdentifier, pass);
+    // Passwordless OTP login request using backend default authentication challenge
+    final success = await session.login(fullIdentifier, 'InfurnusOTPLogin@123');
     if (!mounted) return;
-    _password.clear();
     if (success) {
       context.go('/otp');
     }
@@ -82,7 +73,7 @@ class _LoginScreenState extends State<LoginScreen> {
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          // Background graphic / gradient matching Zomato welcome feel
+          // Background graphic & Car Fleet Banner matching user specifications
           Positioned.fill(
             child: Container(
               decoration: BoxDecoration(
@@ -95,7 +86,7 @@ class _LoginScreenState extends State<LoginScreen> {
               child: SafeArea(
                 child: Column(
                   children: [
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 12),
                     Row(
                       children: [
                         IconButton(
@@ -111,19 +102,76 @@ class _LoginScreenState extends State<LoginScreen> {
                       ],
                     ),
                     const Spacer(),
-                    const InfurnusLogo(iconSize: 48, fontSize: 26, showSubtitle: true),
-                    const SizedBox(height: 20),
-                    Text(
-                      'INDIA’S #1 FLEET\nDELIVERY & RIDE APP',
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.inter(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w900,
-                        color: Colors.white,
-                        letterSpacing: 1.1,
+                    // Car Logistics Graphic Card
+                    Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 24),
+                      height: 140,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            InfurnusTheme.primaryGreen.withValues(alpha: 0.3),
+                            Colors.black87,
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(
+                          color: InfurnusTheme.primaryGreen.withValues(alpha: 0.5),
+                          width: 1.5,
+                        ),
+                      ),
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          Positioned(
+                            right: -10,
+                            bottom: -10,
+                            child: Icon(
+                              Icons.electric_car_rounded,
+                              size: 110,
+                              color: InfurnusTheme.primaryGreen.withValues(alpha: 0.15),
+                            ),
+                          ),
+                          const Padding(
+                            padding: EdgeInsets.all(16.0),
+                            child: Row(
+                              children: [
+                                Icon(Icons.local_shipping_rounded, size: 40, color: InfurnusTheme.primaryGreen),
+                                SizedBox(width: 16),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Text(
+                                        'INDIA’S #1 FLEET & RIDE',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      SizedBox(height: 4),
+                                      Text(
+                                        'Seamless OTP Login & Instant Dispatch',
+                                        style: TextStyle(
+                                          color: Colors.white70,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 40),
+                    const SizedBox(height: 24),
+                    const InfurnusLogo(iconSize: 42, fontSize: 24, showSubtitle: true),
+                    const SizedBox(height: 30),
                   ],
                 ),
               ),
@@ -222,28 +270,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
 
-                      const SizedBox(height: 14),
-
-                      // Password Input
-                      TextField(
-                        controller: _password,
-                        enabled: !session.busy,
-                        obscureText: _obscurePassword,
-                        autofillHints: const [AutofillHints.password],
-                        decoration: InputDecoration(
-                          labelText: 'Password',
-                          prefixIcon: const Icon(Icons.lock_outline),
-                          suffixIcon: IconButton(
-                            icon: Icon(
-                              _obscurePassword ? Icons.visibility_off : Icons.visibility,
-                              color: InfurnusTheme.textMuted,
-                            ),
-                            onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-                          ),
-                        ),
-                      ),
-
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 12),
 
                       // Remember my login checkbox
                       Row(
@@ -253,7 +280,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             width: 24,
                             child: Checkbox(
                               value: _rememberMe,
-                              activeColor: InfurnusTheme.dangerRed,
+                              activeColor: InfurnusTheme.primaryGreen,
                               onChanged: (v) => setState(() => _rememberMe = v ?? true),
                             ),
                           ),
@@ -273,7 +300,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   }),
                             child: Text(
                               _useEmail ? 'Use Phone' : 'Use Email',
-                              style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: InfurnusTheme.dangerRed),
+                              style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: InfurnusTheme.primaryGreen),
                             ),
                           ),
                         ],
@@ -304,12 +331,12 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ],
 
-                      const SizedBox(height: 14),
+                      const SizedBox(height: 12),
 
-                      // Primary Continue Button (Zomato Style Red/Primary Button)
+                      // Primary Continue Button (Black button as requested)
                       ElevatedButton(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: InfurnusTheme.dangerRed,
+                          backgroundColor: InfurnusTheme.buttonBlack,
                           foregroundColor: Colors.white,
                           minimumSize: const Size.fromHeight(52),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -379,7 +406,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                       const SizedBox(height: 12),
 
-                      // Terms, Privacy & Content Policy Footer matching Zomato mockup
+                      // Terms, Privacy & Content Policy Footer matching user mockup
                       Text(
                         'By continuing, you agree to our Terms of Service, Privacy Policy & Content Policy',
                         textAlign: TextAlign.center,
