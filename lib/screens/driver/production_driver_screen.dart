@@ -6,30 +6,15 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../providers/driver_session.dart';
-import '../../services/api_service.dart';
 import '../../widgets/driver_bottom_nav.dart';
 import '../../widgets/waiting_timer_widget.dart';
 import '../../widgets/dispatch_countdown_widget.dart';
 import '../../core/theme.dart';
 
-class ProductionDriverScreen extends StatefulWidget {
+class ProductionDriverScreen extends StatelessWidget {
   const ProductionDriverScreen({super.key});
-  @override
-  State<ProductionDriverScreen> createState() => _ProductionDriverScreenState();
-}
 
-class _ProductionDriverScreenState extends State<ProductionDriverScreen> {
-  final _search = TextEditingController();
-  List<Map<String, dynamic>> _places = [];
-  Map<String, dynamic>? _route;
-
-  @override
-  void dispose() {
-    _search.dispose();
-    super.dispose();
-  }
-
-  Future<void> _next(DriverSession session, String status) async {
+  Future<void> _next(BuildContext context, DriverSession session, String status) async {
     if (session.isPreview) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Action simulated in test preview mode.')),
@@ -70,7 +55,6 @@ class _ProductionDriverScreenState extends State<ProductionDriverScreen> {
       if (pin == null) return;
     }
     await session.transition(status, pin: pin);
-    if (mounted) setState(() => _route = null);
   }
 
   @override
@@ -230,7 +214,7 @@ class _ProductionDriverScreenState extends State<ProductionDriverScreen> {
                   ),
                   Switch.adaptive(
                     value: session.online,
-                    activeColor: Colors.white,
+                    activeThumbColor: Colors.white,
                     activeTrackColor: InfurnusTheme.greenDark,
                     onChanged: session.busy ? null : (v) => session.setOnline(v),
                   ),
@@ -425,7 +409,7 @@ class _ProductionDriverScreenState extends State<ProductionDriverScreen> {
                                 minimumSize: const Size.fromHeight(50),
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                               ),
-                              onPressed: session.busy ? null : () => _next(session, next),
+                              onPressed: session.busy ? null : () => _next(context, session, next),
                               child: Text(
                                 actionLabel[next]!,
                                 style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.bold),

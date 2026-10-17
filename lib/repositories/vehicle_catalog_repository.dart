@@ -2,18 +2,22 @@ import 'dart:async';
 import '../models/vehicle_catalog_model.dart';
 
 class VehicleCatalogRepository {
-  // Comprehensive Vehicle Catalog Database updated with Passenger, Trip, Logistic, and Premium vehicles
+  // Comprehensive Vehicle Catalog Database updated with Auto Rickshaw, E-Rickshaw, Passenger, Trip, Logistic, and Premium vehicles
   static const List<VehicleCatalogItem> _catalog = [
-    // Passenger
+    // Auto Rickshaw & 3-Wheeler / E-Rickshaw
+    VehicleCatalogItem(id: 'CAT-AUTO-1', brand: 'Bajaj', modelName: 'Compact Auto (CNG)', category: 'Auto Rickshaw', fuelType: 'CNG', payloadCapacity: '350 kg'),
+    VehicleCatalogItem(id: 'CAT-AUTO-2', brand: 'Mahindra', modelName: 'Treo Electric Auto', category: 'Auto Rickshaw', fuelType: 'Electric', payloadCapacity: '400 kg'),
+    VehicleCatalogItem(id: 'CAT-AUTO-3', brand: 'Piaggio', modelName: 'Ape City (LPG/CNG)', category: 'Auto Rickshaw', fuelType: 'LPG/CNG', payloadCapacity: '380 kg'),
+    VehicleCatalogItem(id: 'CAT-AUTO-4', brand: 'TVS', modelName: 'King Deluxe', category: 'Auto Rickshaw', fuelType: 'Petrol/CNG', payloadCapacity: '350 kg'),
     VehicleCatalogItem(id: 'CAT-P1', brand: 'Electric', modelName: 'E-Rickshaw', category: 'Passenger', fuelType: 'Electric', payloadCapacity: '400 kg'),
     
     // Trip Vehicle
     VehicleCatalogItem(id: 'CAT-T1', brand: 'Force', modelName: 'Force Traveller', category: 'Trip Vehicle', fuelType: 'Diesel', payloadCapacity: '1500 kg'),
     VehicleCatalogItem(id: 'CAT-T2', brand: 'Tata', modelName: 'Winger', category: 'Trip Vehicle', fuelType: 'Diesel', payloadCapacity: '1200 kg'),
 
-    // Logistic
-    VehicleCatalogItem(id: 'CAT-L1', brand: 'Piaggio', modelName: 'Piaggio Ape', category: 'Logistic', fuelType: 'CNG/Diesel', payloadCapacity: '500 kg'),
-    VehicleCatalogItem(id: 'CAT-L2', brand: 'Tata', modelName: 'Tata Magic', category: 'Logistic', fuelType: 'Diesel/CNG', payloadCapacity: '750 kg'),
+    // Logistic & Cargo
+    VehicleCatalogItem(id: 'CAT-L1', brand: 'Piaggio', modelName: 'Piaggio Ape Cargo', category: 'Logistic', fuelType: 'CNG/Diesel', payloadCapacity: '500 kg'),
+    VehicleCatalogItem(id: 'CAT-L2', brand: 'Tata', modelName: 'Tata Ace EV', category: 'Logistic', fuelType: 'Electric', payloadCapacity: '750 kg'),
     VehicleCatalogItem(id: 'CAT-L3', brand: 'Tata', modelName: '207', category: 'Logistic', fuelType: 'Diesel', payloadCapacity: '1100 kg'),
     VehicleCatalogItem(id: 'CAT-L4', brand: 'Tata', modelName: '407', category: 'Logistic', fuelType: 'Diesel', payloadCapacity: '2200 kg'),
 
@@ -30,7 +34,6 @@ class VehicleCatalogRepository {
   static List<VehicleCatalogItem> get allVehicles => List.unmodifiable(_catalog);
 
   /// Asynchronous search with simulated network latency & debouncing support.
-  /// Requirement: When query is empty (or See All clicked), do NOT dump the entire vehicle list.
   Future<List<VehicleCatalogItem>> searchVehicles(String query) async {
     final cleanQuery = query.trim().toLowerCase();
     
@@ -38,7 +41,6 @@ class VehicleCatalogRepository {
     await Future.delayed(const Duration(milliseconds: 150));
 
     if (cleanQuery.isEmpty) {
-      // Requirement: Do not show all vehicles when empty or "See All" is pressed
       return [];
     }
 
