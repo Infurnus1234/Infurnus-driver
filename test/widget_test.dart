@@ -19,7 +19,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.text('Welcome Back'), findsOneWidget);
+      expect(find.text('Log in or sign up'), findsOneWidget);
       expect(find.text('Driver Dashboard'), findsNothing);
     },
   );
