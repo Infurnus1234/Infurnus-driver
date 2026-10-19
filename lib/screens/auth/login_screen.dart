@@ -19,6 +19,15 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _rememberMe = true;
   bool _useEmail = false;
   String? _clientValidationMessage;
+  bool _testOnboardingAvailable = false;
+
+  @override
+  void initState() {
+    super.initState();
+    context.read<DriverSession>().api.testOnboardingAvailable().then((enabled) {
+      if (mounted) setState(() => _testOnboardingAvailable = enabled);
+    });
+  }
 
   @override
   void dispose() {
@@ -311,6 +320,14 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
 
                       // Debug Preview Dashboard Button
+                      if (_testOnboardingAvailable)
+                        TextButton(
+                          onPressed: session.busy ? null : () async {
+                            final ok = await session.startTestOnboarding();
+                            if (context.mounted && ok) context.go('/onboarding');
+                          },
+                          child: const Text('Onboarding Without Login'),
+                        ),
                       if (!kReleaseMode) ...[
                         const SizedBox(height: 10),
                         OutlinedButton(

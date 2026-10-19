@@ -31,6 +31,11 @@ final appRouter = GoRouter(
   initialLocation: '/login',
   redirect: (context, state) {
     final session = context.read<DriverSession>(), path = state.uri.path;
+    if (session.api.isTestOnboarding && session.authenticated) {
+      return path == '/onboarding' || path == '/verification-status'
+          ? null
+          : '/onboarding';
+    }
     if (!kReleaseMode && session.isPreview) {
       return null;
     }

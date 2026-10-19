@@ -47,6 +47,7 @@ class ApiService {
   bool get isAdmin => ['admin', 'super_admin'].contains(role);
   final Map<String, String> _cookies = {};
   String? accessToken;
+  bool isTestOnboarding = false;
   String? _csrfToken;
   String? userId;
   Future<void>? _refreshing;
@@ -100,6 +101,7 @@ class ApiService {
   }
 
   void clearSession({bool persist = true}) {
+    isTestOnboarding = false;
     accessToken = null;
     userId = null;
     _csrfToken = null;
@@ -118,11 +120,15 @@ class ApiService {
     Map<String, String>? fields,
     String fileField = 'file',
   }) async {
+    final requestPath =
+        isTestOnboarding && !path.startsWith('/driver-test-onboarding/')
+        ? '/driver-test-onboarding$path'
+        : path;
     final http.BaseRequest request;
     if (files != null) {
       final multipart = http.MultipartRequest(
         method,
-        Uri.parse('$baseUrl$path'),
+        Uri.parse('$baseUrl$requestPath'),
       );
       multipart.fields.addAll(fields ?? {});
       for (final file in files) {
@@ -137,7 +143,10 @@ class ApiService {
       }
       request = multipart;
     } else {
-      final jsonRequest = http.Request(method, Uri.parse('$baseUrl$path'));
+      final jsonRequest = http.Request(
+        method,
+        Uri.parse('$baseUrl$requestPath'),
+      );
       if (body != null) jsonRequest.body = jsonEncode(body);
       request = jsonRequest;
     }
@@ -174,6 +183,7 @@ class ApiService {
       _csrfToken = _cookies['infurnus_csrf_token'] ?? _csrfToken;
     }
     if (response.statusCode == 401 &&
+        !isTestOnboarding &&
         retry &&
         accessToken != null &&
         !path.startsWith('/auth/')) {
@@ -212,6 +222,12 @@ class ApiService {
         response.statusCode >= 300 ||
         envelope?['success'] == false) {
       final error = envelope?['error'];
+      if (isTestOnboarding &&
+          response.statusCode == 404 &&
+          error is Map &&
+          error['code'] == 'NOT_FOUND') {
+        clearSession();
+      }
       final invalidLinkIdentity =
           path == '/auth/google/link' &&
           error is Map &&
@@ -271,6 +287,32 @@ class ApiService {
     String path,
     Map<String, dynamic>? body,
   ) => request(method, path, body: body, retry: false);
+
+  Future<bool> testOnboardingAvailable() async {
+    if (!kDebugMode ||
+        !const bool.fromEnvironment('DRIVER_TEST_ONBOARDING_ENABLED')) {
+      return false;
+    }
+    try {
+      final data = await request('GET', '/driver-test-onboarding/capabilities');
+      return data is Map && data['enabled'] == true;
+    } on ApiException {
+      return false;
+    }
+  }
+
+  Future<void> startTestOnboarding() async {
+    clearSession();
+    final data = await request(
+      'POST',
+      '/driver-test-onboarding/sessions',
+      body: {},
+    );
+    accessToken = data['sessionToken'] as String;
+    userId = data['userId'] as String;
+    isTestOnboarding = true;
+    // Deliberately memory-only: no login credentials, cookies, refresh or stored session.
+  }
 
   Future<void> _refresh() async {
     try {
