@@ -1,7 +1,10 @@
+
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'firebase_options.dart';
 import 'providers/app_state.dart';
 import 'providers/driver_session.dart';
 import 'router/app_router.dart';
@@ -10,11 +13,19 @@ import 'services/startup_permissions.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
   try {
-    await Firebase.initializeApp();
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    final messaging = FirebaseMessaging.instance;
+    await messaging.requestPermission();
+    final token = await messaging.getToken();
+    debugPrint('FCM TOKEN: $token');
   } catch (e) {
-    debugPrint('Firebase main initialization info: $e');
+    debugPrint('Firebase initialization / FCM error: $e');
   }
+
   runApp(
     MultiProvider(
       providers: [
@@ -24,6 +35,7 @@ void main() async {
       child: const InfurnusApp(),
     ),
   );
+
   WidgetsBinding.instance.addPostFrameCallback((_) async {
     try {
       await requestStartupLocation();
@@ -40,6 +52,7 @@ class InfurnusApp extends StatelessWidget {
   Widget build(BuildContext context) {
     context.watch<DriverSession>();
     WidgetsBinding.instance.addPostFrameCallback((_) => appRouter.refresh());
+
     return MaterialApp.router(
       title: 'Infurnus Logistics & Fleet',
       debugShowCheckedModeBanner: false,
