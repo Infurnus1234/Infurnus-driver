@@ -35,10 +35,11 @@ class OnboardingRules {
   static String today() =>
       DateTime.now().toUtc().toIso8601String().substring(0, 10);
   static bool validDate(String value) {
-    final parsed = DateTime.tryParse(value);
-    return RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(value) &&
+    final normalized = value.trim().replaceAll('/', '-');
+    final parsed = DateTime.tryParse(normalized);
+    return RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(normalized) &&
         parsed != null &&
-        parsed.toIso8601String().substring(0, 10) == value;
+        parsed.toIso8601String().substring(0, 10) == normalized;
   }
 
   static String? validateSignup(Map<String, dynamic> data) {
@@ -124,14 +125,30 @@ class OnboardingRules {
           : 'Select ${rule.minimumPages}–5 files/pages.';
     }
     final limit = (rule.code == 'profile_photo' ? 10 : 15) * 1024 * 1024;
-    const images = ['image/jpeg', 'image/png', 'image/webp'];
+    const allowedImages = [
+      'image/jpeg',
+      'image/jpg',
+      'image/pjpeg',
+      'image/png',
+      'image/x-png',
+      'image/webp',
+    ];
     for (final file in files) {
       if (file.bytes.isEmpty || file.bytes.length > limit) {
         return 'Each file must be nonempty and no larger than ${limit ~/ (1024 * 1024)} MB.';
       }
-      if (!images.contains(file.mimeType) &&
-          !(rule.code != 'profile_photo' &&
-              file.mimeType == 'application/pdf')) {
+      final nameLower = file.name.toLowerCase();
+      final isImageExt = nameLower.endsWith('.jpg') ||
+          nameLower.endsWith('.jpeg') ||
+          nameLower.endsWith('.png') ||
+          nameLower.endsWith('.webp');
+      final isPdfExt = nameLower.endsWith('.pdf');
+
+      final mime = file.mimeType.toLowerCase();
+      final isValidImage = allowedImages.contains(mime) || isImageExt;
+      final isValidPdf = rule.code != 'profile_photo' && (mime == 'application/pdf' || isPdfExt);
+
+      if (!isValidImage && !isValidPdf) {
         return 'Choose JPEG, PNG, WebP${rule.code == 'profile_photo' ? '' : ' or PDF'} files.';
       }
     }

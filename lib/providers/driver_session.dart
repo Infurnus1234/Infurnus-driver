@@ -538,6 +538,14 @@ class DriverSession extends ChangeNotifier {
         'documentCode': rule.code,
     });
     await _load();
+    for (final doc in documents) {
+      final code = (doc['documentMetadata'] as Map?)?['documentCode'] ?? doc['documentType'];
+      if (code == rule.code) {
+        doc['verificationStatus'] = 'pending';
+        doc.remove('rejectionReason');
+      }
+    }
+    _notify();
   });
 
   Future<bool> previewAssignment(String code) => run(() async {
