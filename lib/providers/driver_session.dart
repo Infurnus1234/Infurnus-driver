@@ -145,6 +145,7 @@ class DriverSession extends ChangeNotifier {
             rule.minimumPages;
   }).toList();
   bool get dashboardAllowed {
+    if (api.isTestOnboarding) return false;
     if (isPreview) return true;
     if (!api.hasDriverRole ||
         api.providerMode != 'driver' ||
@@ -178,6 +179,7 @@ class DriverSession extends ChangeNotifier {
   }
 
   String get landingPath {
+    if (api.isTestOnboarding && authenticated) return '/onboarding';
     if (isPreview) return '/driver/dashboard';
     if (!authenticated) return '/login';
     if (api.isAdmin) return '/admin/dashboard';
@@ -278,6 +280,12 @@ class DriverSession extends ChangeNotifier {
         await _load();
       });
 
+  Future<bool> startTestOnboarding() => run(() async {
+    _clear();
+    await api.startTestOnboarding();
+    await _establishSession({});
+  });
+
   Future<bool> linkGoogle(String idToken) => run(() async {
     await api.linkGoogle(idToken);
   });
@@ -298,7 +306,9 @@ class DriverSession extends ChangeNotifier {
       if (!busy && authenticated && !editing) unawaited(refresh());
     });
     await _load();
-    unawaited(DriverNotificationService(api: api).init());
+    if (!api.isTestOnboarding) {
+      unawaited(DriverNotificationService(api: api).init());
+    }
   }
 
   Future<bool> restore() => run(() async {
@@ -390,7 +400,7 @@ class DriverSession extends ChangeNotifier {
       '/provider/approvals',
     ) as List).map((r) => Map<String, dynamic>.from(r as Map)).toList();
     final nextApplications = <Map<String, dynamic>>[];
-    if (nextProfile != null) {
+    if (nextProfile != null && !api.isTestOnboarding) {
       var page = 1;
       var seen = 0;
       while (true) {
@@ -416,7 +426,7 @@ class DriverSession extends ChangeNotifier {
       }
     }
     final nextPartnerDocuments = <Map<String, dynamic>>[];
-    if (api.userId != null) {
+    if (api.userId != null && !api.isTestOnboarding) {
       try {
         final ownPartner = await api.request('GET', '/partners/me');
         nextPartnerDocuments.addAll(
