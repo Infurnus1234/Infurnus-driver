@@ -111,9 +111,7 @@ class _GoogleSignInButtonState extends State<GoogleSignInButton> {
     if (error is GoogleSignInException) {
       debugPrint('Google auth SDK failure: ${error.code.name}');
       if (error.code == GoogleSignInExceptionCode.canceled) {
-        _showError(
-          'Google sign-in was canceled. Please try again.',
-        );
+        _showError('Google sign-in was canceled. Please try again.');
         return;
       }
       if (error.code == GoogleSignInExceptionCode.clientConfigurationError) {
@@ -122,10 +120,14 @@ class _GoogleSignInButtonState extends State<GoogleSignInButton> {
         );
         return;
       }
-      _showError('Google authentication could not be completed (${error.code.name}).');
+      _showError(
+        'Google authentication could not be completed (${error.code.name}).',
+      );
     } else {
       debugPrint('Google auth SDK failure type: ${error.runtimeType}');
-      _showError('Google authentication is unavailable. Please sign in with Mobile / Password.');
+      _showError(
+        'Google authentication is unavailable. Please sign in with Mobile / Password.',
+      );
     }
   }
 

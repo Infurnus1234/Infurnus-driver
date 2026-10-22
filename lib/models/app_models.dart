@@ -1,10 +1,4 @@
-enum UserRole {
-  driver,
-  fleetOwner,
-  driverFleetOwner,
-  vendor,
-  admin,
-}
+enum UserRole { driver, fleetOwner, driverFleetOwner, vendor, admin }
 
 extension UserRoleExtension on UserRole {
   String get displayName {
@@ -23,10 +17,7 @@ extension UserRoleExtension on UserRole {
   }
 }
 
-enum ActiveMode {
-  driverMode,
-  fleetOwnerMode,
-}
+enum ActiveMode { driverMode, fleetOwnerMode }
 
 enum VerificationStatus {
   draft,
@@ -178,7 +169,8 @@ class UserProfile {
       rejectionReason: rejectionReason ?? this.rejectionReason,
       documents: documents ?? this.documents,
       assignedVehicleId: assignedVehicleId ?? this.assignedVehicleId,
-      verificationTimestamps: verificationTimestamps ?? this.verificationTimestamps,
+      verificationTimestamps:
+          verificationTimestamps ?? this.verificationTimestamps,
       verificationHistory: verificationHistory ?? this.verificationHistory,
     );
   }

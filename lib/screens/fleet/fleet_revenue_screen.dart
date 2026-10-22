@@ -1,284 +1,160 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../providers/app_state.dart';
-import '../../widgets/infurnus_app_bar.dart';
-import '../../core/theme.dart';
 
-class FleetRevenueScreen extends StatefulWidget {
-  const FleetRevenueScreen({super.key});
+import '../../providers/driver_session.dart';
+import '../../widgets/operations.dart';
 
+class FleetVehicleRevenueScreen extends StatelessWidget {
+  final String vehicleId;
+  final String? name;
+  const FleetVehicleRevenueScreen({
+    super.key,
+    required this.vehicleId,
+    this.name,
+  });
   @override
-  State<FleetRevenueScreen> createState() => _FleetRevenueScreenState();
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: Text(name ?? 'Vehicle revenue')),
+    body: SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: FleetRevenuePanel(vehicleId: vehicleId),
+    ),
+  );
 }
 
-class _FleetRevenueScreenState extends State<FleetRevenueScreen> {
-  // Bank Account Form Controllers
-  final _accHolderController = TextEditingController(text: 'Vikram Sharma');
-  final _accNumberController = TextEditingController(text: '489123456789');
-  final _ifscController = TextEditingController(text: 'HDFC0004891');
-  final _bankNameController = TextEditingController(text: 'HDFC Bank');
-  final _upiController = TextEditingController(text: 'vikram@hdfcbank');
+class FleetRevenuePanel extends StatefulWidget {
+  final String? vehicleId;
+  const FleetRevenuePanel({super.key, this.vehicleId});
+  @override
+  State<FleetRevenuePanel> createState() => _FleetRevenuePanelState();
+}
 
+class _FleetRevenuePanelState extends State<FleetRevenuePanel> {
+  DateTimeRange? _range;
+  String date(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
   @override
   Widget build(BuildContext context) {
-    final appState = Provider.of<AppState>(context);
-    final payouts = appState.payouts;
-    final txns = appState.transactions;
-
-    return Scaffold(
-      backgroundColor: InfurnusTheme.bgWhite,
-      appBar: const InfurnusAppBar(title: 'Revenue & Weekly Payouts'),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Wallet Card (Earnings & Weekly Payout Info)
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [InfurnusTheme.greenLight, Colors.white],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: InfurnusTheme.primaryGreen, width: 1.5),
+    final api = context.read<DriverSession>().api;
+    final path = widget.vehicleId == null
+        ? '/fleet/revenue'
+        : '/fleet/vehicles/${widget.vehicleId}/revenue';
+    final uri = Uri(
+      path: path,
+      queryParameters: _range == null
+          ? null
+          : {'from': date(_range!.start), 'to': date(_range!.end)},
+    ).toString();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Wrap(
+          spacing: 8,
+          children: [
+            OutlinedButton.icon(
+              icon: const Icon(Icons.date_range),
+              label: Text(
+                _range == null
+                    ? 'All available records'
+                    : '${date(_range!.start)} – ${date(_range!.end)}',
+              ),
+              onPressed: () async {
+                final now = DateTime.now();
+                final value = await showDateRangePicker(
+                  context: context,
+                  firstDate: DateTime(2000),
+                  lastDate: DateTime(now.year, now.month, now.day),
+                  initialDateRange: _range,
+                );
+                if (mounted && value != null) setState(() => _range = value);
+              },
+            ),
+            if (_range != null)
+              TextButton(
+                onPressed: () => setState(() => _range = null),
+                child: const Text('Clear dates'),
+              ),
+          ],
+        ),
+        ApiPanel(
+          key: ValueKey(uri),
+          embedded: true,
+          api: api,
+          path: uri,
+          builder: (context, value) {
+            final report = value as Map, summary = report['summary'] as Map;
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'Fleet revenue · ${report['timeZone']}',
+                  style: Theme.of(context).textTheme.titleLarge,
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Total Net Earnings Balance', style: TextStyle(color: InfurnusTheme.textMuted, fontSize: 13)),
-                    const SizedBox(height: 6),
-                    Text(
-                      '₹ ${appState.walletBalance.toStringAsFixed(2)}',
-                      style: const TextStyle(color: InfurnusTheme.textDark, fontSize: 32, fontWeight: FontWeight.bold),
+                for (final metric in [
+                  ('Today', 'todayRevenuePaise'),
+                  ('This month', 'monthRevenuePaise'),
+                  ('Selected period total', 'netRevenuePaise'),
+                ])
+                  OpsPanel(
+                    title: metric.$1,
+                    child: Text(
+                      inr(summary[metric.$2]),
+                      style: Theme.of(context).textTheme.headlineSmall,
                     ),
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: InfurnusTheme.greenBorder),
-                      ),
-                      child: const Row(
-                        children: [
-                          Icon(Icons.event_available, color: InfurnusTheme.primaryGreen, size: 20),
-                          SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              'Payouts are settled automatically every Monday on a weekly cycle directly to your linked bank account.',
-                              style: TextStyle(color: InfurnusTheme.textDark, fontSize: 11, fontWeight: FontWeight.w600),
+                  ),
+                Text('Gross collected: ${inr(summary['grossRevenuePaise'])}'),
+                Text('Refunds: ${inr(summary['refundPaise'])}'),
+                Text('${summary['completedJobs']} completed paid rides / jobs'),
+                const Text(
+                  'Revenue includes completed jobs with captured payments, less successful refunds. Driver payouts and commission are separate.',
+                ),
+                const SizedBox(height: 16),
+                if (widget.vehicleId == null)
+                  Text(
+                    'By vehicle',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                if (widget.vehicleId == null)
+                  for (final row in report['vehicles'] as List)
+                    Card(
+                      child: ListTile(
+                        title: Text(
+                          '${row['make']} ${row['model']} · ${row['plateNumber']}',
+                        ),
+                        subtitle: Text(
+                          '${row['sector']} · ${row['category']}\n${row['completedJobs']} completed jobs · Today ${inr(row['todayRevenuePaise'])} · Month ${inr(row['monthRevenuePaise'])}',
+                        ),
+                        isThreeLine: true,
+                        trailing: Text(inr(row['netRevenuePaise'])),
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => FleetVehicleRevenueScreen(
+                              vehicleId: row['vehicleId'] as String,
+                              name: row['plateNumber'].toString(),
                             ),
                           ),
-                        ],
+                        ),
                       ),
                     ),
-                  ],
+                if ((report['vehicles'] as List).isEmpty)
+                  const OpsEmpty('No owned vehicles yet.'),
+                const SizedBox(height: 16),
+                Text(
+                  'Revenue history',
+                  style: Theme.of(context).textTheme.titleMedium,
                 ),
-              ),
-              const SizedBox(height: 24),
-
-              // Bank Account Details Section
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text('Linked Bank Account for Payouts', style: TextStyle(color: InfurnusTheme.textDark, fontWeight: FontWeight.bold, fontSize: 16)),
-                  TextButton.icon(
-                    onPressed: () => _showBankModal(context),
-                    icon: const Icon(Icons.edit, size: 16, color: InfurnusTheme.primaryGreen),
-                    label: const Text('Update Bank', style: TextStyle(color: InfurnusTheme.primaryGreen, fontWeight: FontWeight.bold)),
+                if ((report['history'] as List).isEmpty)
+                  const OpsEmpty('No completed paid jobs in this period.'),
+                for (final row in report['history'] as List)
+                  ListTile(
+                    title: Text('${row['kind']} · ${row['earnedAt']}'),
+                    trailing: Text(inr(row['netRevenuePaise'])),
                   ),
-                ],
-              ),
-              const SizedBox(height: 8),
-
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(_bankNameController.text, style: const TextStyle(color: InfurnusTheme.textDark, fontWeight: FontWeight.bold, fontSize: 15)),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: InfurnusTheme.greenLight,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Text('VERIFIED', style: TextStyle(color: InfurnusTheme.primaryGreen, fontSize: 10, fontWeight: FontWeight.bold)),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Text('Account Holder: ${_accHolderController.text}', style: const TextStyle(color: InfurnusTheme.textDark, fontSize: 13)),
-                    Text('A/C Number: **** ${_accNumberController.text.substring(_accNumberController.text.length - 4)}', style: const TextStyle(color: InfurnusTheme.textMuted, fontSize: 13)),
-                    Text('IFSC Code: ${_ifscController.text} • UPI: ${_upiController.text}', style: const TextStyle(color: InfurnusTheme.textMuted, fontSize: 12)),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              // Weekly Payout Settlements History
-              const Text('Weekly Settlement History', style: TextStyle(color: InfurnusTheme.textDark, fontWeight: FontWeight.bold, fontSize: 16)),
-              const SizedBox(height: 12),
-
-              ...payouts.map((p) => Container(
-                margin: const EdgeInsets.only(bottom: 10),
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('₹ ${p.amount.toStringAsFixed(2)}', style: const TextStyle(color: InfurnusTheme.textDark, fontWeight: FontWeight.bold, fontSize: 15)),
-                        Text('Weekly Cycle • ${p.bankAccount} • Date: ${p.requestedDate}', style: const TextStyle(color: InfurnusTheme.textMuted, fontSize: 12)),
-                      ],
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: p.status == 'Settled' ? InfurnusTheme.greenLight : InfurnusTheme.warningAmber.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        p.status.toUpperCase(),
-                        style: TextStyle(
-                          color: p.status == 'Settled' ? InfurnusTheme.primaryGreen : InfurnusTheme.warningAmber,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              )),
-
-              const SizedBox(height: 24),
-
-              // Transaction History
-              const Text('Recent Revenue Transactions', style: TextStyle(color: InfurnusTheme.textDark, fontWeight: FontWeight.bold, fontSize: 16)),
-              const SizedBox(height: 12),
-
-              ...txns.map((t) => Container(
-                margin: const EdgeInsets.only(bottom: 10),
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(t.title, style: const TextStyle(color: InfurnusTheme.textDark, fontWeight: FontWeight.w600, fontSize: 13)),
-                        Text(t.date, style: const TextStyle(color: InfurnusTheme.textMuted, fontSize: 11)),
-                      ],
-                    ),
-                    Text(
-                      '${t.type == "credit" ? "+" : "-"} ₹${t.amount}',
-                      style: TextStyle(
-                        color: t.type == 'credit' ? InfurnusTheme.successGreen : InfurnusTheme.dangerRed,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ],
-                ),
-              )),
-            ],
-          ),
+              ],
+            );
+          },
         ),
-      ),
-    );
-  }
-
-  void _showBankModal(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        return Padding(
-          padding: EdgeInsets.only(
-            left: 24,
-            right: 24,
-            top: 24,
-            bottom: MediaQuery.of(context).viewInsets.bottom + 24,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Add / Update Bank Account Details', style: TextStyle(color: InfurnusTheme.textDark, fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 6),
-              const Text('Weekly payouts are transferred directly to this verified bank account.', style: TextStyle(color: InfurnusTheme.textMuted, fontSize: 12)),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _accHolderController,
-                decoration: const InputDecoration(labelText: 'Account Holder Full Name'),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _accNumberController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Bank Account Number'),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _ifscController,
-                decoration: const InputDecoration(labelText: 'IFSC Code'),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _bankNameController,
-                decoration: const InputDecoration(labelText: 'Bank Name'),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _upiController,
-                decoration: const InputDecoration(labelText: 'UPI ID (Optional)'),
-              ),
-              const SizedBox(height: 24),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: InfurnusTheme.buttonBlack,
-                  foregroundColor: Colors.white,
-                ),
-                onPressed: () {
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Bank account details updated successfully for weekly payouts!')),
-                  );
-                },
-                child: const Text('Save Bank Account Details'),
-              ),
-            ],
-          ),
-        );
-      },
+      ],
     );
   }
 }

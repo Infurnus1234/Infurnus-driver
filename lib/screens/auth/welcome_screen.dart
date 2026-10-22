@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+
 import '../../widgets/infurnus_logo.dart';
 import '../../core/theme.dart';
 
@@ -16,7 +17,11 @@ class WelcomeScreen extends StatelessWidget {
             child: Container(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [Colors.black.withValues(alpha: 0.3), Colors.black.withValues(alpha: 0.9), Colors.black],
+                  colors: [
+                    Colors.black.withValues(alpha: 0.3),
+                    Colors.black.withValues(alpha: 0.9),
+                    Colors.black,
+                  ],
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                 ),
@@ -28,7 +33,10 @@ class WelcomeScreen extends StatelessWidget {
               padding: const EdgeInsets.all(24.0),
               child: ConstrainedBox(
                 constraints: BoxConstraints(
-                  minHeight: MediaQuery.of(context).size.height - MediaQuery.of(context).padding.top - 48,
+                  minHeight:
+                      MediaQuery.of(context).size.height -
+                      MediaQuery.of(context).padding.top -
+                      48,
                 ),
                 child: IntrinsicHeight(
                   child: Column(
@@ -36,7 +44,11 @@ class WelcomeScreen extends StatelessWidget {
                     children: [
                       const SizedBox(height: 10),
                       const Center(
-                        child: InfurnusLogo(iconSize: 42, fontSize: 24, showSubtitle: true),
+                        child: InfurnusLogo(
+                          iconSize: 42,
+                          fontSize: 24,
+                          showSubtitle: true,
+                        ),
                       ),
                       const Spacer(),
                       // Car / EV Fleet Logistics Vehicle Card on Get Started screen
@@ -46,7 +58,9 @@ class WelcomeScreen extends StatelessWidget {
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
                             colors: [
-                              InfurnusTheme.primaryGreen.withValues(alpha: 0.25),
+                              InfurnusTheme.primaryGreen.withValues(
+                                alpha: 0.25,
+                              ),
                               Colors.black87,
                             ],
                             begin: Alignment.topLeft,
@@ -54,7 +68,9 @@ class WelcomeScreen extends StatelessWidget {
                           ),
                           borderRadius: BorderRadius.circular(18),
                           border: Border.all(
-                            color: InfurnusTheme.primaryGreen.withValues(alpha: 0.5),
+                            color: InfurnusTheme.primaryGreen.withValues(
+                              alpha: 0.5,
+                            ),
                             width: 1.5,
                           ),
                         ),
@@ -67,7 +83,9 @@ class WelcomeScreen extends StatelessWidget {
                               child: Icon(
                                 Icons.electric_car_rounded,
                                 size: 100,
-                                color: InfurnusTheme.primaryGreen.withValues(alpha: 0.15),
+                                color: InfurnusTheme.primaryGreen.withValues(
+                                  alpha: 0.15,
+                                ),
                               ),
                             ),
                             Padding(
@@ -89,8 +107,10 @@ class WelcomeScreen extends StatelessWidget {
                                   const SizedBox(width: 14),
                                   const Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
                                       children: [
                                         Text(
                                           'EV & Logistics Fleet',
@@ -137,7 +157,9 @@ class WelcomeScreen extends StatelessWidget {
                           backgroundColor: Colors.white,
                           foregroundColor: Colors.black,
                           minimumSize: const Size.fromHeight(50),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
                         ),
                         onPressed: () {
                           context.push('/login');
@@ -145,7 +167,13 @@ class WelcomeScreen extends StatelessWidget {
                         child: const Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Text('Get Started', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                            Text(
+                              'Get Started',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                             SizedBox(width: 8),
                             Icon(Icons.arrow_forward, size: 18),
                           ],
@@ -168,9 +196,20 @@ class WelcomeScreen extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 3.0),
       child: Row(
         children: [
-          const Icon(Icons.check_circle, color: InfurnusTheme.primaryGreen, size: 18),
+          const Icon(
+            Icons.check_circle,
+            color: InfurnusTheme.primaryGreen,
+            size: 18,
+          ),
           const SizedBox(width: 10),
-          Text(text, style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600)),
+          Text(
+            text,
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
         ],
       ),
     );

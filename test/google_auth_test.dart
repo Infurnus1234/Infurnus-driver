@@ -34,7 +34,7 @@ void main() {
               });
               return ok({'accessToken': token, 'userId': 'provider-fixture'});
             }
-            if (r.url.path == '/users/provider-fixture') {
+            if (r.url.path == '/provider/enrolment') {
               return ok({'role': providerRole, 'status': 'active'});
             }
             expect(r.url.path, '/rides/driver/profile');
@@ -49,7 +49,7 @@ void main() {
         expect(api.role, providerRole);
         expect(
           api.providerMode,
-          providerRole == 'fleet_owner' ? 'fleet_owner' : 'driver',
+          providerRole == 'driver' ? 'driver' : 'fleet_owner',
         );
         api.dispose();
       },
@@ -65,7 +65,7 @@ void main() {
         if (r.url.path == '/auth/google') {
           return ok({'accessToken': token, 'userId': 'combined-fixture'});
         }
-        if (r.url.path == '/users/combined-fixture') {
+        if (r.url.path == '/provider/enrolment') {
           return ok({'role': 'driver_fleet_owner', 'status': 'active'});
         }
         return failure(404, 'DRIVER_PROFILE_NOT_FOUND');
@@ -142,6 +142,14 @@ void main() {
             );
           case '/users/fixture-user':
             return ok({'firstName': 'Fixture', 'lastName': 'Driver'});
+          case '/provider/onboarding':
+            return http.Response(
+              jsonEncode({
+                'success': true,
+                'data': {'dashboardAccessible': false, 'deferred_codes': []},
+              }),
+              200,
+            );
           case '/provider/document-requirements':
             return ok([
               {
@@ -274,6 +282,14 @@ void main() {
             return failure(404, 'DRIVER_PROFILE_NOT_FOUND');
           case '/partners/me':
             return failure(404, 'PARTNER_NOT_FOUND');
+          case '/provider/onboarding':
+            return http.Response(
+              jsonEncode({
+                'success': true,
+                'data': {'dashboardAccessible': false, 'deferred_codes': []},
+              }),
+              200,
+            );
           case '/provider/document-requirements':
             return ok([
               {

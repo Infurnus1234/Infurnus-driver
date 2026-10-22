@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+
 import '../../providers/app_state.dart';
 import '../../widgets/infurnus_app_bar.dart';
 import '../../widgets/driver_bottom_nav.dart';
@@ -13,7 +14,9 @@ class ProviderProfileScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final appState = Provider.of<AppState>(context);
     final user = appState.currentUser;
-    final name = user?.fullName.isNotEmpty == true && user?.fullName != 'New Provider User'
+    final name =
+        user?.fullName.isNotEmpty == true &&
+            user?.fullName != 'New Provider User'
         ? user!.fullName
         : 'Niranjan Bhardwaj';
 
@@ -34,7 +37,11 @@ class ProviderProfileScreen extends StatelessWidget {
                     backgroundColor: const Color(0xFFE2E8F0),
                     child: Text(
                       name[0],
-                      style: const TextStyle(color: InfurnusTheme.textDark, fontSize: 26, fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                        color: InfurnusTheme.textDark,
+                        fontSize: 26,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 16),
@@ -53,7 +60,11 @@ class ProviderProfileScreen extends StatelessWidget {
                         const SizedBox(height: 4),
                         Row(
                           children: const [
-                            Icon(Icons.check_circle, color: InfurnusTheme.primaryGreen, size: 14),
+                            Icon(
+                              Icons.check_circle,
+                              color: InfurnusTheme.primaryGreen,
+                              size: 14,
+                            ),
                             SizedBox(width: 4),
                             Text(
                               'Verified Driver',
@@ -104,7 +115,7 @@ class ProviderProfileScreen extends StatelessWidget {
                     _profileMenuItem(
                       icon: Icons.account_balance_outlined,
                       title: 'Bank Details',
-                      onTap: () => context.push('/driver/wallet'),
+                      onTap: () => context.push('/provider/bank-account'),
                     ),
                     _menuDivider(),
                     _profileMenuItem(
@@ -112,7 +123,11 @@ class ProviderProfileScreen extends StatelessWidget {
                       title: 'Emergency Contact',
                       onTap: () {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Emergency Contact: Police 112 | Infurnus SOS 1800-000-999')),
+                          const SnackBar(
+                            content: Text(
+                              'Emergency Contact: Police 112 | Infurnus SOS 1800-000-999',
+                            ),
+                          ),
                         );
                       },
                     ),
@@ -122,7 +137,11 @@ class ProviderProfileScreen extends StatelessWidget {
                       title: 'Settings',
                       onTap: () {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('App Settings: Notifications & Audio alerts active.')),
+                          const SnackBar(
+                            content: Text(
+                              'App Settings: Notifications & Audio alerts active.',
+                            ),
+                          ),
                         );
                       },
                     ),
@@ -172,7 +191,9 @@ class ProviderProfileScreen extends StatelessWidget {
       title: Text(
         title,
         style: TextStyle(
-          color: isDestructive ? InfurnusTheme.dangerRed : InfurnusTheme.textDark,
+          color: isDestructive
+              ? InfurnusTheme.dangerRed
+              : InfurnusTheme.textDark,
           fontSize: 14,
           fontWeight: isDestructive ? FontWeight.bold : FontWeight.w600,
         ),
@@ -184,7 +205,9 @@ class ProviderProfileScreen extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
-                color: (badgeColor ?? InfurnusTheme.primaryGreen).withValues(alpha: 0.1),
+                color: (badgeColor ?? InfurnusTheme.primaryGreen).withValues(
+                  alpha: 0.1,
+                ),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
@@ -200,7 +223,9 @@ class ProviderProfileScreen extends StatelessWidget {
           ],
           Icon(
             Icons.chevron_right,
-            color: isDestructive ? InfurnusTheme.dangerRed : const Color(0xFF94A3B8),
+            color: isDestructive
+                ? InfurnusTheme.dangerRed
+                : const Color(0xFF94A3B8),
             size: 18,
           ),
         ],
@@ -210,7 +235,11 @@ class ProviderProfileScreen extends StatelessWidget {
   }
 
   Widget _menuDivider() {
-    return const Divider(height: 1, color: Color(0xFFF1F5F9), indent: 16, endIndent: 16);
+    return const Divider(
+      height: 1,
+      color: Color(0xFFF1F5F9),
+      indent: 16,
+      endIndent: 16,
+    );
   }
 }
-

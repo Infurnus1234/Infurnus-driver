@@ -1,5 +1,7 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
+
 import '../core/theme.dart';
 
 class DispatchCountdownWidget extends StatefulWidget {
@@ -13,7 +15,8 @@ class DispatchCountdownWidget extends StatefulWidget {
   });
 
   @override
-  State<DispatchCountdownWidget> createState() => _DispatchCountdownWidgetState();
+  State<DispatchCountdownWidget> createState() =>
+      _DispatchCountdownWidgetState();
 }
 
 class _DispatchCountdownWidgetState extends State<DispatchCountdownWidget>
@@ -26,7 +29,10 @@ class _DispatchCountdownWidgetState extends State<DispatchCountdownWidget>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _calculateRemaining();
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) => _calculateRemaining());
+    _timer = Timer.periodic(
+      const Duration(seconds: 1),
+      (_) => _calculateRemaining(),
+    );
   }
 
   @override

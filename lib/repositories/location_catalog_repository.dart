@@ -1,4 +1,5 @@
 import 'dart:async';
+
 import '../models/location_model.dart';
 
 class LocationCatalogRepository {
@@ -118,7 +119,7 @@ class LocationCatalogRepository {
   /// Asynchronous map location search with partial matching & debouncing.
   Future<List<LocationItem>> searchLocations(String query) async {
     final cleanQuery = query.trim().toLowerCase();
-    
+
     // Simulate async map network API query
     await Future.delayed(const Duration(milliseconds: 150));
 

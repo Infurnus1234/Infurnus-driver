@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../../providers/app_state.dart';
 import '../../widgets/infurnus_app_bar.dart';
 import '../../core/theme.dart';
@@ -28,10 +29,14 @@ class NotificationsScreen extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: item.isRead ? Colors.white : InfurnusTheme.primaryGreen.withValues(alpha: 0.1),
+                  color: item.isRead
+                      ? Colors.white
+                      : InfurnusTheme.primaryGreen.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(
-                    color: item.isRead ? const Color(0xFFE2E8F0) : InfurnusTheme.primaryGreen,
+                    color: item.isRead
+                        ? const Color(0xFFE2E8F0)
+                        : InfurnusTheme.primaryGreen,
                   ),
                 ),
                 child: Column(
@@ -45,16 +50,30 @@ class NotificationsScreen extends StatelessWidget {
                             item.title,
                             style: TextStyle(
                               color: InfurnusTheme.textDark,
-                              fontWeight: item.isRead ? FontWeight.normal : FontWeight.bold,
+                              fontWeight: item.isRead
+                                  ? FontWeight.normal
+                                  : FontWeight.bold,
                               fontSize: 14,
                             ),
                           ),
                         ),
-                        Text(item.timestamp, style: const TextStyle(color: InfurnusTheme.textMuted, fontSize: 11)),
+                        Text(
+                          item.timestamp,
+                          style: const TextStyle(
+                            color: InfurnusTheme.textMuted,
+                            fontSize: 11,
+                          ),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 6),
-                    Text(item.body, style: const TextStyle(color: InfurnusTheme.textMuted, fontSize: 12)),
+                    Text(
+                      item.body,
+                      style: const TextStyle(
+                        color: InfurnusTheme.textMuted,
+                        fontSize: 12,
+                      ),
+                    ),
                   ],
                 ),
               ),

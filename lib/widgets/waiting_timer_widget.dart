@@ -1,20 +1,20 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
+
 import '../core/theme.dart';
 
 class WaitingTimerWidget extends StatefulWidget {
   final DateTime arrivalTime;
 
-  const WaitingTimerWidget({
-    super.key,
-    required this.arrivalTime,
-  });
+  const WaitingTimerWidget({super.key, required this.arrivalTime});
 
   @override
   State<WaitingTimerWidget> createState() => _WaitingTimerWidgetState();
 }
 
-class _WaitingTimerWidgetState extends State<WaitingTimerWidget> with WidgetsBindingObserver {
+class _WaitingTimerWidgetState extends State<WaitingTimerWidget>
+    with WidgetsBindingObserver {
   late Timer _timer;
   late Duration _elapsed;
 
@@ -25,7 +25,10 @@ class _WaitingTimerWidgetState extends State<WaitingTimerWidget> with WidgetsBin
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _updateElapsed();
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) => _updateElapsed());
+    _timer = Timer.periodic(
+      const Duration(seconds: 1),
+      (_) => _updateElapsed(),
+    );
   }
 
   @override
@@ -57,13 +60,17 @@ class _WaitingTimerWidgetState extends State<WaitingTimerWidget> with WidgetsBin
     final remainingFreeSeconds = freeWaitingSeconds - totalSeconds;
     final billableWaitingSeconds = totalSeconds - freeWaitingSeconds;
 
-    final displaySeconds = isFree ? remainingFreeSeconds : billableWaitingSeconds;
+    final displaySeconds = isFree
+        ? remainingFreeSeconds
+        : billableWaitingSeconds;
     final minutesStr = (displaySeconds ~/ 60).toString().padLeft(2, '0');
     final secondsStr = (displaySeconds % 60).toString().padLeft(2, '0');
 
     final accruedCharge = isFree ? 0.0 : (billableWaitingSeconds * 2.0 / 60.0);
 
-    final statusColor = isFree ? InfurnusTheme.primaryGreen : Colors.amber.shade800;
+    final statusColor = isFree
+        ? InfurnusTheme.primaryGreen
+        : Colors.amber.shade800;
     final bgColor = isFree ? InfurnusTheme.greenLight : Colors.amber.shade50;
 
     return Container(
@@ -88,7 +95,9 @@ class _WaitingTimerWidgetState extends State<WaitingTimerWidget> with WidgetsBin
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  isFree ? 'Customer Free Waiting Time' : 'Billable Waiting Time (@ ₹2.00/min)',
+                  isFree
+                      ? 'Customer Free Waiting Time'
+                      : 'Billable Waiting Time (@ ₹2.00/min)',
                   style: TextStyle(
                     color: statusColor,
                     fontWeight: FontWeight.bold,

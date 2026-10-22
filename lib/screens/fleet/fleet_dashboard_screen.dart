@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+
 import '../../providers/app_state.dart';
 import '../../core/theme.dart';
 import '../../widgets/mode_switch_header.dart';
@@ -15,7 +16,9 @@ class FleetDashboardScreen extends StatelessWidget {
     final vehicles = appState.vehicles;
     final drivers = appState.managedDrivers;
     final activeVehicles = vehicles.where((v) => v.isActive).length;
-    final assignedDrivers = drivers.where((d) => d.assignedVehicleId != null).length;
+    final assignedDrivers = drivers
+        .where((d) => d.assignedVehicleId != null)
+        .length;
 
     return Scaffold(
       backgroundColor: InfurnusTheme.bgWhite,
@@ -41,7 +44,11 @@ class FleetDashboardScreen extends StatelessWidget {
                   children: [
                     const Text(
                       'Fleet Operations Overview',
-                      style: TextStyle(color: InfurnusTheme.textDark, fontSize: 18, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        color: InfurnusTheme.textDark,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const SizedBox(height: 14),
 
@@ -80,7 +87,8 @@ class FleetDashboardScreen extends StatelessWidget {
                         ),
                         _fleetStatCard(
                           title: 'Revenue & Wallet',
-                          count: '₹ ${appState.walletBalance.toStringAsFixed(0)}',
+                          count:
+                              '₹ ${appState.walletBalance.toStringAsFixed(0)}',
                           subtext: 'Payouts & Earnings',
                           icon: Icons.monetization_on,
                           color: InfurnusTheme.warningAmber,
@@ -96,7 +104,8 @@ class FleetDashboardScreen extends StatelessWidget {
                         Expanded(
                           child: ElevatedButton.icon(
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: InfurnusTheme.buttonBlack, // BLACK BUTTON
+                              backgroundColor:
+                                  InfurnusTheme.buttonBlack, // BLACK BUTTON
                               foregroundColor: Colors.white,
                             ),
                             onPressed: () => context.push('/fleet/add-vehicle'),
@@ -108,7 +117,8 @@ class FleetDashboardScreen extends StatelessWidget {
                         Expanded(
                           child: ElevatedButton.icon(
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: InfurnusTheme.buttonBlack, // BLACK BUTTON
+                              backgroundColor:
+                                  InfurnusTheme.buttonBlack, // BLACK BUTTON
                               foregroundColor: Colors.white,
                             ),
                             onPressed: () => context.push('/fleet/add-driver'),
@@ -124,53 +134,89 @@ class FleetDashboardScreen extends StatelessWidget {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('Active Fleet Vehicles', style: TextStyle(color: InfurnusTheme.textDark, fontWeight: FontWeight.bold, fontSize: 16)),
+                        const Text(
+                          'Active Fleet Vehicles',
+                          style: TextStyle(
+                            color: InfurnusTheme.textDark,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
                         TextButton(
                           onPressed: () => context.push('/fleet/vehicles'),
-                          child: const Text('View All', style: TextStyle(color: InfurnusTheme.primaryGreen, fontWeight: FontWeight.bold)),
+                          child: const Text(
+                            'View All',
+                            style: TextStyle(
+                              color: InfurnusTheme.primaryGreen,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 8),
 
-                    ...vehicles.map((v) => Container(
-                      margin: const EdgeInsets.only(bottom: 10),
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: const Color(0xFFE2E8F0)),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(v.modelName, style: const TextStyle(color: InfurnusTheme.textDark, fontWeight: FontWeight.bold)),
-                              Text('Plate: ${v.plateNumber} • ${v.category}', style: const TextStyle(color: InfurnusTheme.textMuted, fontSize: 12)),
-                              Text(
-                                'Driver: ${v.assignedDriverName ?? "Unassigned"}',
-                                style: TextStyle(
-                                  color: v.assignedDriverName != null ? InfurnusTheme.primaryGreen : InfurnusTheme.warningAmber,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
+                    ...vehicles.map(
+                      (v) => Container(
+                        margin: const EdgeInsets.only(bottom: 10),
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  v.modelName,
+                                  style: const TextStyle(
+                                    color: InfurnusTheme.textDark,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                Text(
+                                  'Plate: ${v.plateNumber} • ${v.category}',
+                                  style: const TextStyle(
+                                    color: InfurnusTheme.textMuted,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                Text(
+                                  'Driver: ${v.assignedDriverName ?? "Unassigned"}',
+                                  style: TextStyle(
+                                    color: v.assignedDriverName != null
+                                        ? InfurnusTheme.primaryGreen
+                                        : InfurnusTheme.warningAmber,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor:
+                                    InfurnusTheme.buttonBlack, // BLACK BUTTON
+                                minimumSize: const Size(60, 32),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
                                 ),
                               ),
-                            ],
-                          ),
-                          ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: InfurnusTheme.buttonBlack, // BLACK BUTTON
-                              minimumSize: const Size(60, 32),
-                              padding: const EdgeInsets.symmetric(horizontal: 10),
+                              onPressed: () =>
+                                  context.push('/fleet/assignment'),
+                              child: const Text(
+                                'Assign',
+                                style: TextStyle(fontSize: 11),
+                              ),
                             ),
-                            onPressed: () => context.push('/fleet/assignment'),
-                            child: const Text('Assign', style: TextStyle(fontSize: 11)),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    )),
+                    ),
                   ],
                 ),
               ),
@@ -206,13 +252,37 @@ class FleetDashboardScreen extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Icon(icon, color: color, size: 22),
-                const Icon(Icons.chevron_right, color: InfurnusTheme.textMuted, size: 18),
+                const Icon(
+                  Icons.chevron_right,
+                  color: InfurnusTheme.textMuted,
+                  size: 18,
+                ),
               ],
             ),
             const SizedBox(height: 8),
-            Text(count, style: const TextStyle(color: InfurnusTheme.textDark, fontSize: 17, fontWeight: FontWeight.bold)),
-            Text(title, style: const TextStyle(color: InfurnusTheme.textDark, fontSize: 12, fontWeight: FontWeight.w600)),
-            Text(subtext, style: const TextStyle(color: InfurnusTheme.textMuted, fontSize: 10)),
+            Text(
+              count,
+              style: const TextStyle(
+                color: InfurnusTheme.textDark,
+                fontSize: 17,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            Text(
+              title,
+              style: const TextStyle(
+                color: InfurnusTheme.textDark,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            Text(
+              subtext,
+              style: const TextStyle(
+                color: InfurnusTheme.textMuted,
+                fontSize: 10,
+              ),
+            ),
           ],
         ),
       ),

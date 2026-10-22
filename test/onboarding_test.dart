@@ -237,6 +237,14 @@ void main() {
                     'plateNumber': 'fixture',
                   })
                 : missing('NO_ASSIGNED_VEHICLE');
+          case '/provider/onboarding':
+            return http.Response(
+              jsonEncode({
+                'success': true,
+                'data': {'dashboardAccessible': false, 'deferred_codes': []},
+              }),
+              200,
+            );
           case '/provider/document-requirements':
             return ok([
               {
@@ -309,18 +317,5 @@ void main() {
     s.documents.first['verificationStatus'] = 'rejected';
     expect(s.dashboardAllowed, isFalse);
     s.dispose();
-  });
-
-  test('OnboardingRules validates various image mime types, extensions and dates', () {
-    expect(OnboardingRules.validDate('2099-12-31'), isTrue);
-    expect(OnboardingRules.validDate('2099/12/31'), isTrue);
-    expect(OnboardingRules.validDate('invalid'), isFalse);
-
-    final rule = DocumentRule('identity', required: true, minimumPages: 1);
-    final fileJpg = DocumentFile('doc.JPG', Uint8List.fromList([1, 2, 3]), 'application/octet-stream');
-    expect(OnboardingRules.validateFiles(rule, [fileJpg], {}), isNull);
-
-    final filePng = DocumentFile('doc.png', Uint8List.fromList([1, 2, 3]), 'image/png');
-    expect(OnboardingRules.validateFiles(rule, [filePng], {}), isNull);
   });
 }

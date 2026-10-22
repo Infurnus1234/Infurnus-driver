@@ -8,13 +8,13 @@ class InfurnusTheme {
   static const Color greenLight = Color(0xFFECFDF5);
   static const Color greenBorder = Color(0xFFA7F3D0);
 
-  static const Color bgWhite = Color(0xFFF8FAFC); // Clean White Background
+  static const Color bgWhite = Color(0xFFFFFFFF); // Clean White Background
   static const Color surfaceCard = Colors.white;
   static const Color buttonBlack = Colors.black; // ALL BUTTONS BLACK
-  
+
   static const Color textDark = Color(0xFF0F172A);
   static const Color textMuted = Color(0xFF64748B);
-  
+
   static const Color successGreen = Color(0xFF10B981);
   static const Color warningAmber = Color(0xFFF59E0B);
   static const Color dangerRed = Color(0xFFEF4444);
@@ -85,7 +85,10 @@ class InfurnusTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: Colors.white,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 16,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
@@ -117,14 +120,8 @@ class InfurnusTheme {
           fontSize: 16,
           fontWeight: FontWeight.w600,
         ),
-        bodyLarge: GoogleFonts.inter(
-          color: textDark,
-          fontSize: 14,
-        ),
-        bodyMedium: GoogleFonts.inter(
-          color: textMuted,
-          fontSize: 13,
-        ),
+        bodyLarge: GoogleFonts.inter(color: textDark, fontSize: 14),
+        bodyMedium: GoogleFonts.inter(color: textMuted, fontSize: 13),
       ),
     );
   }

@@ -76,7 +76,7 @@ void main() {
           if (r.url.path == '/auth/login/verify') {
             return ok({'accessToken': token('fleet_owner'), 'userId': 'fleet'});
           }
-          expect(r.url.path, '/users/fleet');
+          expect(r.url.path, '/provider/enrolment');
           return ok({'id': 'fleet', 'role': 'fleet_owner', 'status': 'active'});
         }),
       );
@@ -84,7 +84,7 @@ void main() {
       expect(api.hasFleetRole, true);
       expect(api.hasDriverRole, false);
       expect(api.providerMode, 'fleet_owner');
-      expect(paths, ['/auth/login/verify', '/users/fleet']);
+      expect(paths, ['/auth/login/verify', '/provider/enrolment']);
       api.dispose();
     },
   );
@@ -131,6 +131,14 @@ void main() {
               },
             }),
             404,
+          );
+        case '/provider/onboarding':
+          return http.Response(
+            jsonEncode({
+              'success': true,
+              'data': {'dashboardAccessible': false, 'deferred_codes': []},
+            }),
+            200,
           );
         case '/provider/document-requirements':
         case '/provider/approvals':
@@ -225,6 +233,14 @@ void main() {
                 'status': replaced ? 'SUBMITTED' : 'REJECTED',
               },
             ]);
+          case '/provider/onboarding':
+            return http.Response(
+              jsonEncode({
+                'success': true,
+                'data': {'dashboardAccessible': false, 'deferred_codes': []},
+              }),
+              200,
+            );
           case '/partners/vehicles':
           case '/provider/approvals':
           case '/provider/document-requirements':

@@ -1,4 +1,5 @@
 import 'dart:ui';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:infurnus_driver/main.dart';
@@ -42,7 +43,10 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.textContaining('Preview Dashboard (Testing Only)'), findsOneWidget);
+      expect(
+        find.textContaining('Preview Dashboard (Testing Only)'),
+        findsOneWidget,
+      );
 
       await tester.tap(find.textContaining('Preview Dashboard (Testing Only)'));
       await tester.pumpAndSettle();

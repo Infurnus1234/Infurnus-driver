@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../../providers/app_state.dart';
 import '../../widgets/infurnus_app_bar.dart';
 import '../../widgets/driver_bottom_nav.dart';
@@ -32,7 +33,10 @@ class _EarningsScreenState extends State<EarningsScreen> {
             children: [
               // Period Selector Dropdown
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(10),
@@ -41,11 +45,41 @@ class _EarningsScreenState extends State<EarningsScreen> {
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<String>(
                     value: _selectedPeriod,
-                    icon: const Icon(Icons.keyboard_arrow_down, color: InfurnusTheme.textDark),
+                    icon: const Icon(
+                      Icons.keyboard_arrow_down,
+                      color: InfurnusTheme.textDark,
+                    ),
                     items: const [
-                      DropdownMenuItem(value: 'Today', child: Text('Today', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
-                      DropdownMenuItem(value: 'This Week', child: Text('This Week', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
-                      DropdownMenuItem(value: 'This Month', child: Text('This Month', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
+                      DropdownMenuItem(
+                        value: 'Today',
+                        child: Text(
+                          'Today',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      DropdownMenuItem(
+                        value: 'This Week',
+                        child: Text(
+                          'This Week',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      DropdownMenuItem(
+                        value: 'This Month',
+                        child: Text(
+                          'This Month',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
                     ],
                     onChanged: (val) {
                       if (val != null) setState(() => _selectedPeriod = val);
@@ -71,7 +105,10 @@ class _EarningsScreenState extends State<EarningsScreen> {
                   ),
                   const SizedBox(width: 10),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
                       color: InfurnusTheme.greenLight,
                       borderRadius: BorderRadius.circular(8),
@@ -79,7 +116,11 @@ class _EarningsScreenState extends State<EarningsScreen> {
                     child: const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.arrow_upward, color: InfurnusTheme.primaryGreen, size: 14),
+                        Icon(
+                          Icons.arrow_upward,
+                          color: InfurnusTheme.primaryGreen,
+                          size: 14,
+                        ),
                         SizedBox(width: 2),
                         Text(
                           '+12.5%',
@@ -99,7 +140,10 @@ class _EarningsScreenState extends State<EarningsScreen> {
               // Weekly Bar Chart (Mon - Sun)
               Container(
                 height: 170,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 16,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(16),
@@ -135,9 +179,22 @@ class _EarningsScreenState extends State<EarningsScreen> {
                       child: const Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('42', style: TextStyle(color: InfurnusTheme.textDark, fontSize: 24, fontWeight: FontWeight.bold)),
+                          Text(
+                            '42',
+                            style: TextStyle(
+                              color: InfurnusTheme.textDark,
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                           SizedBox(height: 4),
-                          Text('Trips', style: TextStyle(color: InfurnusTheme.textMuted, fontSize: 13)),
+                          Text(
+                            'Trips',
+                            style: TextStyle(
+                              color: InfurnusTheme.textMuted,
+                              fontSize: 13,
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -154,9 +211,22 @@ class _EarningsScreenState extends State<EarningsScreen> {
                       child: const Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('684 km', style: TextStyle(color: InfurnusTheme.textDark, fontSize: 24, fontWeight: FontWeight.bold)),
+                          Text(
+                            '684 km',
+                            style: TextStyle(
+                              color: InfurnusTheme.textDark,
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                           SizedBox(height: 4),
-                          Text('Distance', style: TextStyle(color: InfurnusTheme.textMuted, fontSize: 13)),
+                          Text(
+                            'Distance',
+                            style: TextStyle(
+                              color: InfurnusTheme.textMuted,
+                              fontSize: 13,
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -171,51 +241,84 @@ class _EarningsScreenState extends State<EarningsScreen> {
                   backgroundColor: InfurnusTheme.buttonBlack,
                   foregroundColor: Colors.white,
                   minimumSize: const Size.fromHeight(50),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
                 ),
                 onPressed: () {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Detailed tax and weekly earnings breakdown generated.')),
+                    const SnackBar(
+                      content: Text(
+                        'Detailed tax and weekly earnings breakdown generated.',
+                      ),
+                    ),
                   );
                 },
-                child: const Text('View Earnings Details', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                child: const Text(
+                  'View Earnings Details',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                ),
               ),
               const SizedBox(height: 24),
 
               // Recent Transactions list preview
-              const Text('Recent Trip Earnings', style: TextStyle(color: InfurnusTheme.textDark, fontWeight: FontWeight.bold, fontSize: 16)),
+              const Text(
+                'Recent Trip Earnings',
+                style: TextStyle(
+                  color: InfurnusTheme.textDark,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
               const SizedBox(height: 12),
 
-              ...txns.map((t) => Container(
-                margin: const EdgeInsets.only(bottom: 10),
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(t.title, style: const TextStyle(color: InfurnusTheme.textDark, fontWeight: FontWeight.w600, fontSize: 13)),
-                        const SizedBox(height: 2),
-                        Text(t.date, style: const TextStyle(color: InfurnusTheme.textMuted, fontSize: 11)),
-                      ],
-                    ),
-                    Text(
-                      '${t.type == "credit" ? "+" : "-"} ₹${t.amount}',
-                      style: TextStyle(
-                        color: t.type == 'credit' ? InfurnusTheme.successGreen : InfurnusTheme.dangerRed,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 15,
+              ...txns.map(
+                (t) => Container(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            t.title,
+                            style: const TextStyle(
+                              color: InfurnusTheme.textDark,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            t.date,
+                            style: const TextStyle(
+                              color: InfurnusTheme.textMuted,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                  ],
+                      Text(
+                        '${t.type == "credit" ? "+" : "-"} ₹${t.amount}',
+                        style: TextStyle(
+                          color: t.type == 'credit'
+                              ? InfurnusTheme.successGreen
+                              : InfurnusTheme.dangerRed,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              )),
+              ),
             ],
           ),
         ),
@@ -232,7 +335,9 @@ class _EarningsScreenState extends State<EarningsScreen> {
           width: 22,
           height: 100 * fillRatio,
           decoration: BoxDecoration(
-            color: isSelected ? InfurnusTheme.primaryGreen : const Color(0xFFA7F3D0),
+            color: isSelected
+                ? InfurnusTheme.primaryGreen
+                : const Color(0xFFA7F3D0),
             borderRadius: BorderRadius.circular(6),
           ),
         ),
@@ -240,7 +345,9 @@ class _EarningsScreenState extends State<EarningsScreen> {
         Text(
           day,
           style: TextStyle(
-            color: isSelected ? InfurnusTheme.primaryGreen : InfurnusTheme.textMuted,
+            color: isSelected
+                ? InfurnusTheme.primaryGreen
+                : InfurnusTheme.textMuted,
             fontSize: 12,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
           ),
@@ -249,4 +356,3 @@ class _EarningsScreenState extends State<EarningsScreen> {
     );
   }
 }
-

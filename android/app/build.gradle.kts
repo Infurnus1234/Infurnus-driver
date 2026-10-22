@@ -49,6 +49,9 @@ android {
     }
 
     defaultConfig {
+        manifestPlaceholders["googleMapsApiKey"] = localProperties.getProperty("GOOGLE_MAPS_API_KEY")
+            ?: (project.findProperty("GOOGLE_MAPS_API_KEY") as? String)
+            ?: System.getenv("GOOGLE_MAPS_API_KEY") ?: ""
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.infurnus.driver.infurnus_driver"
         // You can update the following values to match your application needs.
@@ -61,7 +64,7 @@ android {
         // flag during build.
         versionCode = flutter.versionCode
         versionName = flutter.versionName
-        if (googleWebClientId.isNotBlank()) resValue("string", "default_web_client_id", googleWebClientId)
+        // google-services supplies default_web_client_id from the registered configuration.
     }
 
     buildTypes {

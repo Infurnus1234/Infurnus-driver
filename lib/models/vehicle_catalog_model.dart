@@ -2,7 +2,8 @@ class VehicleCatalogItem {
   final String id;
   final String brand;
   final String modelName;
-  final String category; // 'Sedan', 'Truck', 'Van', 'Container', 'Hatchback', 'SUV'
+  final String
+  category; // 'Sedan', 'Truck', 'Van', 'Container', 'Hatchback', 'SUV'
   final String fuelType; // 'Electric', 'Diesel', 'CNG', 'Petrol'
   final String payloadCapacity;
 

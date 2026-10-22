@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+
 import '../../providers/app_state.dart';
 import '../../widgets/infurnus_app_bar.dart';
 import '../../core/theme.dart';
@@ -27,14 +28,38 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
     super.initState();
     final appState = Provider.of<AppState>(context, listen: false);
     final user = appState.currentUser;
-    _nameController = TextEditingController(text: user?.fullName.isNotEmpty == true && user?.fullName != 'New Provider User' ? user!.fullName : '');
-    _emailController = TextEditingController(text: user?.email.isNotEmpty == true && user?.email != 'provider@infurnus.com' ? user!.email : '');
-    _phoneController = TextEditingController(text: user?.phone.isNotEmpty == true && user?.phone != '+91 98765 00000' ? user!.phone : '');
+    _nameController = TextEditingController(
+      text:
+          user?.fullName.isNotEmpty == true &&
+              user?.fullName != 'New Provider User'
+          ? user!.fullName
+          : '',
+    );
+    _emailController = TextEditingController(
+      text:
+          user?.email.isNotEmpty == true &&
+              user?.email != 'provider@infurnus.com'
+          ? user!.email
+          : '',
+    );
+    _phoneController = TextEditingController(
+      text: user?.phone.isNotEmpty == true && user?.phone != '+91 98765 00000'
+          ? user!.phone
+          : '',
+    );
     _dobController = TextEditingController(text: user?.dob ?? '15/08/1992');
-    _addressController = TextEditingController(text: user?.address ?? user?.businessAddress ?? '');
-    _vehInfoController = TextEditingController(text: user?.vehicleInformation ?? 'Tata Ace EV Cargo');
-    _vehNumberController = TextEditingController(text: user?.vehicleNumber ?? 'KA 01 EV 8899');
-    _vehTypeController = TextEditingController(text: user?.vehicleType ?? 'Truck');
+    _addressController = TextEditingController(
+      text: user?.address ?? user?.businessAddress ?? '',
+    );
+    _vehInfoController = TextEditingController(
+      text: user?.vehicleInformation ?? 'Tata Ace EV Cargo',
+    );
+    _vehNumberController = TextEditingController(
+      text: user?.vehicleNumber ?? 'KA 01 EV 8899',
+    );
+    _vehTypeController = TextEditingController(
+      text: user?.vehicleType ?? 'Truck',
+    );
   }
 
   @override
@@ -50,7 +75,11 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
             children: [
               const Text(
                 'Tell us about yourself',
-                style: TextStyle(color: InfurnusTheme.textDark, fontSize: 22, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  color: InfurnusTheme.textDark,
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const SizedBox(height: 6),
               const Text(
@@ -64,7 +93,10 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
                 style: const TextStyle(color: InfurnusTheme.textDark),
                 decoration: const InputDecoration(
                   labelText: 'Full Name (as on PAN / Aadhaar / DL)',
-                  prefixIcon: Icon(Icons.person_outline, color: InfurnusTheme.primaryGreen),
+                  prefixIcon: Icon(
+                    Icons.person_outline,
+                    color: InfurnusTheme.primaryGreen,
+                  ),
                 ),
               ),
               const SizedBox(height: 16),
@@ -74,7 +106,10 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
                 style: const TextStyle(color: InfurnusTheme.textDark),
                 decoration: const InputDecoration(
                   labelText: 'Phone Number',
-                  prefixIcon: Icon(Icons.phone_android, color: InfurnusTheme.primaryGreen),
+                  prefixIcon: Icon(
+                    Icons.phone_android,
+                    color: InfurnusTheme.primaryGreen,
+                  ),
                 ),
               ),
               const SizedBox(height: 16),
@@ -84,7 +119,10 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
                 style: const TextStyle(color: InfurnusTheme.textDark),
                 decoration: const InputDecoration(
                   labelText: 'Email Address',
-                  prefixIcon: Icon(Icons.email_outlined, color: InfurnusTheme.primaryGreen),
+                  prefixIcon: Icon(
+                    Icons.email_outlined,
+                    color: InfurnusTheme.primaryGreen,
+                  ),
                 ),
               ),
               const SizedBox(height: 16),
@@ -94,7 +132,10 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
                 style: const TextStyle(color: InfurnusTheme.textDark),
                 decoration: const InputDecoration(
                   labelText: 'Date of Birth (DD/MM/YYYY)',
-                  prefixIcon: Icon(Icons.cake_outlined, color: InfurnusTheme.primaryGreen),
+                  prefixIcon: Icon(
+                    Icons.cake_outlined,
+                    color: InfurnusTheme.primaryGreen,
+                  ),
                 ),
               ),
               const SizedBox(height: 16),
@@ -105,7 +146,10 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
                 style: const TextStyle(color: InfurnusTheme.textDark),
                 decoration: const InputDecoration(
                   labelText: 'Residential Address',
-                  prefixIcon: Icon(Icons.location_on_outlined, color: InfurnusTheme.primaryGreen),
+                  prefixIcon: Icon(
+                    Icons.location_on_outlined,
+                    color: InfurnusTheme.primaryGreen,
+                  ),
                 ),
               ),
               const SizedBox(height: 24),
@@ -113,7 +157,11 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
               const Divider(color: Color(0xFFE2E8F0), height: 32),
               const Text(
                 'Vehicle Information (KYC)',
-                style: TextStyle(color: InfurnusTheme.textDark, fontSize: 16, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  color: InfurnusTheme.textDark,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const SizedBox(height: 16),
 
@@ -122,7 +170,10 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
                 style: const TextStyle(color: InfurnusTheme.textDark),
                 decoration: const InputDecoration(
                   labelText: 'Vehicle Make & Model Information',
-                  prefixIcon: Icon(Icons.local_shipping, color: InfurnusTheme.primaryGreen),
+                  prefixIcon: Icon(
+                    Icons.local_shipping,
+                    color: InfurnusTheme.primaryGreen,
+                  ),
                 ),
               ),
               const SizedBox(height: 16),
@@ -132,7 +183,10 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
                 style: const TextStyle(color: InfurnusTheme.textDark),
                 decoration: const InputDecoration(
                   labelText: 'Vehicle Registration Number (Plate)',
-                  prefixIcon: Icon(Icons.pin, color: InfurnusTheme.primaryGreen),
+                  prefixIcon: Icon(
+                    Icons.pin,
+                    color: InfurnusTheme.primaryGreen,
+                  ),
                 ),
               ),
               const SizedBox(height: 16),
@@ -141,8 +195,12 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
                 controller: _vehTypeController,
                 style: const TextStyle(color: InfurnusTheme.textDark),
                 decoration: const InputDecoration(
-                  labelText: 'Vehicle Type / Category (e.g. Truck, Sedan, Bike)',
-                  prefixIcon: Icon(Icons.category, color: InfurnusTheme.primaryGreen),
+                  labelText:
+                      'Vehicle Type / Category (e.g. Truck, Sedan, Bike)',
+                  prefixIcon: Icon(
+                    Icons.category,
+                    color: InfurnusTheme.primaryGreen,
+                  ),
                 ),
               ),
               const SizedBox(height: 32),
@@ -152,10 +210,15 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
                   backgroundColor: InfurnusTheme.buttonBlack,
                   foregroundColor: Colors.white,
                   minimumSize: const Size.fromHeight(50),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
                 ),
                 onPressed: () {
-                  final appState = Provider.of<AppState>(context, listen: false);
+                  final appState = Provider.of<AppState>(
+                    context,
+                    listen: false,
+                  );
                   appState.updateProfile(
                     fullName: _nameController.text,
                     email: _emailController.text,
@@ -166,7 +229,13 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
                 child: const Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text('Continue', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    Text(
+                      'Continue',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                     SizedBox(width: 8),
                     Icon(Icons.arrow_forward, size: 18),
                   ],

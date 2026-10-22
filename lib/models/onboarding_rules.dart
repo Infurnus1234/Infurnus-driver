@@ -3,20 +3,24 @@ import '../services/api_service.dart';
 class DocumentRule {
   final String code;
   final bool required;
+  final bool onboardingDeferrable;
   final bool requiresExpiry;
   final int minimumPages;
   const DocumentRule(
     this.code, {
     this.required = false,
+    this.onboardingDeferrable = false,
     this.requiresExpiry = false,
     this.minimumPages = 1,
   });
   factory DocumentRule.fromJson(Map<String, dynamic> json) => DocumentRule(
     json['document_code'] as String,
     required: json['required'] as bool,
+    onboardingDeferrable: json['onboarding_deferrable'] == true,
     requiresExpiry: json['requires_expiry'] as bool,
     minimumPages: (json['minimum_pages'] as num).toInt(),
   );
+  bool get imageOnly => ['profile_photo', 'vehicle_front_photo'].contains(code);
   String get uploadType =>
       const [
         'profile_photo',
@@ -35,11 +39,10 @@ class OnboardingRules {
   static String today() =>
       DateTime.now().toUtc().toIso8601String().substring(0, 10);
   static bool validDate(String value) {
-    final normalized = value.trim().replaceAll('/', '-');
-    final parsed = DateTime.tryParse(normalized);
-    return RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(normalized) &&
+    final parsed = DateTime.tryParse(value);
+    return RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(value) &&
         parsed != null &&
-        parsed.toIso8601String().substring(0, 10) == normalized;
+        parsed.toIso8601String().substring(0, 10) == value;
   }
 
   static String? validateSignup(Map<String, dynamic> data) {
@@ -63,10 +66,14 @@ class OnboardingRules {
       return 'Enter a valid phone number.';
     }
     final password = data['password'] as String? ?? '';
-    if (password.length < 8 || password.length > 128) {
+    final needsPassword = data['role'] != 'driver';
+    if ((needsPassword || password.isNotEmpty) &&
+        (password.length < 8 || password.length > 128)) {
       return 'Password must contain 8–128 characters.';
     }
-    if (password != data['confirmPassword']) return 'Passwords do not match.';
+    if (password != (data['confirmPassword'] as String? ?? '')) {
+      return 'Passwords do not match.';
+    }
     final role = data['role'] ?? 'driver';
     if (!['driver', 'fleet_owner', 'driver_fleet_owner'].contains(role)) {
       return 'Select a supported Driver/Fleet role.';
@@ -77,7 +84,13 @@ class OnboardingRules {
         return 'Enter your business name (up to 150 characters).';
       }
     }
-    return role == 'fleet_owner' ? null : validateProfile(data);
+    if (role == 'fleet_owner') return null;
+    if (data['onboardingLicencePending'] == true &&
+        data['licenseNumber'] == null &&
+        data['licenseExpiry'] == null) {
+      return null;
+    }
+    return validateProfile(data);
   }
 
   static String? validateProfile(Map<String, dynamic> data) {
@@ -119,37 +132,20 @@ class OnboardingRules {
   ) {
     if (files.length < rule.minimumPages ||
         files.length > 5 ||
-        (rule.code == 'profile_photo' && files.length != 1)) {
-      return rule.code == 'profile_photo'
+        (rule.imageOnly && files.length != 1)) {
+      return rule.imageOnly
           ? 'Select one profile image.'
           : 'Select ${rule.minimumPages}–5 files/pages.';
     }
-    final limit = (rule.code == 'profile_photo' ? 10 : 15) * 1024 * 1024;
-    const allowedImages = [
-      'image/jpeg',
-      'image/jpg',
-      'image/pjpeg',
-      'image/png',
-      'image/x-png',
-      'image/webp',
-    ];
+    final limit = (rule.imageOnly ? 10 : 15) * 1024 * 1024;
+    const images = ['image/jpeg', 'image/png', 'image/webp'];
     for (final file in files) {
       if (file.bytes.isEmpty || file.bytes.length > limit) {
         return 'Each file must be nonempty and no larger than ${limit ~/ (1024 * 1024)} MB.';
       }
-      final nameLower = file.name.toLowerCase();
-      final isImageExt = nameLower.endsWith('.jpg') ||
-          nameLower.endsWith('.jpeg') ||
-          nameLower.endsWith('.png') ||
-          nameLower.endsWith('.webp');
-      final isPdfExt = nameLower.endsWith('.pdf');
-
-      final mime = file.mimeType.toLowerCase();
-      final isValidImage = allowedImages.contains(mime) || isImageExt;
-      final isValidPdf = rule.code != 'profile_photo' && (mime == 'application/pdf' || isPdfExt);
-
-      if (!isValidImage && !isValidPdf) {
-        return 'Choose JPEG, PNG, WebP${rule.code == 'profile_photo' ? '' : ' or PDF'} files.';
+      if (!images.contains(file.mimeType) &&
+          !(!rule.imageOnly && file.mimeType == 'application/pdf')) {
+        return 'Choose JPEG, PNG, WebP${rule.imageOnly ? '' : ' or PDF'} files.';
       }
     }
     if (files.fold<int>(0, (total, file) => total + file.bytes.length) >

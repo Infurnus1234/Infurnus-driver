@@ -49,42 +49,6 @@ class _DocumentUploadDialogState extends State<DocumentUploadDialog> {
     super.dispose();
   }
 
-  String _resolveMime(String name, List<int> bytes) {
-    final nameLower = name.toLowerCase();
-    var mime = lookupMimeType(
-          name,
-          headerBytes: bytes.take(min(32, bytes.length)).toList(),
-        ) ??
-        'application/octet-stream';
-    if (mime == 'application/octet-stream' || mime == 'image/jpg') {
-      if (nameLower.endsWith('.jpg') || nameLower.endsWith('.jpeg')) {
-        mime = 'image/jpeg';
-      } else if (nameLower.endsWith('.png')) {
-        mime = 'image/png';
-      } else if (nameLower.endsWith('.webp')) {
-        mime = 'image/webp';
-      } else if (nameLower.endsWith('.pdf')) {
-        mime = 'application/pdf';
-      }
-    }
-    return mime;
-  }
-
-  Future<void> _selectDate(TextEditingController controller) async {
-    final initialDate = DateTime.tryParse(controller.text.trim()) ?? DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: initialDate,
-      firstDate: DateTime(1900),
-      lastDate: DateTime(2100),
-    );
-    if (picked != null) {
-      setState(() {
-        controller.text = picked.toIso8601String().substring(0, 10);
-      });
-    }
-  }
-
   Future<void> _pick(String source) async {
     setState(() {
       _busy = true;
@@ -108,7 +72,13 @@ class _DocumentUploadDialogState extends State<DocumentUploadDialog> {
                 DocumentFile(
                   file.name,
                   file.bytes!,
-                  _resolveMime(file.name, file.bytes!),
+                  lookupMimeType(
+                        file.name,
+                        headerBytes: file.bytes!
+                            .take(min(32, file.bytes!.length))
+                            .toList(),
+                      ) ??
+                      'application/octet-stream',
                 ),
               );
             }
@@ -133,7 +103,11 @@ class _DocumentUploadDialogState extends State<DocumentUploadDialog> {
             DocumentFile(
               image.name,
               bytes,
-              _resolveMime(image.name, bytes),
+              lookupMimeType(
+                    image.name,
+                    headerBytes: bytes.take(min(32, bytes.length)).toList(),
+                  ) ??
+                  'application/octet-stream',
             ),
           );
         }
@@ -276,12 +250,8 @@ class _DocumentUploadDialogState extends State<DocumentUploadDialog> {
             TextField(
               controller: _issued,
               enabled: !_busy,
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                 labelText: 'Issue date (YYYY-MM-DD, optional)',
-                suffixIcon: IconButton(
-                  icon: const Icon(Icons.calendar_today, size: 20),
-                  onPressed: _busy ? null : () => _selectDate(_issued),
-                ),
               ),
             ),
             TextField(
@@ -290,10 +260,6 @@ class _DocumentUploadDialogState extends State<DocumentUploadDialog> {
               decoration: InputDecoration(
                 labelText:
                     'Expiry date (YYYY-MM-DD${widget.rule.requiresExpiry ? ', required' : ', optional'})',
-                suffixIcon: IconButton(
-                  icon: const Icon(Icons.calendar_today, size: 20),
-                  onPressed: _busy ? null : () => _selectDate(_expiry),
-                ),
               ),
             ),
             if (_error != null)

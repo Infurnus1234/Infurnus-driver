@@ -8,13 +8,12 @@ import 'package:infurnus_driver/screens/driver/wallet_screen.dart';
 import 'package:infurnus_driver/core/theme.dart';
 
 void main() {
-  testWidgets('INFURNUS Full App Screens Render Successfully', (WidgetTester tester) async {
+  testWidgets('INFURNUS Full App Screens Render Successfully', (
+    WidgetTester tester,
+  ) async {
     // Test Welcome Screen
     await tester.pumpWidget(
-      MaterialApp(
-        theme: InfurnusTheme.lightTheme,
-        home: const WelcomeScreen(),
-      ),
+      MaterialApp(theme: InfurnusTheme.lightTheme, home: const WelcomeScreen()),
     );
     expect(find.text('Drive.\nEarn.\nGrow Together.'), findsOneWidget);
     expect(find.text('Get Started'), findsOneWidget);

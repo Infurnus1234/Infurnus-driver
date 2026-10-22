@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+
 import '../../providers/app_state.dart';
 import '../../widgets/infurnus_app_bar.dart';
 import '../../core/theme.dart';
@@ -30,9 +31,20 @@ class OnRideScreen extends StatelessWidget {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.navigation, size: 64, color: InfurnusTheme.infoBlue),
+                          Icon(
+                            Icons.navigation,
+                            size: 64,
+                            color: InfurnusTheme.infoBlue,
+                          ),
                           SizedBox(height: 8),
-                          Text('LIVE ROUTE TO DROP OFF', style: TextStyle(color: InfurnusTheme.textDark, fontWeight: FontWeight.bold, fontSize: 13)),
+                          Text(
+                            'LIVE ROUTE TO DROP OFF',
+                            style: TextStyle(
+                              color: InfurnusTheme.textDark,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -45,19 +57,44 @@ class OnRideScreen extends StatelessWidget {
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(16),
-                          boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 8)],
+                          boxShadow: [
+                            BoxShadow(color: Colors.black12, blurRadius: 8),
+                          ],
                         ),
                         child: Row(
                           children: [
-                            const Icon(Icons.location_on, color: Colors.redAccent),
+                            const Icon(
+                              Icons.location_on,
+                              color: Colors.redAccent,
+                            ),
                             const SizedBox(width: 12),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Text('Drop Off Destination', style: TextStyle(color: InfurnusTheme.textMuted, fontSize: 11)),
-                                  Text(booking.dropoffLocation, style: const TextStyle(color: InfurnusTheme.textDark, fontWeight: FontWeight.bold, fontSize: 13)),
-                                  const Text('12 min • 5.8 km', style: TextStyle(color: InfurnusTheme.primaryGreen, fontSize: 11, fontWeight: FontWeight.bold)),
+                                  const Text(
+                                    'Drop Off Destination',
+                                    style: TextStyle(
+                                      color: InfurnusTheme.textMuted,
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                  Text(
+                                    booking.dropoffLocation,
+                                    style: const TextStyle(
+                                      color: InfurnusTheme.textDark,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                  const Text(
+                                    '12 min • 5.8 km',
+                                    style: TextStyle(
+                                      color: InfurnusTheme.primaryGreen,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
                                 ],
                               ),
                             ),
@@ -78,7 +115,13 @@ class OnRideScreen extends StatelessWidget {
                 decoration: const BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-                  boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10, spreadRadius: 2)],
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black12,
+                      blurRadius: 10,
+                      spreadRadius: 2,
+                    ),
+                  ],
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -90,18 +133,41 @@ class OnRideScreen extends StatelessWidget {
                           children: [
                             const CircleAvatar(
                               backgroundColor: InfurnusTheme.greenLight,
-                              child: Text('A', style: TextStyle(color: InfurnusTheme.primaryGreen, fontWeight: FontWeight.bold)),
+                              child: Text(
+                                'A',
+                                style: TextStyle(
+                                  color: InfurnusTheme.primaryGreen,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                             ),
                             const SizedBox(width: 12),
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(booking.customerName, style: const TextStyle(color: InfurnusTheme.textDark, fontWeight: FontWeight.bold, fontSize: 15)),
+                                Text(
+                                  booking.customerName,
+                                  style: const TextStyle(
+                                    color: InfurnusTheme.textDark,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 15,
+                                  ),
+                                ),
                                 const Row(
                                   children: [
-                                    Icon(Icons.star, color: Colors.amber, size: 14),
+                                    Icon(
+                                      Icons.star,
+                                      color: Colors.amber,
+                                      size: 14,
+                                    ),
                                     SizedBox(width: 4),
-                                    Text('4.8', style: TextStyle(color: InfurnusTheme.textMuted, fontSize: 12)),
+                                    Text(
+                                      '4.8',
+                                      style: TextStyle(
+                                        color: InfurnusTheme.textMuted,
+                                        fontSize: 12,
+                                      ),
+                                    ),
                                   ],
                                 ),
                               ],
@@ -111,11 +177,31 @@ class OnRideScreen extends StatelessWidget {
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
-                            Text('₹ ${booking.totalCustomerFare.toStringAsFixed(0)}', style: const TextStyle(color: InfurnusTheme.textDark, fontWeight: FontWeight.bold, fontSize: 18)),
+                            Text(
+                              '₹ ${booking.totalCustomerFare.toStringAsFixed(0)}',
+                              style: const TextStyle(
+                                color: InfurnusTheme.textDark,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 18,
+                              ),
+                            ),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                              decoration: BoxDecoration(color: InfurnusTheme.greenLight, borderRadius: BorderRadius.circular(6)),
-                              child: Text(booking.paymentMethod.toUpperCase(), style: const TextStyle(color: InfurnusTheme.primaryGreen, fontSize: 10, fontWeight: FontWeight.bold)),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: InfurnusTheme.greenLight,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                booking.paymentMethod.toUpperCase(),
+                                style: const TextStyle(
+                                  color: InfurnusTheme.primaryGreen,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                             ),
                           ],
                         ),
@@ -126,7 +212,10 @@ class OnRideScreen extends StatelessWidget {
                       children: [
                         Expanded(
                           child: OutlinedButton.icon(
-                            style: OutlinedButton.styleFrom(foregroundColor: Colors.red, side: const BorderSide(color: Colors.red)),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.red,
+                              side: const BorderSide(color: Colors.red),
+                            ),
                             onPressed: () {},
                             icon: const Icon(Icons.warning, size: 16),
                             label: const Text('Emergency'),
@@ -135,7 +224,12 @@ class OnRideScreen extends StatelessWidget {
                         const SizedBox(width: 12),
                         Expanded(
                           child: OutlinedButton.icon(
-                            style: OutlinedButton.styleFrom(foregroundColor: InfurnusTheme.buttonBlack, side: const BorderSide(color: InfurnusTheme.buttonBlack)),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: InfurnusTheme.buttonBlack,
+                              side: const BorderSide(
+                                color: InfurnusTheme.buttonBlack,
+                              ),
+                            ),
                             onPressed: () {},
                             icon: const Icon(Icons.support_agent, size: 16),
                             label: const Text('Support'),
@@ -154,7 +248,13 @@ class OnRideScreen extends StatelessWidget {
                         appState.updateBookingStatus(booking.id, 'Delivered');
                         context.push('/driver/trip-completed');
                       },
-                      child: const Text('Complete Ride', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      child: const Text(
+                        'Complete Ride',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
                   ],
                 ),

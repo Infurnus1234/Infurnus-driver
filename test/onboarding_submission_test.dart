@@ -45,6 +45,12 @@ void main() {
               }),
               404,
             );
+          case '/provider/onboarding':
+            data = {
+              'dashboardAccessible': reviewed,
+              'receipt_id': reviewed ? 'receipt' : null,
+              'deferred_codes': [],
+            };
           case '/provider/document-requirements':
             data = [
               {
@@ -77,7 +83,11 @@ void main() {
                 : [];
           case '/provider/approval-requests':
             reviewed = true;
-            data = {'status': 'PENDING'};
+            data = {
+              'dashboardAccessible': true,
+              'receipt_id': 'receipt',
+              'deferred_codes': [],
+            };
           case '/driver-applications':
             data = r.method == 'GET'
                 ? []
@@ -129,6 +139,16 @@ void main() {
         ...profile,
         'verificationStatus': 'approved',
         'status': 'active',
+        'dob': null,
+        'gender': null,
+        'address': null,
+        'city': null,
+        'state': null,
+        'pinCode': null,
+        'emergencyContactName': null,
+        'emergencyContactPhone': null,
+        'emergencyContactRelationship': null,
+        'alternateContactPhone': null,
       }),
       isTrue,
     );
@@ -138,20 +158,12 @@ void main() {
     });
     expect(await session.submitOnboarding(), isTrue);
     expect(bodies['/provider/approval-requests'], [
-      {
-        'targetType': 'driver_document',
-        'targetId': 'fixture-document',
-        'requestType': 'identity_verification',
-      },
-      {
-        'targetType': 'driver_profile',
-        'targetId': 'fixture-profile',
-        'requestType': 'driver_verification',
-      },
+      {'requestType': 'onboarding_submission'},
     ]);
     expect(session.profile!['verificationStatus'], 'rejected');
     expect(session.approvals.single['status'], 'PENDING');
-    expect(session.dashboardAllowed, isFalse);
+    expect(session.dashboardAllowed, isTrue);
+    expect(session.operationalAllowed, isFalse);
     expect(await session.previewAssignment('fixture-code'), isTrue);
     expect(
       session.assignmentPreview!['vehicle']['plateNumber'],

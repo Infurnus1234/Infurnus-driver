@@ -32,14 +32,14 @@ void main() {
   });
 
   group('LocationSearchWidget Widget Tests', () {
-    testWidgets('LocationSearchWidget renders and filters locations', (WidgetTester tester) async {
+    testWidgets('LocationSearchWidget renders and filters locations', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(
         MaterialApp(
           theme: InfurnusTheme.lightTheme,
           home: Scaffold(
-            body: LocationSearchWidget(
-              onLocationSelected: (loc) {},
-            ),
+            body: LocationSearchWidget(onLocationSelected: (loc) {}),
           ),
         ),
       );

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../widgets/infurnus_app_bar.dart';
 import '../../widgets/driver_bottom_nav.dart';
 import '../../core/theme.dart';
@@ -46,13 +47,39 @@ class MyTripsScreen extends StatelessWidget {
 
   Widget _tripList({required bool completed}) {
     final trips = [
-      {'route': 'Boring Road ➔ Patna Junction', 'fare': '₹286', 'date': '18 Sep 2026, 7:20 AM', 'status': 'Completed'},
-      {'route': 'Kankarbagh ➔ Fraser Road', 'fare': '₹420', 'date': '18 Sep 2026, 8:45 AM', 'status': 'Completed'},
-      {'route': 'Patna City ➔ Danapur', 'fare': '₹0', 'date': '17 Sep 2026, 2:20 PM', 'status': 'Cancelled'},
-      {'route': 'Kankarbagh ➔ Boring Road', 'fare': '₹310', 'date': '17 Sep 2026, 6:15 PM', 'status': 'Completed'},
+      {
+        'route': 'Boring Road ➔ Patna Junction',
+        'fare': '₹286',
+        'date': '18 Sep 2026, 7:20 AM',
+        'status': 'Completed',
+      },
+      {
+        'route': 'Kankarbagh ➔ Fraser Road',
+        'fare': '₹420',
+        'date': '18 Sep 2026, 8:45 AM',
+        'status': 'Completed',
+      },
+      {
+        'route': 'Patna City ➔ Danapur',
+        'fare': '₹0',
+        'date': '17 Sep 2026, 2:20 PM',
+        'status': 'Cancelled',
+      },
+      {
+        'route': 'Kankarbagh ➔ Boring Road',
+        'fare': '₹310',
+        'date': '17 Sep 2026, 6:15 PM',
+        'status': 'Completed',
+      },
     ];
 
-    final filtered = trips.where((t) => completed ? t['status'] == 'Completed' : t['status'] == 'Cancelled').toList();
+    final filtered = trips
+        .where(
+          (t) => completed
+              ? t['status'] == 'Completed'
+              : t['status'] == 'Cancelled',
+        )
+        .toList();
 
     return ListView.separated(
       padding: const EdgeInsets.all(16),
@@ -73,20 +100,40 @@ class MyTripsScreen extends StatelessWidget {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(t['route']!, style: const TextStyle(color: InfurnusTheme.textDark, fontWeight: FontWeight.bold, fontSize: 14)),
+                  Text(
+                    t['route']!,
+                    style: const TextStyle(
+                      color: InfurnusTheme.textDark,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
                   const SizedBox(height: 4),
-                  Text(t['date']!, style: const TextStyle(color: InfurnusTheme.textMuted, fontSize: 11)),
+                  Text(
+                    t['date']!,
+                    style: const TextStyle(
+                      color: InfurnusTheme.textMuted,
+                      fontSize: 11,
+                    ),
+                  ),
                   const SizedBox(height: 6),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
-                      color: t['status'] == 'Completed' ? InfurnusTheme.greenLight : Colors.red.withValues(alpha: 0.1),
+                      color: t['status'] == 'Completed'
+                          ? InfurnusTheme.greenLight
+                          : Colors.red.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
                       t['status']!,
                       style: TextStyle(
-                        color: t['status'] == 'Completed' ? InfurnusTheme.primaryGreen : Colors.red,
+                        color: t['status'] == 'Completed'
+                            ? InfurnusTheme.primaryGreen
+                            : Colors.red,
                         fontSize: 10,
                         fontWeight: FontWeight.bold,
                       ),
@@ -96,7 +143,11 @@ class MyTripsScreen extends StatelessWidget {
               ),
               Text(
                 t['fare']!,
-                style: const TextStyle(color: InfurnusTheme.textDark, fontWeight: FontWeight.bold, fontSize: 16),
+                style: const TextStyle(
+                  color: InfurnusTheme.textDark,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
               ),
             ],
           ),

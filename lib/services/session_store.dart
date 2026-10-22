@@ -42,3 +42,15 @@ class MemorySessionStore implements SessionStore, ProviderModeStore {
   @override
   Future<void> write(String? next) async => value = next;
 }
+
+/// Device-only onboarding choices, separate from authentication and approval.
+class SecureOnboardingDraftStore implements SessionStore {
+  final FlutterSecureStorage _storage = const FlutterSecureStorage();
+  static const _key = 'infurnus_onboarding_local_deferrals';
+  @override
+  Future<String?> read() => _storage.read(key: _key);
+  @override
+  Future<void> write(String? value) => value == null
+      ? _storage.delete(key: _key)
+      : _storage.write(key: _key, value: value);
+}

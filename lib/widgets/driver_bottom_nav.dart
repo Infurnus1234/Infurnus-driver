@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../core/theme.dart';
+
+import '../core/operations_theme.dart';
 
 class DriverBottomNav extends StatelessWidget {
   final int currentIndex;
@@ -12,10 +13,13 @@ class DriverBottomNav extends StatelessWidget {
     return BottomNavigationBar(
       currentIndex: currentIndex,
       type: BottomNavigationBarType.fixed,
-      backgroundColor: Colors.white,
-      selectedItemColor: InfurnusTheme.primaryGreen,
-      unselectedItemColor: InfurnusTheme.textMuted,
-      selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+      backgroundColor: Ops.surfacePrimary,
+      selectedItemColor: Ops.success,
+      unselectedItemColor: Ops.textMuted,
+      selectedLabelStyle: const TextStyle(
+        fontWeight: FontWeight.bold,
+        fontSize: 11,
+      ),
       unselectedLabelStyle: const TextStyle(fontSize: 11),
       items: const [
         BottomNavigationBarItem(
@@ -29,14 +33,14 @@ class DriverBottomNav extends StatelessWidget {
           label: 'Trips',
         ),
         BottomNavigationBarItem(
-          icon: Icon(Icons.bar_chart_outlined),
-          activeIcon: Icon(Icons.bar_chart),
-          label: 'Earnings',
+          icon: Icon(Icons.directions_car_outlined),
+          activeIcon: Icon(Icons.directions_car),
+          label: 'Vehicle',
         ),
         BottomNavigationBarItem(
-          icon: Icon(Icons.account_balance_wallet_outlined),
-          activeIcon: Icon(Icons.account_balance_wallet),
-          label: 'Wallet',
+          icon: Icon(Icons.support_agent_outlined),
+          activeIcon: Icon(Icons.support_agent),
+          label: 'Support',
         ),
         BottomNavigationBarItem(
           icon: Icon(Icons.person_outline),
@@ -53,10 +57,10 @@ class DriverBottomNav extends StatelessWidget {
             context.go('/driver/trips');
             break;
           case 2:
-            context.go('/driver/earnings');
+            context.push('/driver/assignment');
             break;
           case 3:
-            context.go('/driver/wallet');
+            context.push('/support-tickets');
             break;
           case 4:
             context.go('/profile');

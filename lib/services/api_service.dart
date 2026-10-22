@@ -40,6 +40,8 @@ class ApiService {
   final http.Client _client;
   final SessionStore _store;
   Future<void> _storeWrites = Future.value();
+  bool get roleFlowEnabled => _productionClient;
+  final bool _productionClient;
   String role = 'driver';
   String providerMode = 'driver';
   bool get hasDriverRole => ['driver', 'driver_fleet_owner'].contains(role);
@@ -47,11 +49,13 @@ class ApiService {
   bool get isAdmin => ['admin', 'super_admin'].contains(role);
   final Map<String, String> _cookies = {};
   String? accessToken;
+  bool isTestOnboarding = false;
   String? _csrfToken;
   String? userId;
   Future<void>? _refreshing;
   ApiService({http.Client? client, SessionStore? store})
-    : _client = client ?? http.Client(),
+    : _productionClient = client == null,
+      _client = client ?? http.Client(),
       _store =
           store ??
           (client == null ? SecureSessionStore() : MemorySessionStore());
@@ -100,6 +104,7 @@ class ApiService {
   }
 
   void clearSession({bool persist = true}) {
+    isTestOnboarding = false;
     accessToken = null;
     userId = null;
     _csrfToken = null;
@@ -118,11 +123,15 @@ class ApiService {
     Map<String, String>? fields,
     String fileField = 'file',
   }) async {
+    final requestPath =
+        isTestOnboarding && !path.startsWith('/driver-test-onboarding/')
+        ? '/driver-test-onboarding$path'
+        : path;
     final http.BaseRequest request;
     if (files != null) {
       final multipart = http.MultipartRequest(
         method,
-        Uri.parse('$baseUrl$path'),
+        Uri.parse('$baseUrl$requestPath'),
       );
       multipart.fields.addAll(fields ?? {});
       for (final file in files) {
@@ -137,7 +146,10 @@ class ApiService {
       }
       request = multipart;
     } else {
-      final jsonRequest = http.Request(method, Uri.parse('$baseUrl$path'));
+      final jsonRequest = http.Request(
+        method,
+        Uri.parse('$baseUrl$requestPath'),
+      );
       if (body != null) jsonRequest.body = jsonEncode(body);
       request = jsonRequest;
     }
@@ -174,6 +186,7 @@ class ApiService {
       _csrfToken = _cookies['infurnus_csrf_token'] ?? _csrfToken;
     }
     if (response.statusCode == 401 &&
+        !isTestOnboarding &&
         retry &&
         accessToken != null &&
         !path.startsWith('/auth/')) {
@@ -212,6 +225,12 @@ class ApiService {
         response.statusCode >= 300 ||
         envelope?['success'] == false) {
       final error = envelope?['error'];
+      if (isTestOnboarding &&
+          response.statusCode == 404 &&
+          error is Map &&
+          error['code'] == 'NOT_FOUND') {
+        clearSession();
+      }
       final invalidLinkIdentity =
           path == '/auth/google/link' &&
           error is Map &&
@@ -272,6 +291,66 @@ class ApiService {
     Map<String, dynamic>? body,
   ) => request(method, path, body: body, retry: false);
 
+  Future<bool> testOnboardingAvailable() async {
+    if (!kDebugMode ||
+        !const bool.fromEnvironment('DRIVER_TEST_ONBOARDING_ENABLED')) {
+      return false;
+    }
+    try {
+      final data = await request('GET', '/driver-test-onboarding/capabilities');
+      return data is Map && data['enabled'] == true;
+    } on ApiException {
+      return false;
+    }
+  }
+
+  Future<void> startTestOnboarding() async {
+    clearSession();
+    final data = await request(
+      'POST',
+      '/driver-test-onboarding/sessions',
+      body: {},
+    );
+    accessToken = data['sessionToken'] as String;
+    userId = data['userId'] as String;
+    isTestOnboarding = true;
+    // Deliberately memory-only: no login credentials, cookies, refresh or stored session.
+  }
+
+  // This protected endpoint checks the current database role and active status.
+  // /users/:id is a profile projection and deliberately has neither field.
+  Future<void> validateProviderAccount([
+    Map<String, dynamic>? enrolment,
+  ]) async {
+    if (isAdmin) {
+      // Preserve the separate existing reviewer session contract.
+      final account = await request(
+        'GET',
+        '/users/${Uri.encodeComponent(userId!)}',
+      );
+      if (account['role'] != role || account['status'] != 'active') {
+        throw const ApiException(
+          'This account is not authorized.',
+          403,
+          'FORBIDDEN',
+        );
+      }
+      return;
+    }
+    final state =
+        enrolment ??
+        Map<String, dynamic>.from(
+          await request('GET', '/provider/enrolment') as Map,
+        );
+    if (state['role'] != role) {
+      throw const ApiException(
+        'This account is not authorized.',
+        403,
+        'FORBIDDEN',
+      );
+    }
+  }
+
   Future<void> _refresh() async {
     try {
       final data = await request('POST', '/auth/refresh', retry: false);
@@ -284,11 +363,15 @@ class ApiService {
     }
   }
 
-  Future<String> login(String identifier, String password) async {
+  Future<String> login(
+    String identifier, [
+    String password = '',
+    String? accountRole,
+  ]) async {
     clearSession();
     identifier = identifier.trim();
-    if (identifier.isEmpty || password.isEmpty) {
-      throw const ApiException('Enter your login identifier and password.');
+    if (identifier.isEmpty) {
+      throw const ApiException('Enter your mobile number or email address.');
     }
     String? email;
     String? phone;
@@ -303,13 +386,17 @@ class ApiService {
         phone = digits;
       } else if (digits.length == 10) {
         phone = '+91$digits';
-      } else if (digits.length > 10 && digits.startsWith('91') && digits.length == 12) {
+      } else if (digits.length > 10 &&
+          digits.startsWith('91') &&
+          digits.length == 12) {
         phone = '+$digits';
       } else {
         phone = digits;
       }
       if (!RegExp(r'^\+?[1-9]\d{7,14}$').hasMatch(phone)) {
-        throw const ApiException('Enter a valid mobile number or email address.');
+        throw const ApiException(
+          'Enter a valid mobile number or email address.',
+        );
       }
     }
     final data = await request(
@@ -318,7 +405,8 @@ class ApiService {
       body: {
         'email': ?email,
         'phone': ?phone,
-        'password': password,
+        if (password.isNotEmpty) 'password': password,
+        'role': ?accountRole,
       },
     );
     return data['challengeId'] as String;
@@ -383,7 +471,7 @@ class ApiService {
         'FORBIDDEN',
       );
     }
-    providerMode = hasDriverRole ? 'driver' : 'fleet_owner';
+    providerMode = hasFleetRole ? 'fleet_owner' : 'driver';
     if (role == 'driver_fleet_owner' &&
         userId != null &&
         _store is ProviderModeStore) {
@@ -395,17 +483,7 @@ class ApiService {
     _csrfToken = data['csrfToken'] as String? ?? _csrfToken;
     try {
       if (!hasDriverRole || providerMode == 'fleet_owner') {
-        final account = await request(
-          'GET',
-          '/users/${Uri.encodeComponent(userId!)}',
-        );
-        if (account['role'] != role || account['status'] != 'active') {
-          throw const ApiException(
-            'This account is not authorized.',
-            403,
-            'FORBIDDEN',
-          );
-        }
+        await validateProviderAccount();
         await _saveSession();
         return {};
       }
@@ -452,11 +530,23 @@ class ApiService {
   }
 
   Future<void> refreshSession() => _refresh();
+  Future<void> selectInitialRole(String selected) async {
+    final data = await request(
+      'POST',
+      '/provider/enrolment/role',
+      body: {'role': selected},
+    );
+    accessToken = data['accessToken'] as String;
+    role = data['role'] as String;
+    providerMode = hasFleetRole ? 'fleet_owner' : 'driver';
+    await _saveSession();
+  }
 
   Future<Map<String, dynamic>> authenticateGoogle(
     String idToken, {
     bool signup = false,
     String? providerRole,
+    String? accountRole,
   }) async {
     if (idToken.isEmpty || idToken.length > 16384) {
       throw const ApiException('Google did not return a valid ID token.');
@@ -478,6 +568,7 @@ class ApiService {
         'idToken': idToken,
         'driverFlow': signup ? 'signup' : 'signin',
         'providerRole': ?providerRole,
+        'accountRole': ?accountRole,
       },
     );
     return _acceptAuthentication(Map<String, dynamic>.from(data as Map));
@@ -531,6 +622,7 @@ class ApiService {
       'licenseNumber',
       'licenseExpiry',
       'businessName',
+      'onboardingLicencePending',
     ];
     final data = await request(
       'POST',

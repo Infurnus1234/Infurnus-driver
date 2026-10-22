@@ -1,13 +1,13 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../providers/driver_session.dart';
-import '../../widgets/infurnus_logo.dart';
-import '../../core/theme.dart';
+import '../../widgets/reference_components.dart';
+import '../../core/operations_theme.dart';
 
 class OtpVerificationScreen extends StatefulWidget {
   const OtpVerificationScreen({super.key});
@@ -66,16 +66,16 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
     final session = context.watch<DriverSession>();
 
     return Scaffold(
-      backgroundColor: InfurnusTheme.bgWhite,
+      backgroundColor: Ops.backgroundPrimary,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: InfurnusTheme.textDark),
+          icon: const Icon(Icons.arrow_back, color: Ops.textPrimary),
           onPressed: session.busy ? null : () => context.go('/login'),
         ),
         centerTitle: true,
-        title: const InfurnusLogo(iconSize: 26, fontSize: 18),
+        title: const InfurnusBrand(),
       ),
       body: SafeArea(
         child: ListView(
@@ -85,28 +85,25 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
             // Screen 3 Header
             Text(
               'OTP Verification',
-              style: GoogleFonts.inter(
+              style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
-                color: InfurnusTheme.primaryGreen,
+                color: Ops.success,
               ),
             ),
             const SizedBox(height: 4),
             Text(
               'Verify your number',
-              style: GoogleFonts.inter(
+              style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
-                color: InfurnusTheme.textDark,
+                color: Ops.textPrimary,
               ),
             ),
             const SizedBox(height: 6),
             Text(
               'Enter the 6-digit code sent to your registered contact',
-              style: GoogleFonts.inter(
-                fontSize: 13,
-                color: InfurnusTheme.textMuted,
-              ),
+              style: TextStyle(fontSize: 13, color: Ops.textSecondary),
             ),
             const SizedBox(height: 28),
 
@@ -119,7 +116,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                 final char = hasDigit ? _otp.text[index] : '';
 
                 return Container(
-                  width: 48,
+                  width: (MediaQuery.sizeOf(context).width - 48) / 6 - 6,
                   height: 54,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
@@ -127,14 +124,14 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
                       color: isCurrent
-                          ? InfurnusTheme.primaryGreen
-                          : (hasDigit ? const Color(0xFF94A3B8) : const Color(0xFFCBD5E1)),
+                          ? Ops.success
+                          : (hasDigit ? Ops.textMuted : Ops.borderSubtle),
                       width: isCurrent ? 2 : 1.2,
                     ),
                     boxShadow: [
                       if (isCurrent)
                         BoxShadow(
-                          color: InfurnusTheme.primaryGreen.withValues(alpha: 0.15),
+                          color: Ops.success.withValues(alpha: 0.15),
                           blurRadius: 8,
                           offset: const Offset(0, 2),
                         ),
@@ -142,10 +139,10 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                   ),
                   child: Text(
                     char,
-                    style: GoogleFonts.inter(
+                    style: TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.bold,
-                      color: InfurnusTheme.textDark,
+                      color: Ops.textPrimary,
                     ),
                   ),
                 );
@@ -165,7 +162,9 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                   keyboardType: TextInputType.number,
                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                   autofillHints: const [AutofillHints.oneTimeCode],
-                  decoration: const InputDecoration(labelText: 'Verification code'),
+                  decoration: const InputDecoration(
+                    labelText: 'Verification code',
+                  ),
                   onChanged: (_) => setState(() {}),
                 ),
               ),
@@ -177,15 +176,15 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
               children: [
                 Text(
                   "Didn't receive code? ",
-                  style: GoogleFonts.inter(fontSize: 13, color: InfurnusTheme.textMuted),
+                  style: TextStyle(fontSize: 13, color: Ops.textSecondary),
                 ),
                 if (_secondsRemaining > 0)
                   Text(
                     'Resend in 00:${_secondsRemaining.toString().padLeft(2, '0')}',
-                    style: GoogleFonts.inter(
+                    style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.bold,
-                      color: InfurnusTheme.primaryGreen,
+                      color: Ops.success,
                     ),
                   )
                 else
@@ -203,10 +202,10 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                           },
                     child: Text(
                       'Resend OTP',
-                      style: GoogleFonts.inter(
+                      style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.bold,
-                        color: InfurnusTheme.primaryGreen,
+                        color: Ops.success,
                       ),
                     ),
                   ),
@@ -216,7 +215,10 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
             if (session.error != null) ...[
               const SizedBox(height: 16),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFFFEF2F2),
                   borderRadius: BorderRadius.circular(10),
@@ -224,12 +226,12 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.error_outline, size: 18, color: InfurnusTheme.dangerRed),
+                    const Icon(Icons.error_outline, size: 18, color: Ops.error),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         session.error!,
-                        style: GoogleFonts.inter(color: InfurnusTheme.dangerRed, fontSize: 13),
+                        style: TextStyle(color: Ops.error, fontSize: 13),
                       ),
                     ),
                   ],
@@ -242,10 +244,12 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
             // Verify & Continue Button
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: InfurnusTheme.buttonBlack,
+                backgroundColor: Ops.actionDark,
                 foregroundColor: Colors.white,
                 minimumSize: const Size.fromHeight(52),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
               ),
               onPressed: session.busy
                   ? null
@@ -254,18 +258,26 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                       await session.verify(_otp.text);
                       _otp.clear();
                       if (context.mounted && session.authenticated) {
-                        context.go(signup ? '/onboarding' : session.landingPath);
+                        context.go(
+                          signup ? '/onboarding' : session.landingPath,
+                        );
                       }
                     },
               child: session.busy
                   ? const SizedBox(
                       height: 20,
                       width: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
                     )
                   : Text(
                       'Verify & Continue',
-                      style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
             ),
 
@@ -288,10 +300,13 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                   borderRadius: BorderRadius.circular(12),
                   child: Container(
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF1F5F9),
+                      color: Ops.backgroundSecondary,
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Icon(Icons.backspace_outlined, color: InfurnusTheme.textDark),
+                    child: const Icon(
+                      Icons.backspace_outlined,
+                      color: Ops.textPrimary,
+                    ),
                   ),
                 ),
               ],
@@ -315,10 +330,10 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
         ),
         child: Text(
           digit,
-          style: GoogleFonts.inter(
+          style: TextStyle(
             fontSize: 22,
             fontWeight: FontWeight.w600,
-            color: InfurnusTheme.textDark,
+            color: Ops.textPrimary,
           ),
         ),
       ),

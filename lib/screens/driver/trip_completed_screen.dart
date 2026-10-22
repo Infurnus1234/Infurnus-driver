@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+
 import '../../providers/app_state.dart';
 import '../../core/theme.dart';
 
@@ -30,12 +31,20 @@ class TripCompletedScreen extends StatelessWidget {
               const SizedBox(height: 24),
               const Text(
                 'Trip Completed!',
-                style: TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 26,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const SizedBox(height: 12),
               Text(
                 '₹ ${booking.driverNetEarning.toStringAsFixed(2)}',
-                style: const TextStyle(color: InfurnusTheme.primaryGreen, fontSize: 36, fontWeight: FontWeight.w900),
+                style: const TextStyle(
+                  color: InfurnusTheme.primaryGreen,
+                  fontSize: 36,
+                  fontWeight: FontWeight.w900,
+                ),
               ),
               const SizedBox(height: 32),
 
@@ -49,11 +58,21 @@ class TripCompletedScreen extends StatelessWidget {
                 ),
                 child: Column(
                   children: [
-                    _fareRow('Base Fare', '₹ ${booking.baseFare.toStringAsFixed(2)}'),
+                    _fareRow(
+                      'Base Fare',
+                      '₹ ${booking.baseFare.toStringAsFixed(2)}',
+                    ),
                     const SizedBox(height: 10),
-                    _fareRow('Distance (${booking.distanceKm} km)', '₹ ${(booking.baseFare * 0.35).toStringAsFixed(2)}'),
+                    _fareRow(
+                      'Distance (${booking.distanceKm} km)',
+                      '₹ ${(booking.baseFare * 0.35).toStringAsFixed(2)}',
+                    ),
                     const Divider(color: Colors.white24, height: 24),
-                    _fareRow('Total Driver Earnings (90%)', '₹ ${booking.driverNetEarning.toStringAsFixed(2)}', isBold: true),
+                    _fareRow(
+                      'Total Driver Earnings (90%)',
+                      '₹ ${booking.driverNetEarning.toStringAsFixed(2)}',
+                      isBold: true,
+                    ),
                   ],
                 ),
               ),
@@ -64,12 +83,17 @@ class TripCompletedScreen extends StatelessWidget {
                   backgroundColor: Colors.white,
                   foregroundColor: Colors.black,
                   minimumSize: const Size.fromHeight(52),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
                 ),
                 onPressed: () {
                   context.go('/driver/dashboard');
                 },
-                child: const Text('Back to Home', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                child: const Text(
+                  'Back to Home',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
               ),
               const SizedBox(height: 20),
             ],

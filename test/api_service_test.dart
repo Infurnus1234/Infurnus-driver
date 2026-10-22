@@ -76,10 +76,7 @@ void main() {
         return success({'challengeId': 'challenge-10digit'});
       }),
     );
-    expect(
-      await api.login('9876543210', 'test-password'),
-      'challenge-10digit',
-    );
+    expect(await api.login('9876543210', 'test-password'), 'challenge-10digit');
     api.dispose();
   });
 

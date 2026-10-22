@@ -7,6 +7,7 @@ import 'package:http/testing.dart';
 import 'package:provider/provider.dart';
 import 'package:infurnus_driver/providers/driver_session.dart';
 import 'package:infurnus_driver/services/api_service.dart';
+import 'package:infurnus_driver/services/session_store.dart';
 import 'package:infurnus_driver/screens/admin/provider_review_screen.dart';
 
 http.Response envelope(dynamic data) =>
@@ -20,7 +21,9 @@ void main() {
     (tester) async {
       final paths = <String>[];
       final session = DriverSession(
+        onboardingDraftStore: MemorySessionStore(),
         api: ApiService(
+          store: MemorySessionStore(),
           client: MockClient((r) async {
             paths.add(r.url.path);
             return envelope([]);
@@ -45,7 +48,9 @@ void main() {
     (tester) async {
       final calls = <http.Request>[];
       final session = DriverSession(
+        onboardingDraftStore: MemorySessionStore(),
         api: ApiService(
+          store: MemorySessionStore(),
           client: MockClient((r) async {
             calls.add(r);
             switch (r.url.path) {

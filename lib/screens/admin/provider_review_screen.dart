@@ -223,13 +223,13 @@ class _ProviderReviewScreenState extends State<ProviderReviewScreen> {
               const Text('No pending review requests.'),
             for (final r in _requests)
               ListTile(
-                title: Text('${r['request_type']} â€¢ ${r['target_type']}'),
+                title: Text('${r['request_type']} • ${r['target_type']}'),
                 subtitle: Text(statusLabel(r['status'])),
                 onTap: _busy ? null : () => _open(r['id'] as String),
               ),
           ] else ...[
             Text(
-              '${_details!['request']['request_type']} â€¢ ${statusLabel(_details!['request']['status'])}',
+              '${_details!['request']['request_type']} • ${statusLabel(_details!['request']['status'])}',
               style: Theme.of(context).textTheme.titleLarge,
             ),
             for (final key in [

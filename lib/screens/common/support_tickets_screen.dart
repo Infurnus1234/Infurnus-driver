@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/driver_session.dart';
+import '../../widgets/operations.dart';
 
 class SupportTicketsScreen extends StatefulWidget {
   const SupportTicketsScreen({super.key});
@@ -10,6 +11,41 @@ class SupportTicketsScreen extends StatefulWidget {
 }
 
 class _SupportTicketsScreenState extends State<SupportTicketsScreen> {
+  Future<void> _detail(String id) async {
+    final api = context.read<DriverSession>().api;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => SafeArea(
+        child: SizedBox(
+          height: MediaQuery.sizeOf(context).height * 0.8,
+          child: ApiPanel(
+            api: api,
+            path: '/support/tickets/${Uri.encodeComponent(id)}',
+            builder: (context, data) {
+              final ticket = data as Map;
+              return OpsPanel(
+                title: ticket['subject']?.toString() ?? 'Support ticket',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SelectableText('${ticket['ticketNumber'] ?? ''}'),
+                    Text('Status: ${ticket['status'] ?? 'Unknown'}'),
+                    Text('Category: ${ticket['category'] ?? 'Unknown'}'),
+                    Text('Created: ${ticket['createdAt'] ?? 'Unknown'}'),
+                    Text('Updated: ${ticket['updatedAt'] ?? 'Unknown'}'),
+                    const SizedBox(height: 16),
+                    SelectableText(ticket['message']?.toString() ?? ''),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
   final _subject = TextEditingController(), _message = TextEditingController();
   final _form = GlobalKey<FormState>();
   List<Map<String, dynamic>> _tickets = [];
@@ -98,6 +134,7 @@ class _SupportTicketsScreenState extends State<SupportTicketsScreen> {
         Form(
           key: _form,
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               TextFormField(
                 controller: _subject,
@@ -137,6 +174,7 @@ class _SupportTicketsScreenState extends State<SupportTicketsScreen> {
         ..._tickets.map(
           (t) => Card(
             child: ListTile(
+              onTap: () => _detail(t['id'] as String),
               title: Text(t['subject'].toString()),
               subtitle: Text(
                 '${t['ticketNumber']} · ${t['status']}\n${t['message']}',

@@ -1,4 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
+
+import '../services/session_store.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart' show EditableText, FocusManager;
@@ -12,16 +15,23 @@ import '../models/provider_status.dart';
 
 class DriverSession extends ChangeNotifier {
   final ApiService api;
-  DriverSession({ApiService? api}) : api = api ?? ApiService();
+  final SessionStore _onboardingDraftStore;
+  DriverSession({ApiService? api, SessionStore? onboardingDraftStore})
+    : api = api ?? ApiService(),
+      _onboardingDraftStore =
+          onboardingDraftStore ?? SecureOnboardingDraftStore();
   Map<String, dynamic>? profile;
   Map<String, dynamic>? currentTrip;
   Map<String, dynamic>? assignedVehicle;
   Map<String, dynamic>? history;
+  int historyLimit = 20;
   List<Map<String, dynamic>> rides = [];
   Position? position;
   String? challengeId;
   String? signupId;
   bool isPreview = false;
+  bool restoring = false;
+  bool restorationNeedsRetry = false;
 
   void enablePreview() {
     if (!kReleaseMode) {
@@ -50,10 +60,7 @@ class DriverSession extends ChangeNotifier {
         'model': 'Ace EV',
         'category': 'THREE_WHEELER',
       };
-      history ??= {
-        'totalTrips': 14,
-        'totalEarnings': 3280,
-      };
+      history ??= {'totalTrips': 14, 'totalEarnings': 3280};
       if (rides.isEmpty) {
         rides = [
           {
@@ -80,8 +87,13 @@ class DriverSession extends ChangeNotifier {
 
   void disablePreview() {
     isPreview = false;
+    _pollFailures = 0;
+    refreshWarning = null;
     _notify();
   }
+
+  String? refreshWarning;
+  int _pollFailures = 0;
   Map<String, dynamic>? account;
   Map<String, dynamic>? assignmentPreview;
   List<Map<String, dynamic>> documents = [];
@@ -120,8 +132,10 @@ class DriverSession extends ChangeNotifier {
   List<DocumentRule> documentRules = [];
   final Map<String, int> documentPages = {};
   bool _accountVerified = false;
+  Map<String, dynamic>? roleEnrolment;
   bool onboardingLoaded = false;
   String? error;
+  String? errorCode;
   String realtimeStatus = 'Disconnected';
   DateTime? lastLocationSent;
   bool busy = false;
@@ -131,6 +145,8 @@ class DriverSession extends ChangeNotifier {
   io.Socket? _socket;
   Timer? _poll;
   Timer? _expiry;
+  DriverNotificationService? _notifications;
+  String? pendingNotificationRoute;
   bool get authenticated => _accountVerified && api.accessToken != null;
   List<DocumentRule> get missingUploads => documentRules.where((rule) {
     if (!rule.required) return false;
@@ -144,7 +160,91 @@ class DriverSession extends ChangeNotifier {
                 1) <
             rule.minimumPages;
   }).toList();
-  bool get dashboardAllowed {
+  Map<String, dynamic>? onboardingReceipt;
+  final Map<String, Object> onboardingDrafts = {};
+  final Set<String> _localDeferrals = {};
+  Future<void> _readLocalDeferrals() async {
+    _localDeferrals.clear();
+    try {
+      final saved =
+          jsonDecode(await _onboardingDraftStore.read() ?? '{}') as Map;
+      _localDeferrals.addAll((saved[api.userId] as List? ?? []).cast<String>());
+    } catch (_) {
+      /* Optional drafts must not prevent authentication. */
+    }
+  }
+
+  Future<void> _saveLocalDeferrals(Set<String> next) async {
+    final user = api.userId;
+    if (user == null) {
+      throw const ApiException('Sign in before saving onboarding progress.');
+    }
+    final saved = jsonDecode(await _onboardingDraftStore.read() ?? '{}') as Map;
+    saved[user] = next.toList();
+    await _onboardingDraftStore.write(jsonEncode(saved));
+    _localDeferrals
+      ..clear()
+      ..addAll(next);
+  }
+
+  Future<bool> resumeStep(String code) => run(() async {
+    if (_localDeferrals.contains(code)) {
+      await _saveLocalDeferrals({..._localDeferrals}..remove(code));
+      return;
+    }
+    onboardingReceipt = Map<String, dynamic>.from(
+      await api.request('PATCH', '/provider/onboarding', body: {'resume': code})
+          as Map,
+    );
+  });
+  Set<String> get deferredSteps => {
+    ...((onboardingReceipt?['deferred_codes'] as List?) ?? const [])
+        .cast<String>(),
+    ..._localDeferrals.where(canDefer),
+  };
+  bool canDefer(String code) =>
+      code != 'driver_license' &&
+      (['vehicle', 'fleet'].contains(code) ||
+          (code == 'profile_photo' &&
+              !documentRules.any((r) => r.code == code)) ||
+          (documentRules.any((r) => r.code == code) &&
+              documentRules
+                  .where((r) => r.code == code)
+                  .every((r) => r.onboardingDeferrable)));
+  Future<bool> deferStep(String code) => run(() async {
+    if (!canDefer(code)) {
+      throw const ApiException('This required step cannot be skipped.');
+    }
+    try {
+      onboardingReceipt = Map<String, dynamic>.from(
+        await api.request(
+          'PATCH',
+          '/provider/onboarding',
+          body: {'defer': code},
+        ) as Map,
+      );
+    } on ApiException catch (e) {
+      if (e.status != 404) rethrow;
+      await _saveLocalDeferrals({..._localDeferrals, code});
+    }
+  });
+  bool get dashboardAllowed =>
+      (authenticated && api.hasDriverRole && currentTrip != null) ||
+      (roleEnrolment?['dashboardAccessible'] == true &&
+          api.hasDriverRole &&
+          api.providerMode == 'driver') ||
+      operationalAllowed ||
+      (authenticated &&
+          onboardingLoaded &&
+          api.hasDriverRole &&
+          api.providerMode == 'driver' &&
+          onboardingReceipt?['dashboardAccessible'] == true);
+  bool get operationalAllowed {
+    if (roleEnrolment != null &&
+        roleEnrolment?['dashboardAccessible'] != true) {
+      return false;
+    }
+    if (api.isTestOnboarding) return false;
     if (isPreview) return true;
     if (!api.hasDriverRole ||
         api.providerMode != 'driver' ||
@@ -178,16 +278,27 @@ class DriverSession extends ChangeNotifier {
   }
 
   String get landingPath {
+    if (api.isTestOnboarding && authenticated) return '/onboarding';
     if (isPreview) return '/driver/dashboard';
     if (!authenticated) return '/login';
     if (api.isAdmin) return '/admin/dashboard';
+    if (currentTrip != null &&
+        roleEnrolment != null &&
+        roleEnrolment?['dashboardAccessible'] != true) {
+      return '/driver/active-trip';
+    }
+    if (roleEnrolment?['roleSelectionPending'] == true) {
+      return '/role-selection';
+    }
+    if (roleEnrolment != null &&
+        roleEnrolment?['dashboardAccessible'] != true) {
+      return '/role-onboarding';
+    }
     if (api.hasFleetRole && api.providerMode == 'fleet_owner') {
       return '/fleet/dashboard';
     }
     if (dashboardAllowed) return '/driver/dashboard';
-    if (!onboardingLoaded ||
-        profile == null ||
-        missingUploads.isNotEmpty) {
+    if (!onboardingLoaded || profile == null || missingUploads.isNotEmpty) {
       return '/onboarding';
     }
     return '/verification-status';
@@ -203,11 +314,20 @@ class DriverSession extends ChangeNotifier {
     if (busy) return false;
     busy = true;
     error = null;
+    errorCode = null;
     _notify();
     try {
       await action();
       return true;
-    } catch (e) {
+    } catch (e, stack) {
+      if (kDebugMode) {
+        debugPrint(
+          'Driver action failed: ${e.runtimeType}${e is ApiException ? ' status=${e.status} code=${e.code}' : ''}',
+        );
+        if (e is TypeError) debugPrint('Driver type failure: $e');
+        debugPrintStack(stackTrace: stack, maxFrames: 6);
+      }
+      errorCode = e is ApiException ? e.code : null;
       error = e is ApiException
           ? e.message
           : 'Unable to complete the action. Please retry.';
@@ -219,13 +339,17 @@ class DriverSession extends ChangeNotifier {
     }
   }
 
-  Future<bool> login(String identifier, String password) => run(() async {
-    if (identifier.trim().isEmpty || password.isEmpty) {
-      throw const ApiException('Enter your login identifier and password.');
+  Future<bool> login(
+    String identifier,
+    String password, {
+    String? accountRole,
+  }) => run(() async {
+    if (identifier.trim().isEmpty) {
+      throw const ApiException('Enter your mobile number or email address.');
     }
     challengeId = null;
     signupId = null;
-    challengeId = await api.login(identifier, password);
+    challengeId = await api.login(identifier, password, accountRole);
   });
 
   Future<bool> signup(Map<String, dynamic> input) => run(() async {
@@ -259,11 +383,13 @@ class DriverSession extends ChangeNotifier {
     String idToken, {
     bool signup = false,
     String? providerRole,
+    String? accountRole,
   }) => run(() async {
     final result = await api.authenticateGoogle(
       idToken,
       signup: signup,
       providerRole: providerRole,
+      accountRole: accountRole,
     );
     await _establishSession(result);
   });
@@ -277,6 +403,12 @@ class DriverSession extends ChangeNotifier {
         );
         await _load();
       });
+
+  Future<bool> startTestOnboarding() => run(() async {
+    _clear();
+    await api.startTestOnboarding();
+    await _establishSession({});
+  });
 
   Future<bool> linkGoogle(String idToken) => run(() async {
     await api.linkGoogle(idToken);
@@ -295,15 +427,53 @@ class DriverSession extends ChangeNotifier {
           (inputContext.widget is EditableText ||
               inputContext.findAncestorWidgetOfExactType<EditableText>() !=
                   null);
-      if (!busy && authenticated && !editing) unawaited(refresh());
+      if (!busy && authenticated && !editing && _pollFailures < 3) {
+        unawaited(refresh(automatic: true));
+      }
     });
-    await _load();
-    unawaited(DriverNotificationService(api: api).init());
+    await _readLocalDeferrals();
+    try {
+      await _load();
+      _pollFailures = 0;
+      restorationNeedsRetry = false;
+    } catch (_) {
+      _pollFailures = 3;
+      if (api.roleFlowEnabled && api.accessToken != null) {
+        restorationNeedsRetry = true;
+      }
+      rethrow;
+    }
+    if (!api.isTestOnboarding) {
+      _notifications?.dispose();
+      _notifications = DriverNotificationService(
+        api: api,
+        onOpen: (route) {
+          if (!authenticated) return;
+          pendingNotificationRoute = route;
+          _notify();
+        },
+      );
+      unawaited(_notifications!.init());
+    }
   }
 
-  Future<bool> restore() => run(() async {
-    if (await api.restoreSession()) await _establishSession({});
-  });
+  Future<bool> restore() async {
+    if (busy || restoring) return false;
+    restoring = true;
+    restorationNeedsRetry = false;
+    try {
+      final ok = await run(() async {
+        if (await api.restoreSession()) await _establishSession({});
+      });
+      // A network/server failure is not evidence that a saved session expired.
+      // Keep it in secure storage and offer retry without displaying Google login.
+      restorationNeedsRetry = !ok && api.accessToken != null;
+      return ok;
+    } finally {
+      restoring = false;
+      _notify();
+    }
+  }
 
   Future<bool> switchMode(String mode) => run(() async {
     if (mode == 'driver' && !api.hasDriverRole ||
@@ -324,25 +494,107 @@ class DriverSession extends ChangeNotifier {
     await _load();
   });
 
-  Future<bool> refresh() => run(_load);
+  Future<bool> refresh({bool automatic = false}) async {
+    final ok = await run(_load);
+    if (ok) {
+      _pollFailures = 0;
+      refreshWarning = null;
+    } else if (automatic) {
+      _pollFailures++;
+    } else {
+      _pollFailures = 3;
+    }
+    return ok;
+  }
+
+  Future<void> _reloadAfterMutation() async {
+    try {
+      await _load();
+      refreshWarning = null;
+    } on ApiException catch (e) {
+      if (e.status == 401 || e.status == 403) rethrow;
+      _pollFailures = 3;
+      refreshWarning = 'Saved on the server. The latest status could not be loaded. Refresh status before submitting again.';
+    }
+  }
+
+  Future<bool> loadMoreHistory() => run(() async {
+    final nextLimit = (historyLimit + 20).clamp(20, 100);
+    final result = await api.request(
+      'GET',
+      '/rides/driver/history?limit=$nextLimit',
+    );
+    history = Map<String, dynamic>.from(result as Map);
+    historyLimit = nextLimit;
+  });
+  Future<bool> selectInitialRole(String role) => run(() async {
+    await api.selectInitialRole(role);
+    await _load();
+  });
+  Future<bool> enrolmentAction(Map<String, dynamic> input) => run(() async {
+    roleEnrolment = Map<String, dynamic>.from(
+      await api.request('PATCH', '/provider/enrolment', body: input) as Map,
+    );
+    await _load();
+  });
+  Future<bool> deferDashboardSetup() => enrolmentAction({'deferSetup': true});
+
+  Future<bool> verifyOnboardingCode(String code) => run(() async {
+    await api.request(
+      'POST',
+      '/provider/enrolment/verify-code',
+      body: {'code': code.trim().toUpperCase()},
+    );
+    await _load();
+  });
   Future<void> _load() async {
+    if (api.roleFlowEnabled &&
+        !api.isAdmin &&
+        !isPreview &&
+        !api.isTestOnboarding) {
+      roleEnrolment = Map<String, dynamic>.from(
+        await api.request('GET', '/provider/enrolment') as Map,
+      );
+      if (roleEnrolment?['dashboardAccessible'] != true) {
+        account = Map<String, dynamic>.from(
+          await api.request('GET', '/users/${api.userId}') as Map,
+        );
+        if (api.hasDriverRole && api.providerMode == 'driver') {
+          profile = await api.fetchDriverProfile();
+          currentTrip = null;
+          if (profile != null) {
+            final trip = await api.request('GET', '/rides/driver/current-trip');
+            if (trip is Map) {
+              currentTrip = Map<String, dynamic>.from(trip);
+              final vehicle = await api.request(
+                'GET',
+                '/rides/driver/assigned-vehicle',
+              );
+              assignedVehicle = vehicle is Map
+                  ? Map<String, dynamic>.from(vehicle)
+                  : null;
+              if (api.accessToken != _socket?.auth['token']) _connect();
+              _joinTrip();
+              if (_positions == null) await _startLocation();
+            }
+          }
+        }
+        onboardingLoaded = true;
+        return;
+      }
+    }
     if (isPreview) {
       onboardingLoaded = true;
       return;
     }
-    onboardingLoaded = false;
+    // Keep the loaded journey mounted during a refresh, including while an
+    // Android picker returns its result. New sessions start unloaded in _clear.
     if (!api.hasDriverRole || api.providerMode == 'fleet_owner') {
       account = Map<String, dynamic>.from(
         await api.request('GET', '/users/${Uri.encodeComponent(api.userId!)}')
             as Map,
       );
-      if (account!['role'] != api.role || account!['status'] != 'active') {
-        throw const ApiException(
-          'This account is not authorized.',
-          403,
-          'FORBIDDEN',
-        );
-      }
+      await api.validateProviderAccount(roleEnrolment);
       onboardingLoaded = true;
       return;
     }
@@ -366,13 +618,32 @@ class DriverSession extends ChangeNotifier {
       'GET',
       '/provider/document-requirements?category=${Uri.encodeQueryComponent(category as String)}',
     );
+    Map<String, dynamic>? nextReceipt;
+    if (!api.isTestOnboarding) {
+      try {
+        nextReceipt = Map<String, dynamic>.from(
+          await api.request('GET', '/provider/onboarding') as Map,
+        );
+      } on ApiException catch (e) {
+        // Older deployments have no saved progress endpoint. Continue with
+        // profile and document requirements; this grants no approval or access.
+        if (e.status != 404) rethrow;
+      }
+    }
     final rules = <String, DocumentRule>{};
-    for (final row in policy as List) {
+    for (final row
+        in (nextReceipt?['requirements'] as List?) ?? policy as List) {
       final rule = DocumentRule.fromJson(Map<String, dynamic>.from(row as Map));
       final previous = rules[rule.code];
       rules[rule.code] = DocumentRule(
         rule.code,
-        required: rule.required || (previous?.required ?? false),
+        required:
+            rule.code == 'driver_license' ||
+            rule.required ||
+            (previous?.required ?? false),
+        onboardingDeferrable:
+            rule.onboardingDeferrable &&
+            (previous?.onboardingDeferrable ?? true),
         requiresExpiry:
             rule.requiresExpiry || (previous?.requiresExpiry ?? false),
         minimumPages: rule.minimumPages > (previous?.minimumPages ?? 0)
@@ -390,7 +661,7 @@ class DriverSession extends ChangeNotifier {
       '/provider/approvals',
     ) as List).map((r) => Map<String, dynamic>.from(r as Map)).toList();
     final nextApplications = <Map<String, dynamic>>[];
-    if (nextProfile != null) {
+    if (nextProfile != null && !api.isTestOnboarding) {
       var page = 1;
       var seen = 0;
       while (true) {
@@ -412,11 +683,16 @@ class DriverSession extends ChangeNotifier {
             'The fleet application list is incomplete. Retry your status check.',
           );
         }
+        if (page >= 50) {
+          throw const ApiException(
+            'Too many application pages. Contact support before retrying.',
+          );
+        }
         page++;
       }
     }
     final nextPartnerDocuments = <Map<String, dynamic>>[];
-    if (api.userId != null) {
+    if (api.userId != null && !api.isTestOnboarding) {
       try {
         final ownPartner = await api.request('GET', '/partners/me');
         nextPartnerDocuments.addAll(
@@ -460,7 +736,7 @@ class DriverSession extends ChangeNotifier {
       ..clear()
       ..addAll(nextPages);
     onboardingLoaded = true;
-    if (!dashboardAllowed) {
+    if (!operationalAllowed) {
       _socket?.dispose();
       _socket = null;
       realtimeStatus = 'Disconnected';
@@ -475,7 +751,7 @@ class DriverSession extends ChangeNotifier {
     final nextTrip = await api.request('GET', '/rides/driver/current-trip');
     final nextHistory = await api.request(
       'GET',
-      '/rides/driver/history?limit=20',
+      '/rides/driver/history?limit=$historyLimit',
     );
     final nextRides = await api.request('GET', '/rides/driver/available');
     currentTrip = nextTrip == null
@@ -489,6 +765,10 @@ class DriverSession extends ChangeNotifier {
     _joinTrip();
     if ((online || currentTrip != null) && _positions == null) {
       await _startLocation();
+    }
+    if (!online && currentTrip == null && _positions != null) {
+      await _positions?.cancel();
+      _positions = null;
     }
   }
 
@@ -509,15 +789,18 @@ class DriverSession extends ChangeNotifier {
       'emergencyContactRelationship',
       'alternateContactPhone',
     ];
-    await api.request(
+    final saved = await api.request(
       'POST',
       '/rides/driver/profile',
       body: {
         for (final key in keys)
-          if (input.containsKey(key)) key: input[key],
+          if (input[key] != null) key: input[key],
       },
     );
-    await _load();
+    if (saved is Map && saved['id'] is String) {
+      profile = Map<String, dynamic>.from(saved);
+    }
+    await _reloadAfterMutation();
   });
 
   Future<bool> uploadDocument(
@@ -532,20 +815,16 @@ class DriverSession extends ChangeNotifier {
     }
     final validation = OnboardingRules.validateFiles(rule, files, metadata);
     if (validation != null) throw ApiException(validation);
-    await api.uploadDriverDocument(rule.uploadType, files, {
+    final saved = await api.uploadDriverDocument(rule.uploadType, files, {
       ...metadata,
       if (rule.uploadType == 'other' && rule.code != 'other')
         'documentCode': rule.code,
     });
-    await _load();
-    for (final doc in documents) {
-      final code = (doc['documentMetadata'] as Map?)?['documentCode'] ?? doc['documentType'];
-      if (code == rule.code) {
-        doc['verificationStatus'] = 'pending';
-        doc.remove('rejectionReason');
-      }
+    if (saved is Map && saved['id'] is String) {
+      final row = Map<String, dynamic>.from(saved);
+      documents = [...documents.where((d) => d['id'] != row['id']), row];
     }
-    _notify();
+    await _reloadAfterMutation();
   });
 
   Future<bool> previewAssignment(String code) => run(() async {
@@ -564,13 +843,26 @@ class DriverSession extends ChangeNotifier {
     await _load();
   });
   Future<bool> claimAssignment(String code) => run(() async {
-    await api.request(
+    final receipt = await api.request(
       'POST',
       '/rides/driver/assignment/claim-code',
       body: {'code': code.trim()},
     );
+    if (receipt is Map && receipt['vehicleId'] is String) {
+      assignedVehicle = {
+        ...Map<String, dynamic>.from(receipt),
+        'id': receipt['vehicleId'],
+      };
+    }
+    if (api.roleFlowEnabled && roleEnrolment?['dashboardAccessible'] != true) {
+      await api.request(
+        'PATCH',
+        '/provider/enrolment',
+        body: {'deferSetup': true},
+      );
+    }
     assignmentPreview = null;
-    await _load();
+    await _reloadAfterMutation();
   });
   Future<bool> applyToFleet(Map<String, dynamic> input) => run(() async {
     if (profile == null) {
@@ -610,44 +902,25 @@ class DriverSession extends ChangeNotifier {
     }
     final validation = OnboardingRules.validateProfile(profile!);
     if (validation != null) throw ApiException(validation);
-    if (missingUploads.isNotEmpty) {
-      throw ApiException(
-        'Upload valid required documents: ${missingUploads.map((r) => r.label).join(', ')}.',
-      );
-    }
-    const requestTypes = {
-      'identity': 'identity_verification',
-      'driver_license': 'licence_verification',
-      'vehicle_rc': 'rc_verification',
-      'profile_photo': 'profile_verification',
-    };
-    for (final doc in documents.where(
-      (d) => providerStatus(d['verificationStatus']) != ProviderStatus.approved,
-    )) {
+    final result = Map<String, dynamic>.from(
       await api.request(
         'POST',
         '/provider/approval-requests',
-        body: {
-          'targetType': 'driver_document',
-          'targetId': doc['id'],
-          'requestType':
-              requestTypes[doc['documentType']] ?? 'document_reverification',
-        },
+        body: {'requestType': 'onboarding_submission'},
+      ) as Map,
+    );
+    if (result['dashboardAccessible'] != true || result['receipt_id'] == null) {
+      throw const ApiException(
+        'Submission was not acknowledged. Please retry.',
       );
     }
-    if (providerStatus(profile!['verificationStatus']) !=
-        ProviderStatus.approved) {
-      await api.request(
-        'POST',
-        '/provider/approval-requests',
-        body: {
-          'targetType': 'driver_profile',
-          'targetId': profile!['id'],
-          'requestType': 'driver_verification',
-        },
-      );
+    onboardingReceipt = result;
+    try {
+      await _load();
+    } on ApiException {
+      onboardingLoaded = true;
+      error = 'Submission received. Some details could not refresh; retry from Profile.';
     }
-    await _load();
   });
   Future<void> _permission() async {
     if (!await Geolocator.isLocationServiceEnabled()) {
@@ -767,7 +1040,7 @@ class DriverSession extends ChangeNotifier {
       profile?['availabilityStatus'] = value ? 'available' : 'unavailable';
       return;
     }
-    if (value && !dashboardAllowed) {
+    if (value && !operationalAllowed) {
       throw const ApiException(
         'Complete backend approval and vehicle assignment before going online.',
       );
@@ -797,18 +1070,27 @@ class DriverSession extends ChangeNotifier {
     if (isPreview) {
       final index = rides.indexWhere((r) => r['id'] == id);
       if (index >= 0) {
-        currentTrip = {
-          ...rides[index],
-          'status': 'accepted',
-        };
+        currentTrip = {...rides[index], 'status': 'accepted'};
         rides.removeAt(index);
       }
       return;
     }
-    if (!dashboardAllowed) {
+    if (!operationalAllowed) {
       throw const ApiException(
         'Complete backend approval and vehicle assignment before accepting rides.',
       );
+    }
+    final offer = rides.where((ride) => ride['id'] == id).firstOrNull;
+    if (offer == null) {
+      throw const ApiException(
+        'This offer is no longer available. Refresh the offers.',
+      );
+    }
+    final expiry = DateTime.tryParse(
+      offer['dispatchExpiresAt']?.toString() ?? '',
+    );
+    if (expiry != null && !expiry.isAfter(DateTime.now())) {
+      throw const ApiException('This offer has expired. Refresh the offers.');
     }
     await api.request('POST', '/rides/${Uri.encodeComponent(id)}/accept');
     await _load();
@@ -837,6 +1119,29 @@ class DriverSession extends ChangeNotifier {
     final id = Uri.encodeComponent(currentTrip!['id'] as String);
     if (status == 'completed') {
       await api.request('POST', '/rides/$id/complete');
+    } else if (status == 'in_progress') {
+      if (currentTrip?['status'] != 'driver_arrived' ||
+          pin == null ||
+          !RegExp(r'^\d{4}$').hasMatch(pin)) {
+        throw const ApiException(
+          'Arrive at pickup and enter the passenger’s four-digit PIN.',
+        );
+      }
+      final result = await api.request(
+        'POST',
+        '/rides/$id/verify-pin',
+        body: {'pin': pin},
+      );
+      final ride = result is Map ? result['ride'] : null;
+      if (ride is! Map ||
+          ride['id'] != currentTrip!['id'] ||
+          ride['status'] != 'in_progress' ||
+          ride['pinVerified'] != true) {
+        throw const ApiException(
+          'Trip start was not confirmed. Refresh and contact support if this continues.',
+        );
+      }
+      currentTrip = Map<String, dynamic>.from(ride);
     } else {
       await api.request(
         'POST',
@@ -844,7 +1149,18 @@ class DriverSession extends ChangeNotifier {
         body: {'status': status, 'pin': ?pin},
       );
     }
-    await _load();
+    try {
+      await _load();
+    } catch (_) {
+      if (status == 'in_progress' &&
+          api.accessToken != null &&
+          currentTrip?['id'] == Uri.decodeComponent(id) &&
+          currentTrip?['status'] == 'in_progress') {
+        error = 'Trip started. Status refresh is unavailable; retry when connected.';
+        return;
+      }
+      rethrow;
+    }
   });
 
   void _connect() {
@@ -863,6 +1179,8 @@ class DriverSession extends ChangeNotifier {
       realtimeStatus = 'Connected';
       _joinTrip();
       _notify();
+      // Reconcile missed events with the authoritative API after reconnecting.
+      if (!busy && authenticated) unawaited(refresh());
     });
     _socket!.onDisconnect((_) {
       realtimeStatus = 'Disconnected';
@@ -919,6 +1237,11 @@ class DriverSession extends ChangeNotifier {
 
   Future<bool> logout() => run(() async {
     try {
+      try {
+        await _notifications?.unregister();
+      } catch (_) {
+        // Logout must still clear local credentials when token cleanup is offline.
+      }
       if (online) {
         await api.request(
           'PATCH',
@@ -935,6 +1258,9 @@ class DriverSession extends ChangeNotifier {
     }
   });
   void _clear({bool persist = true}) {
+    _notifications?.dispose();
+    _notifications = null;
+    pendingNotificationRoute = null;
     _positions?.cancel();
     _positions = null;
     _poll?.cancel();
@@ -943,7 +1269,12 @@ class DriverSession extends ChangeNotifier {
     _socket = null;
     _accountVerified = false;
     onboardingLoaded = false;
+    _localDeferrals.clear();
+    onboardingReceipt = null;
+    roleEnrolment = null;
     isPreview = false;
+    _pollFailures = 0;
+    refreshWarning = null;
     account = null;
     assignmentPreview = null;
     documents = [];
@@ -957,6 +1288,7 @@ class DriverSession extends ChangeNotifier {
     currentTrip = null;
     assignedVehicle = null;
     history = null;
+    historyLimit = 20;
     rides = [];
     challengeId = null;
     position = null;

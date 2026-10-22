@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../../providers/app_state.dart';
 import '../../widgets/infurnus_app_bar.dart';
 import '../../core/theme.dart';
@@ -14,9 +15,7 @@ class AdminDashboardScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: InfurnusTheme.bgWhite,
-      appBar: const InfurnusAppBar(
-        title: 'Super Admin Control Panel',
-      ),
+      appBar: const InfurnusAppBar(title: 'Super Admin Control Panel'),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(20.0),
@@ -29,17 +28,37 @@ class AdminDashboardScreen extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: InfurnusTheme.primaryGreen, width: 1.5),
+                  border: Border.all(
+                    color: InfurnusTheme.primaryGreen,
+                    width: 1.5,
+                  ),
                 ),
                 child: const Row(
                   children: [
-                    Icon(Icons.admin_panel_settings, color: InfurnusTheme.primaryGreen, size: 36),
+                    Icon(
+                      Icons.admin_panel_settings,
+                      color: InfurnusTheme.primaryGreen,
+                      size: 36,
+                    ),
                     SizedBox(width: 14),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Super Admin Control Dashboard', style: TextStyle(color: InfurnusTheme.textDark, fontWeight: FontWeight.bold, fontSize: 16)),
-                        Text('System Authorization & Driver/Vehicle Approval Hub', style: TextStyle(color: InfurnusTheme.textMuted, fontSize: 12)),
+                        Text(
+                          'Super Admin Control Dashboard',
+                          style: TextStyle(
+                            color: InfurnusTheme.textDark,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                        Text(
+                          'System Authorization & Driver/Vehicle Approval Hub',
+                          style: TextStyle(
+                            color: InfurnusTheme.textMuted,
+                            fontSize: 12,
+                          ),
+                        ),
                       ],
                     ),
                   ],
@@ -50,7 +69,11 @@ class AdminDashboardScreen extends StatelessWidget {
               // Section 1: Driver Verification Management
               const Text(
                 'Driver Application Approvals (Admin Only)',
-                style: TextStyle(color: InfurnusTheme.textDark, fontWeight: FontWeight.bold, fontSize: 16),
+                style: TextStyle(
+                  color: InfurnusTheme.textDark,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
               ),
               const SizedBox(height: 4),
               const Text(
@@ -76,17 +99,35 @@ class AdminDashboardScreen extends StatelessWidget {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(driver.name, style: const TextStyle(color: InfurnusTheme.textDark, fontWeight: FontWeight.bold, fontSize: 15)),
+                          Text(
+                            driver.name,
+                            style: const TextStyle(
+                              color: InfurnusTheme.textDark,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                            ),
+                          ),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
                             decoration: BoxDecoration(
-                              color: isPending ? InfurnusTheme.warningAmber.withValues(alpha: 0.2) : InfurnusTheme.successGreen.withValues(alpha: 0.2),
+                              color: isPending
+                                  ? InfurnusTheme.warningAmber.withValues(
+                                      alpha: 0.2,
+                                    )
+                                  : InfurnusTheme.successGreen.withValues(
+                                      alpha: 0.2,
+                                    ),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
                               driver.applicationStatus.toUpperCase(),
                               style: TextStyle(
-                                color: isPending ? InfurnusTheme.warningAmber : InfurnusTheme.successGreen,
+                                color: isPending
+                                    ? InfurnusTheme.warningAmber
+                                    : InfurnusTheme.successGreen,
                                 fontSize: 10,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -95,38 +136,67 @@ class AdminDashboardScreen extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(height: 4),
-                      Text('Phone: ${driver.phone} • Email: ${driver.email}', style: const TextStyle(color: InfurnusTheme.textMuted, fontSize: 12)),
+                      Text(
+                        'Phone: ${driver.phone} • Email: ${driver.email}',
+                        style: const TextStyle(
+                          color: InfurnusTheme.textMuted,
+                          fontSize: 12,
+                        ),
+                      ),
                       const SizedBox(height: 12),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
                           OutlinedButton(
                             style: OutlinedButton.styleFrom(
-                              side: const BorderSide(color: InfurnusTheme.dangerRed),
+                              side: const BorderSide(
+                                color: InfurnusTheme.dangerRed,
+                              ),
                               minimumSize: const Size(90, 32),
                             ),
                             onPressed: () {
-                              appState.adminRejectManagedDriver(driver.id, 'Identity documents failed verification.');
+                              appState.adminRejectManagedDriver(
+                                driver.id,
+                                'Identity documents failed verification.',
+                              );
                               ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('Rejected driver application for ${driver.name}')),
+                                SnackBar(
+                                  content: Text(
+                                    'Rejected driver application for ${driver.name}',
+                                  ),
+                                ),
                               );
                             },
-                            child: const Text('Reject', style: TextStyle(color: InfurnusTheme.dangerRed, fontSize: 11)),
+                            child: const Text(
+                              'Reject',
+                              style: TextStyle(
+                                color: InfurnusTheme.dangerRed,
+                                fontSize: 11,
+                              ),
+                            ),
                           ),
                           const SizedBox(width: 8),
                           ElevatedButton(
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: InfurnusTheme.buttonBlack, // BLACK BUTTON
+                              backgroundColor:
+                                  InfurnusTheme.buttonBlack, // BLACK BUTTON
                               foregroundColor: Colors.white,
                               minimumSize: const Size(100, 32),
                             ),
                             onPressed: () {
                               appState.adminApproveManagedDriver(driver.id);
                               ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('Approved & Activated Driver ${driver.name}')),
+                                SnackBar(
+                                  content: Text(
+                                    'Approved & Activated Driver ${driver.name}',
+                                  ),
+                                ),
                               );
                             },
-                            child: const Text('Approve Driver', style: TextStyle(fontSize: 11)),
+                            child: const Text(
+                              'Approve Driver',
+                              style: TextStyle(fontSize: 11),
+                            ),
                           ),
                         ],
                       ),
@@ -138,7 +208,14 @@ class AdminDashboardScreen extends StatelessWidget {
               const SizedBox(height: 24),
 
               // Section 2: Pricing & Commission
-              const Text('Pricing & Commission Rules', style: TextStyle(color: InfurnusTheme.textDark, fontWeight: FontWeight.bold, fontSize: 16)),
+              const Text(
+                'Pricing & Commission Rules',
+                style: TextStyle(
+                  color: InfurnusTheme.textDark,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
               const SizedBox(height: 12),
 
               Container(
@@ -161,7 +238,14 @@ class AdminDashboardScreen extends StatelessWidget {
               const SizedBox(height: 24),
 
               // Section 3: Wallet & Settlement Monitoring
-              const Text('Settlement & Refunds Monitoring', style: TextStyle(color: InfurnusTheme.textDark, fontWeight: FontWeight.bold, fontSize: 16)),
+              const Text(
+                'Settlement & Refunds Monitoring',
+                style: TextStyle(
+                  color: InfurnusTheme.textDark,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
               const SizedBox(height: 12),
 
               ElevatedButton.icon(
@@ -171,7 +255,11 @@ class AdminDashboardScreen extends StatelessWidget {
                 ),
                 onPressed: () {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('All pending weekly payouts processed and settled.')),
+                    const SnackBar(
+                      content: Text(
+                        'All pending weekly payouts processed and settled.',
+                      ),
+                    ),
                   );
                 },
                 icon: const Icon(Icons.payments, size: 18),
@@ -198,8 +286,22 @@ class AdminConfigRow extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(color: InfurnusTheme.textDark, fontSize: 13, fontWeight: FontWeight.w600)),
-          Text(val, style: const TextStyle(color: InfurnusTheme.primaryGreen, fontWeight: FontWeight.bold, fontSize: 13)),
+          Text(
+            label,
+            style: const TextStyle(
+              color: InfurnusTheme.textDark,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          Text(
+            val,
+            style: const TextStyle(
+              color: InfurnusTheme.primaryGreen,
+              fontWeight: FontWeight.bold,
+              fontSize: 13,
+            ),
+          ),
         ],
       ),
     );

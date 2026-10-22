@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+
 import '../../providers/app_state.dart';
 import '../../widgets/infurnus_app_bar.dart';
 import '../../core/theme.dart';
@@ -39,29 +40,63 @@ class RideRequestsScreen extends StatelessWidget {
                     children: [
                       Text(
                         '#${booking.id} • ${booking.bookingType}',
-                        style: const TextStyle(color: InfurnusTheme.textDark, fontWeight: FontWeight.bold, fontSize: 15),
+                        style: const TextStyle(
+                          color: InfurnusTheme.textDark,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                        ),
                       ),
                       Text(
                         '₹ ${booking.fareAmount}',
-                        style: const TextStyle(color: InfurnusTheme.successGreen, fontWeight: FontWeight.bold, fontSize: 16),
+                        style: const TextStyle(
+                          color: InfurnusTheme.successGreen,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 8),
-                  Text('Pickup: ${booking.pickupLocation}', style: const TextStyle(color: InfurnusTheme.textMuted, fontSize: 13)),
-                  Text('Dropoff: ${booking.dropoffLocation}', style: const TextStyle(color: InfurnusTheme.textMuted, fontSize: 13)),
+                  Text(
+                    'Pickup: ${booking.pickupLocation}',
+                    style: const TextStyle(
+                      color: InfurnusTheme.textMuted,
+                      fontSize: 13,
+                    ),
+                  ),
+                  Text(
+                    'Dropoff: ${booking.dropoffLocation}',
+                    style: const TextStyle(
+                      color: InfurnusTheme.textMuted,
+                      fontSize: 13,
+                    ),
+                  ),
                   if (booking.goodsDescription != null) ...[
                     const SizedBox(height: 4),
-                    Text('Goods: ${booking.goodsDescription}', style: const TextStyle(color: InfurnusTheme.primaryGreen, fontSize: 12, fontWeight: FontWeight.bold)),
+                    Text(
+                      'Goods: ${booking.goodsDescription}',
+                      style: const TextStyle(
+                        color: InfurnusTheme.primaryGreen,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ],
                   const SizedBox(height: 12),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('Status: ${booking.status}', style: const TextStyle(color: InfurnusTheme.textMuted, fontSize: 12)),
+                      Text(
+                        'Status: ${booking.status}',
+                        style: const TextStyle(
+                          color: InfurnusTheme.textMuted,
+                          fontSize: 12,
+                        ),
+                      ),
                       ElevatedButton(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: InfurnusTheme.buttonBlack, // BLACK BUTTON
+                          backgroundColor:
+                              InfurnusTheme.buttonBlack, // BLACK BUTTON
                           foregroundColor: Colors.white,
                           minimumSize: const Size(110, 36),
                         ),
@@ -69,7 +104,10 @@ class RideRequestsScreen extends StatelessWidget {
                           appState.acceptBooking(booking.id);
                           context.push('/driver/ride-details');
                         },
-                        child: const Text('View Details', style: TextStyle(fontSize: 12)),
+                        child: const Text(
+                          'View Details',
+                          style: TextStyle(fontSize: 12),
+                        ),
                       ),
                     ],
                   ),

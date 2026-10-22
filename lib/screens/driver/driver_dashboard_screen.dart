@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+
 import '../../providers/app_state.dart';
 import '../../models/app_models.dart';
 import '../../core/theme.dart';
@@ -47,10 +48,14 @@ class DriverDashboardScreen extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
-                        color: isOnline ? InfurnusTheme.greenLight : Colors.white,
+                        color: isOnline
+                            ? InfurnusTheme.greenLight
+                            : Colors.white,
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
-                          color: isOnline ? InfurnusTheme.primaryGreen : const Color(0xFFE2E8F0),
+                          color: isOnline
+                              ? InfurnusTheme.primaryGreen
+                              : const Color(0xFFE2E8F0),
                           width: 1.5,
                         ),
                       ),
@@ -66,7 +71,9 @@ class DriverDashboardScreen extends StatelessWidget {
                                     width: 10,
                                     height: 10,
                                     decoration: BoxDecoration(
-                                      color: isOnline ? InfurnusTheme.primaryGreen : Colors.grey,
+                                      color: isOnline
+                                          ? InfurnusTheme.primaryGreen
+                                          : Colors.grey,
                                       shape: BoxShape.circle,
                                     ),
                                   ),
@@ -74,7 +81,9 @@ class DriverDashboardScreen extends StatelessWidget {
                                   Text(
                                     isOnline ? 'ONLINE & READY' : 'OFFLINE',
                                     style: TextStyle(
-                                      color: isOnline ? InfurnusTheme.primaryGreen : Colors.grey,
+                                      color: isOnline
+                                          ? InfurnusTheme.primaryGreen
+                                          : Colors.grey,
                                       fontWeight: FontWeight.bold,
                                       fontSize: 14,
                                     ),
@@ -86,7 +95,10 @@ class DriverDashboardScreen extends StatelessWidget {
                                 isOnline
                                     ? 'Receiving matched vehicle-category bookings'
                                     : 'Toggle ON to start accepting rides',
-                                style: const TextStyle(color: InfurnusTheme.textMuted, fontSize: 12),
+                                style: const TextStyle(
+                                  color: InfurnusTheme.textMuted,
+                                  fontSize: 12,
+                                ),
                               ),
                             ],
                           ),
@@ -138,7 +150,11 @@ class DriverDashboardScreen extends StatelessWidget {
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.minor_crash, color: InfurnusTheme.primaryGreen, size: 32),
+                          const Icon(
+                            Icons.minor_crash,
+                            color: InfurnusTheme.primaryGreen,
+                            size: 32,
+                          ),
                           const SizedBox(width: 14),
                           const Expanded(
                             child: Column(
@@ -146,7 +162,10 @@ class DriverDashboardScreen extends StatelessWidget {
                               children: [
                                 Text(
                                   'Assigned Vehicle (Smart Match Active)',
-                                  style: TextStyle(color: InfurnusTheme.textMuted, fontSize: 11),
+                                  style: TextStyle(
+                                    color: InfurnusTheme.textMuted,
+                                    fontSize: 11,
+                                  ),
                                 ),
                                 SizedBox(height: 2),
                                 Text(
@@ -162,12 +181,19 @@ class DriverDashboardScreen extends StatelessWidget {
                           ),
                           ElevatedButton(
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: InfurnusTheme.buttonBlack, // BLACK BUTTON
+                              backgroundColor:
+                                  InfurnusTheme.buttonBlack, // BLACK BUTTON
                               minimumSize: const Size(70, 32),
-                              padding: const EdgeInsets.symmetric(horizontal: 10),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                              ),
                             ),
-                            onPressed: () => context.push('/driver/assigned-vehicle'),
-                            child: const Text('Details', style: TextStyle(fontSize: 12)),
+                            onPressed: () =>
+                                context.push('/driver/assigned-vehicle'),
+                            child: const Text(
+                              'Details',
+                              style: TextStyle(fontSize: 12),
+                            ),
                           ),
                         ],
                       ),
@@ -181,13 +207,23 @@ class DriverDashboardScreen extends StatelessWidget {
                         const Expanded(
                           child: Text(
                             'Matched Booking Requests',
-                            style: TextStyle(color: InfurnusTheme.textDark, fontSize: 15, fontWeight: FontWeight.bold),
+                            style: TextStyle(
+                              color: InfurnusTheme.textDark,
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                            ),
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
                         TextButton(
                           onPressed: () => context.push('/driver/rides'),
-                          child: const Text('See All', style: TextStyle(color: InfurnusTheme.primaryGreen, fontWeight: FontWeight.bold)),
+                          child: const Text(
+                            'See All',
+                            style: TextStyle(
+                              color: InfurnusTheme.primaryGreen,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ),
                       ],
                     ),
@@ -206,7 +242,10 @@ class DriverDashboardScreen extends StatelessWidget {
                           child: Text(
                             'You are currently OFFLINE. Toggle ON above to receive matched bookings.',
                             textAlign: TextAlign.center,
-                            style: TextStyle(color: InfurnusTheme.textMuted, fontWeight: FontWeight.w600),
+                            style: TextStyle(
+                              color: InfurnusTheme.textMuted,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                       ),
@@ -227,7 +266,9 @@ class DriverDashboardScreen extends StatelessWidget {
                         ),
                       ),
                     ] else ...[
-                      ...eligibleBookings.map((booking) => _bookingCard(context, appState, booking)),
+                      ...eligibleBookings.map(
+                        (booking) => _bookingCard(context, appState, booking),
+                      ),
                     ],
 
                     const SizedBox(height: 24),
@@ -235,7 +276,11 @@ class DriverDashboardScreen extends StatelessWidget {
                     // Active Trip Card
                     const Text(
                       'Current Active Ride',
-                      style: TextStyle(color: InfurnusTheme.textDark, fontSize: 16, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        color: InfurnusTheme.textDark,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const SizedBox(height: 10),
 
@@ -272,25 +317,51 @@ class DriverDashboardScreen extends StatelessWidget {
           children: [
             Icon(icon, color: color, size: 24),
             const SizedBox(height: 12),
-            Text(value, style: const TextStyle(color: InfurnusTheme.textDark, fontSize: 18, fontWeight: FontWeight.bold)),
+            Text(
+              value,
+              style: const TextStyle(
+                color: InfurnusTheme.textDark,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
             const SizedBox(height: 2),
-            Text(title, style: const TextStyle(color: InfurnusTheme.textMuted, fontSize: 11)),
+            Text(
+              title,
+              style: const TextStyle(
+                color: InfurnusTheme.textMuted,
+                fontSize: 11,
+              ),
+            ),
             const SizedBox(height: 2),
-            Text(subtext, style: const TextStyle(color: InfurnusTheme.primaryGreen, fontSize: 10, fontWeight: FontWeight.bold)),
+            Text(
+              subtext,
+              style: const TextStyle(
+                color: InfurnusTheme.primaryGreen,
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _bookingCard(BuildContext context, AppState appState, BookingModel booking) {
+  Widget _bookingCard(
+    BuildContext context,
+    AppState appState,
+    BookingModel booking,
+  ) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: InfurnusTheme.primaryGreen.withValues(alpha: 0.3)),
+        border: Border.all(
+          color: InfurnusTheme.primaryGreen.withValues(alpha: 0.3),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -306,12 +377,20 @@ class DriverDashboardScreen extends StatelessWidget {
                 ),
                 child: Text(
                   booking.bookingType.toUpperCase(),
-                  style: const TextStyle(color: InfurnusTheme.primaryGreen, fontSize: 11, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    color: InfurnusTheme.primaryGreen,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
               Text(
                 'Earning: ₹ ${booking.driverNetEarning.toStringAsFixed(2)}',
-                style: const TextStyle(color: InfurnusTheme.primaryGreen, fontSize: 16, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  color: InfurnusTheme.primaryGreen,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ],
           ),
@@ -323,7 +402,10 @@ class DriverDashboardScreen extends StatelessWidget {
               Expanded(
                 child: Text(
                   booking.pickupLocation,
-                  style: const TextStyle(color: InfurnusTheme.textDark, fontSize: 13),
+                  style: const TextStyle(
+                    color: InfurnusTheme.textDark,
+                    fontSize: 13,
+                  ),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
@@ -337,7 +419,10 @@ class DriverDashboardScreen extends StatelessWidget {
               Expanded(
                 child: Text(
                   booking.dropoffLocation,
-                  style: const TextStyle(color: InfurnusTheme.textDark, fontSize: 13),
+                  style: const TextStyle(
+                    color: InfurnusTheme.textDark,
+                    fontSize: 13,
+                  ),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
@@ -354,7 +439,9 @@ class DriverDashboardScreen extends StatelessWidget {
                   ),
                   onPressed: () {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Booking #${booking.id} rejected.')),
+                      SnackBar(
+                        content: Text('Booking #${booking.id} rejected.'),
+                      ),
                     );
                   },
                   child: const Text('Reject'),
@@ -370,7 +457,11 @@ class DriverDashboardScreen extends StatelessWidget {
                   onPressed: () {
                     appState.acceptBooking(booking.id);
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Accepted Booking #${booking.id}! Driver Payout: ₹${booking.driverNetEarning.toStringAsFixed(2)}')),
+                      SnackBar(
+                        content: Text(
+                          'Accepted Booking #${booking.id}! Driver Payout: ₹${booking.driverNetEarning.toStringAsFixed(2)}',
+                        ),
+                      ),
                     );
                     context.push('/driver/ride-details');
                   },
@@ -400,7 +491,10 @@ class DriverDashboardScreen extends StatelessWidget {
             children: [
               Text(
                 'Booking #${booking.id}',
-                style: const TextStyle(color: InfurnusTheme.textDark, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  color: InfurnusTheme.textDark,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -410,7 +504,11 @@ class DriverDashboardScreen extends StatelessWidget {
                 ),
                 child: Text(
                   booking.status.toUpperCase(),
-                  style: const TextStyle(color: InfurnusTheme.primaryGreen, fontSize: 11, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    color: InfurnusTheme.primaryGreen,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ],
@@ -418,12 +516,19 @@ class DriverDashboardScreen extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             'Customer: ${booking.customerName} (${booking.customerPhone})',
-            style: const TextStyle(color: InfurnusTheme.textMuted, fontSize: 13),
+            style: const TextStyle(
+              color: InfurnusTheme.textMuted,
+              fontSize: 13,
+            ),
           ),
           const SizedBox(height: 6),
           Text(
             'Your Payout: ₹ ${booking.driverNetEarning.toStringAsFixed(2)}',
-            style: const TextStyle(color: InfurnusTheme.primaryGreen, fontSize: 13, fontWeight: FontWeight.bold),
+            style: const TextStyle(
+              color: InfurnusTheme.primaryGreen,
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+            ),
           ),
           const SizedBox(height: 12),
           ElevatedButton.icon(

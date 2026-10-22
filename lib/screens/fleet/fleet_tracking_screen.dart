@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../../providers/app_state.dart';
 import '../../widgets/infurnus_app_bar.dart';
 import '../../core/theme.dart';
@@ -29,14 +30,28 @@ class FleetTrackingScreen extends StatelessWidget {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.map_rounded, size: 64, color: InfurnusTheme.primaryGreen),
+                        Icon(
+                          Icons.map_rounded,
+                          size: 64,
+                          color: InfurnusTheme.primaryGreen,
+                        ),
                         SizedBox(height: 8),
                         Text(
                           'LIVE FLEET GPS LOCATION MAP',
-                          style: TextStyle(color: InfurnusTheme.textDark, fontWeight: FontWeight.bold, fontSize: 14),
+                          style: TextStyle(
+                            color: InfurnusTheme.textDark,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
                         ),
                         SizedBox(height: 4),
-                        Text('Tracking active vehicles & driver locations in Bangalore Metro', style: TextStyle(color: InfurnusTheme.textMuted, fontSize: 11)),
+                        Text(
+                          'Tracking active vehicles & driver locations in Bangalore Metro',
+                          style: TextStyle(
+                            color: InfurnusTheme.textMuted,
+                            fontSize: 11,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -64,24 +79,53 @@ class FleetTrackingScreen extends StatelessWidget {
                       children: [
                         Row(
                           children: [
-                            const Icon(Icons.navigation, color: InfurnusTheme.infoBlue, size: 20),
+                            const Icon(
+                              Icons.navigation,
+                              color: InfurnusTheme.infoBlue,
+                              size: 20,
+                            ),
                             const SizedBox(width: 10),
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(v.modelName, style: const TextStyle(color: InfurnusTheme.textDark, fontWeight: FontWeight.bold, fontSize: 14)),
-                                Text('Plate: ${v.plateNumber} • Driver: ${v.assignedDriverName ?? "None"}', style: const TextStyle(color: InfurnusTheme.textMuted, fontSize: 12)),
+                                Text(
+                                  v.modelName,
+                                  style: const TextStyle(
+                                    color: InfurnusTheme.textDark,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                Text(
+                                  'Plate: ${v.plateNumber} • Driver: ${v.assignedDriverName ?? "None"}',
+                                  style: const TextStyle(
+                                    color: InfurnusTheme.textMuted,
+                                    fontSize: 12,
+                                  ),
+                                ),
                               ],
                             ),
                           ],
                         ),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
                           decoration: BoxDecoration(
-                            color: InfurnusTheme.successGreen.withValues(alpha: 0.2),
+                            color: InfurnusTheme.successGreen.withValues(
+                              alpha: 0.2,
+                            ),
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: const Text('MOVING (38 km/h)', style: TextStyle(color: InfurnusTheme.successGreen, fontSize: 10, fontWeight: FontWeight.bold)),
+                          child: const Text(
+                            'MOVING (38 km/h)',
+                            style: TextStyle(
+                              color: InfurnusTheme.successGreen,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ),
                       ],
                     ),

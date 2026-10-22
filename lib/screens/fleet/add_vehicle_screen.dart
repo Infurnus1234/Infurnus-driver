@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+
 import '../../providers/app_state.dart';
 import '../../models/vehicle_catalog_model.dart';
 import '../../widgets/vehicle_selection_search_widget.dart';
@@ -43,7 +44,11 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
             children: [
               const Text(
                 'Vehicle Selection & Search',
-                style: TextStyle(color: InfurnusTheme.textDark, fontSize: 18, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  color: InfurnusTheme.textDark,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const SizedBox(height: 4),
               const Text(
@@ -67,7 +72,11 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
 
               const Text(
                 'Vehicle Registration Details',
-                style: TextStyle(color: InfurnusTheme.textDark, fontSize: 18, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  color: InfurnusTheme.textDark,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const SizedBox(height: 16),
 
@@ -76,7 +85,10 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
                 style: const TextStyle(color: InfurnusTheme.textDark),
                 decoration: const InputDecoration(
                   labelText: 'Vehicle License Plate Number',
-                  prefixIcon: Icon(Icons.pin, color: InfurnusTheme.primaryGreen),
+                  prefixIcon: Icon(
+                    Icons.pin,
+                    color: InfurnusTheme.primaryGreen,
+                  ),
                 ),
               ),
               const SizedBox(height: 16),
@@ -87,11 +99,22 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
                 style: const TextStyle(color: InfurnusTheme.textDark),
                 decoration: const InputDecoration(
                   labelText: 'Vehicle Category',
-                  prefixIcon: Icon(Icons.category, color: InfurnusTheme.primaryGreen),
+                  prefixIcon: Icon(
+                    Icons.category,
+                    color: InfurnusTheme.primaryGreen,
+                  ),
                 ),
-                items: ['Sedan', 'Truck', 'Van', 'Container', 'Hatchback', 'SUV'].map((cat) {
-                  return DropdownMenuItem(value: cat, child: Text(cat));
-                }).toList(),
+                items:
+                    [
+                      'Sedan',
+                      'Truck',
+                      'Van',
+                      'Container',
+                      'Hatchback',
+                      'SUV',
+                    ].map((cat) {
+                      return DropdownMenuItem(value: cat, child: Text(cat));
+                    }).toList(),
                 onChanged: (val) {
                   if (val != null) setState(() => _category = val);
                 },
@@ -101,7 +124,11 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
               // Vehicle Photos from 3-4 Sides (New Fleet Requirement)
               const Text(
                 'Vehicle Photos (3-4 Sides)',
-                style: TextStyle(color: InfurnusTheme.textDark, fontSize: 16, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  color: InfurnusTheme.textDark,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const SizedBox(height: 4),
               const Text(
@@ -110,10 +137,18 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
               ),
               const SizedBox(height: 12),
 
-              ..._photoUploads.keys.map((sideTitle) => _photoUploadRow(sideTitle)),
+              ..._photoUploads.keys.map(
+                (sideTitle) => _photoUploadRow(sideTitle),
+              ),
               const SizedBox(height: 24),
 
-              const Text('Vehicle Compliance Documents', style: TextStyle(color: InfurnusTheme.textDark, fontWeight: FontWeight.bold)),
+              const Text(
+                'Vehicle Compliance Documents',
+                style: TextStyle(
+                  color: InfurnusTheme.textDark,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
               const SizedBox(height: 12),
               _docUploadRow('Vehicle RC Certificate'),
               const SizedBox(height: 8),
@@ -132,7 +167,11 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
                     category: _category,
                   );
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Vehicle "$_selectedModelName" with 4-side photos added & submitted for verification.')),
+                    SnackBar(
+                      content: Text(
+                        'Vehicle "$_selectedModelName" with 4-side photos added & submitted for verification.',
+                      ),
+                    ),
                   );
                   context.pop();
                 },
@@ -154,7 +193,11 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: isUploaded ? InfurnusTheme.primaryGreen : const Color(0xFFE2E8F0)),
+        border: Border.all(
+          color: isUploaded
+              ? InfurnusTheme.primaryGreen
+              : const Color(0xFFE2E8F0),
+        ),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -163,16 +206,27 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
             children: [
               Icon(
                 isUploaded ? Icons.check_circle : Icons.camera_alt_outlined,
-                color: isUploaded ? InfurnusTheme.primaryGreen : InfurnusTheme.textMuted,
+                color: isUploaded
+                    ? InfurnusTheme.primaryGreen
+                    : InfurnusTheme.textMuted,
                 size: 20,
               ),
               const SizedBox(width: 10),
-              Text(title, style: const TextStyle(color: InfurnusTheme.textDark, fontSize: 13, fontWeight: FontWeight.w600)),
+              Text(
+                title,
+                style: const TextStyle(
+                  color: InfurnusTheme.textDark,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ],
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: isUploaded ? InfurnusTheme.primaryGreen : InfurnusTheme.buttonBlack,
+              backgroundColor: isUploaded
+                  ? InfurnusTheme.primaryGreen
+                  : InfurnusTheme.buttonBlack,
               foregroundColor: Colors.white,
               minimumSize: const Size(90, 32),
               padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -185,7 +239,10 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
                 SnackBar(content: Text('$title uploaded successfully!')),
               );
             },
-            child: Text(isUploaded ? 'Uploaded ✓' : 'Upload Photo', style: const TextStyle(fontSize: 11)),
+            child: Text(
+              isUploaded ? 'Uploaded ✓' : 'Upload Photo',
+              style: const TextStyle(fontSize: 11),
+            ),
           ),
         ],
       ),
@@ -203,7 +260,14 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(title, style: const TextStyle(color: InfurnusTheme.textDark, fontSize: 13, fontWeight: FontWeight.w600)),
+          Text(
+            title,
+            style: const TextStyle(
+              color: InfurnusTheme.textDark,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
           OutlinedButton(
             style: OutlinedButton.styleFrom(
               foregroundColor: InfurnusTheme.buttonBlack,

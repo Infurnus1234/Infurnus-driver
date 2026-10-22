@@ -14,10 +14,11 @@ class ProviderAssets extends ChangeNotifier {
       approvals = [],
       drivers = [],
       tracking = [];
+  List<Map<String, dynamic>> invitations = [];
   List<DocumentRule> rules = [];
   Map<String, dynamic>? earnings;
   bool busy = false, loaded = false, _disposed = false;
-  String? error;
+  String? error, refreshWarning;
   String get vehiclePath =>
       api.hasFleetRole && api.providerMode == 'fleet_owner'
       ? '/fleet/vehicles'
@@ -50,7 +51,22 @@ class ProviderAssets extends ChangeNotifier {
     }
   }
 
-  Future<bool> refresh() => run(load);
+  Future<bool> refresh() => run(() async {
+    await load();
+    refreshWarning = null;
+  });
+  Future<void> _reloadAfterSave() async {
+    try {
+      await load();
+      refreshWarning = null;
+    } on ApiException catch (e) {
+      if (e.status == 401 || e.status == 403) rethrow;
+      refreshWarning =
+          'Saved on the server. Refresh to load the latest status.';
+      error = refreshWarning;
+    }
+  }
+
   Future<List<Map<String, dynamic>>> _fleetPages(String path) async {
     final result = <Map<String, dynamic>>[];
     for (var offset = 0; offset <= 100000; offset += 100) {
@@ -64,7 +80,6 @@ class ProviderAssets extends ChangeNotifier {
   }
 
   Future<void> load() async {
-    loaded = false;
     Map<String, dynamic>? nextPartner;
     try {
       nextPartner = Map<String, dynamic>.from(
@@ -84,9 +99,7 @@ class ProviderAssets extends ChangeNotifier {
     final nextApprovals = _rows(
       await api.request('GET', '/provider/approvals'),
     );
-    final nextVehicles =
-        providerStatus(nextPartner?['approvalStatus']) ==
-            ProviderStatus.approved
+    final nextVehicles = (fleetMode || nextPartner != null)
         ? (fleetMode
               ? await _fleetPages(vehiclePath)
               : _rows(await api.request('GET', vehiclePath)))
@@ -100,6 +113,9 @@ class ProviderAssets extends ChangeNotifier {
       final r = DocumentRule.fromJson(row);
       nextRules[r.code] = r;
     }
+    if (fleetMode && api.roleFlowEnabled) {
+      invitations = _rows(await api.request('GET', '/provider/fleet-drivers'));
+    }
     partner = nextPartner;
     documents = nextDocuments;
     approvals = nextApprovals;
@@ -112,9 +128,11 @@ class ProviderAssets extends ChangeNotifier {
       drivers = [];
       tracking = [];
     }
-    earnings = Map<String, dynamic>.from(
-      await api.request('GET', '/provider/earnings') as Map,
-    );
+    earnings = fleetMode
+        ? Map<String, dynamic>.from(
+            await api.request('GET', '/provider/earnings') as Map,
+          )
+        : null;
     loaded = true;
   }
 
@@ -138,29 +156,40 @@ class ProviderAssets extends ChangeNotifier {
             : old!.minimumPages,
       );
     }
+    merged['vehicle_front_photo'] = const DocumentRule(
+      'vehicle_front_photo',
+      required: true,
+    );
     return merged.values.toList();
   }
 
   Future<bool> saveBusiness(Map<String, dynamic> input) => run(() async {
     if (partner == null) {
-      await api.request(
+      final saved = await api.request(
         'POST',
         '/partners',
         body: {...input, 'userId': api.userId},
       );
+      if (saved is Map && saved['id'] is String) {
+        partner = Map<String, dynamic>.from(saved);
+      }
     } else {
       await api.request('PATCH', '/partners/${partner!['id']}', body: input);
     }
-    await load();
+    await _reloadAfterSave();
   });
   Future<bool> saveVehicle(Map<String, dynamic> input, {String? id}) =>
       run(() async {
-        await api.request(
+        final saved = await api.request(
           id == null ? 'POST' : 'PUT',
           id == null ? vehiclePath : '$vehiclePath/${Uri.encodeComponent(id)}',
           body: input,
         );
-        await load();
+        if (saved is Map && saved['id'] is String) {
+          final row = Map<String, dynamic>.from(saved);
+          vehicles = [...vehicles.where((v) => v['id'] != row['id']), row];
+        }
+        await _reloadAfterSave();
       });
   Future<bool> requestReview(
     String targetType,
@@ -189,6 +218,8 @@ class ProviderAssets extends ChangeNotifier {
     }
     return null;
   }
+
+  final Map<String, Map<String, dynamic>> _uploadedDrafts = {};
 
   Future<bool> uploadDocument(
     DocumentRule rule,
@@ -221,18 +252,23 @@ class ProviderAssets extends ChangeNotifier {
     final bundle = files.length > 1;
     final path =
         '/partners/${partner!['id']}/documents/${existing == null ? 'upload' : '${existing['id']}/replace'}${bundle ? '/pages' : ''}';
-    final uploaded = await api.request(
-      'POST',
-      path,
-      files: files,
-      fileField: bundle ? 'files' : 'file',
-      fields: {
-        ...metadata,
-        if (existing == null) 'documentType': type,
-        if (existing == null && vehicleId != null) 'vehicleId': vehicleId,
-        if (type == 'OTHER') 'documentCode': rule.code,
-      },
-    );
+    final draftKey =
+        '$vehicleId:${rule.code}:${Object.hashAll(files.map((f) => Object.hash(f.name, Object.hashAll(f.bytes))))}:${metadata.entries.map((e) => '${e.key}=${e.value}').join('&')}';
+    final uploaded =
+        _uploadedDrafts[draftKey] ??
+        await api.request(
+          'POST',
+          path,
+          files: files,
+          fileField: bundle ? 'files' : 'file',
+          fields: {
+            ...metadata,
+            if (existing == null) 'documentType': type,
+            if (existing == null && vehicleId != null) 'vehicleId': vehicleId,
+            if (type == 'OTHER') 'documentCode': rule.code,
+          },
+        );
+    _uploadedDrafts[draftKey] = Map<String, dynamic>.from(uploaded as Map);
     // SUBMITTED is an owner-permitted lifecycle transition; VERIFIED is not.
     await api.request(
       'PATCH',
@@ -248,14 +284,21 @@ class ProviderAssets extends ChangeNotifier {
         'requestType': 'document_reverification',
       },
     );
-    await load();
+    _uploadedDrafts.remove(draftKey);
+    await _reloadAfterSave();
   });
-  Future<Map<String, dynamic>?> assignmentCode(String vehicleId) async {
+  Future<Map<String, dynamic>?> assignmentCode(
+    String vehicleId,
+    String? driverProfileId,
+  ) async {
     Map<String, dynamic>? code;
     await run(() async {
       code = Map<String, dynamic>.from(
-        await api.request('POST', '/fleet/vehicles/$vehicleId/assignment-code')
-            as Map,
+        await api.request(
+          'POST',
+          '/fleet/vehicles/$vehicleId/assignment-code',
+          body: {'driverProfileId': ?driverProfileId},
+        ) as Map,
       );
     });
     return code;

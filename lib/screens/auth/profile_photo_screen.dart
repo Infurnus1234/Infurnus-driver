@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+
 import '../../providers/app_state.dart';
 import '../../widgets/infurnus_app_bar.dart';
 import '../../core/theme.dart';
@@ -50,9 +51,13 @@ class _ProfilePhotoScreenState extends State<ProfilePhotoScreen> {
                         child: Container(
                           color: const Color(0xFFE2E8F0),
                           child: Icon(
-                            _photoCaptured ? Icons.check_circle_rounded : Icons.person,
+                            _photoCaptured
+                                ? Icons.check_circle_rounded
+                                : Icons.person,
                             size: 80,
-                            color: _photoCaptured ? InfurnusTheme.primaryGreen : const Color(0xFF94A3B8),
+                            color: _photoCaptured
+                                ? InfurnusTheme.primaryGreen
+                                : const Color(0xFF94A3B8),
                           ),
                         ),
                       ),
@@ -64,7 +69,9 @@ class _ProfilePhotoScreenState extends State<ProfilePhotoScreen> {
                         onTap: () {
                           setState(() => _photoCaptured = true);
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Profile photo captured.')),
+                            const SnackBar(
+                              content: Text('Profile photo captured.'),
+                            ),
                           );
                         },
                         child: Container(
@@ -107,11 +114,29 @@ class _ProfilePhotoScreenState extends State<ProfilePhotoScreen> {
                       ),
                     ),
                     SizedBox(height: 8),
-                    Text('• Use clear photo', style: TextStyle(color: InfurnusTheme.textMuted, fontSize: 12)),
+                    Text(
+                      '• Use clear photo',
+                      style: TextStyle(
+                        color: InfurnusTheme.textMuted,
+                        fontSize: 12,
+                      ),
+                    ),
                     SizedBox(height: 4),
-                    Text('• Make sure your face is visible', style: TextStyle(color: InfurnusTheme.textMuted, fontSize: 12)),
+                    Text(
+                      '• Make sure your face is visible',
+                      style: TextStyle(
+                        color: InfurnusTheme.textMuted,
+                        fontSize: 12,
+                      ),
+                    ),
                     SizedBox(height: 4),
-                    Text('• Do not use sunglasses', style: TextStyle(color: InfurnusTheme.textMuted, fontSize: 12)),
+                    Text(
+                      '• Do not use sunglasses',
+                      style: TextStyle(
+                        color: InfurnusTheme.textMuted,
+                        fontSize: 12,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -123,17 +148,30 @@ class _ProfilePhotoScreenState extends State<ProfilePhotoScreen> {
                   backgroundColor: InfurnusTheme.buttonBlack,
                   foregroundColor: Colors.white,
                   minimumSize: const Size.fromHeight(50),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
                 ),
                 onPressed: () {
-                  final appState = Provider.of<AppState>(context, listen: false);
-                  appState.updateProfile(photoUrl: 'https://infurnus.com/photos/profile.jpg');
+                  final appState = Provider.of<AppState>(
+                    context,
+                    listen: false,
+                  );
+                  appState.updateProfile(
+                    photoUrl: 'https://infurnus.com/photos/profile.jpg',
+                  );
                   context.push('/document-upload');
                 },
                 child: const Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text('Continue', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    Text(
+                      'Continue',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                     SizedBox(width: 8),
                     Icon(Icons.arrow_forward, size: 18),
                   ],

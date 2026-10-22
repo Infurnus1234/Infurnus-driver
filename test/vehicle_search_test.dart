@@ -8,10 +8,13 @@ void main() {
   group('VehicleCatalogRepository Search Tests', () {
     final repo = VehicleCatalogRepository();
 
-    test('Empty search query returns empty list (does not dump full list)', () async {
-      final results = await repo.searchVehicles('');
-      expect(results, isEmpty);
-    });
+    test(
+      'Empty search query returns empty list (does not dump full list)',
+      () async {
+        final results = await repo.searchVehicles('');
+        expect(results, isEmpty);
+      },
+    );
 
     test('Searching new vehicle categories (E-Rickshaw, Force Traveller, 407, Scorpio N)', () async {
       final erickshaw = await repo.searchVehicles('rickshaw');
@@ -36,14 +39,14 @@ void main() {
   });
 
   group('VehicleSelectionSearchWidget Widget Tests', () {
-    testWidgets('VehicleSelectionSearchWidget renders and searches', (WidgetTester tester) async {
+    testWidgets('VehicleSelectionSearchWidget renders and searches', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(
         MaterialApp(
           theme: InfurnusTheme.lightTheme,
           home: Scaffold(
-            body: VehicleSelectionSearchWidget(
-              onVehicleSelected: (vehicle) {},
-            ),
+            body: VehicleSelectionSearchWidget(onVehicleSelected: (vehicle) {}),
           ),
         ),
       );

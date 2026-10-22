@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+
 import '../../providers/app_state.dart';
 import '../../widgets/infurnus_app_bar.dart';
 import '../../core/theme.dart';
@@ -13,7 +14,9 @@ class ApplicationRejectedScreen extends StatelessWidget {
     final appState = Provider.of<AppState>(context);
     final user = appState.currentUser;
     final docs = user?.documents ?? [];
-    final rejectedDocs = docs.where((d) => d.status == 'Rejected' || d.rejectionReason != null).toList();
+    final rejectedDocs = docs
+        .where((d) => d.status == 'Rejected' || d.rejectionReason != null)
+        .toList();
 
     return Scaffold(
       backgroundColor: InfurnusTheme.bgWhite,
@@ -37,7 +40,10 @@ class ApplicationRejectedScreen extends StatelessWidget {
                   children: [
                     const Row(
                       children: [
-                        Icon(Icons.report_problem, color: InfurnusTheme.dangerRed),
+                        Icon(
+                          Icons.report_problem,
+                          color: InfurnusTheme.dangerRed,
+                        ),
                         SizedBox(width: 8),
                         Text(
                           'Action Required by Admin Review',
@@ -52,7 +58,10 @@ class ApplicationRejectedScreen extends StatelessWidget {
                     const SizedBox(height: 8),
                     Text(
                       'Admin reviewed your application and requested document updates before granting full operational access.',
-                      style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
+                      style: TextStyle(
+                        color: Colors.grey.shade700,
+                        fontSize: 13,
+                      ),
                     ),
                   ],
                 ),
@@ -61,16 +70,24 @@ class ApplicationRejectedScreen extends StatelessWidget {
 
               const Text(
                 'Specific Document Feedback',
-                style: TextStyle(color: InfurnusTheme.textDark, fontWeight: FontWeight.bold, fontSize: 16),
+                style: TextStyle(
+                  color: InfurnusTheme.textDark,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
               ),
               const SizedBox(height: 12),
 
               Expanded(
                 child: ListView.separated(
-                  itemCount: rejectedDocs.isNotEmpty ? rejectedDocs.length : docs.length,
+                  itemCount: rejectedDocs.isNotEmpty
+                      ? rejectedDocs.length
+                      : docs.length,
                   separatorBuilder: (_, _) => const SizedBox(height: 12),
                   itemBuilder: (context, index) {
-                    final doc = rejectedDocs.isNotEmpty ? rejectedDocs[index] : docs[index];
+                    final doc = rejectedDocs.isNotEmpty
+                        ? rejectedDocs[index]
+                        : docs[index];
 
                     return Container(
                       padding: const EdgeInsets.all(16),
@@ -94,9 +111,14 @@ class ApplicationRejectedScreen extends StatelessWidget {
                                 ),
                               ),
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
                                 decoration: BoxDecoration(
-                                  color: InfurnusTheme.dangerRed.withValues(alpha: 0.15),
+                                  color: InfurnusTheme.dangerRed.withValues(
+                                    alpha: 0.15,
+                                  ),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: const Text(
@@ -113,12 +135,16 @@ class ApplicationRejectedScreen extends StatelessWidget {
                           const SizedBox(height: 8),
                           Text(
                             doc.rejectionReason ?? 'Photo is blurry or unreadable. Please upload a clear original image.',
-                            style: const TextStyle(color: InfurnusTheme.textMuted, fontSize: 13),
+                            style: const TextStyle(
+                              color: InfurnusTheme.textMuted,
+                              fontSize: 13,
+                            ),
                           ),
                           const SizedBox(height: 12),
                           ElevatedButton.icon(
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: InfurnusTheme.buttonBlack, // BLACK BUTTON
+                              backgroundColor:
+                                  InfurnusTheme.buttonBlack, // BLACK BUTTON
                               foregroundColor: Colors.white,
                               minimumSize: const Size.fromHeight(40),
                             ),
@@ -128,7 +154,9 @@ class ApplicationRejectedScreen extends StatelessWidget {
                                 'https://infurnus.com/docs/resubmitted_${doc.id}.pdf',
                               );
                               ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('Resubmitted ${doc.name}')),
+                                SnackBar(
+                                  content: Text('Resubmitted ${doc.name}'),
+                                ),
                               );
                             },
                             icon: const Icon(Icons.upload_file, size: 18),

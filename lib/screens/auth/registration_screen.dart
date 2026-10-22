@@ -4,9 +4,11 @@ import 'package:go_router/go_router.dart';
 
 import '../../providers/driver_session.dart';
 import '../../widgets/google_sign_in_button.dart';
+import 'role_selection_screen.dart';
 
 class RegistrationScreen extends StatefulWidget {
-  const RegistrationScreen({super.key});
+  final String? initialRole;
+  const RegistrationScreen({super.key, this.initialRole});
   @override
   State<RegistrationScreen> createState() => _RegistrationScreenState();
 }
@@ -27,6 +29,18 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       key: TextEditingController(),
   };
   String _role = 'driver';
+  @override
+  void initState() {
+    super.initState();
+    if ([
+      'driver',
+      'fleet_owner',
+      'driver_fleet_owner',
+    ].contains(widget.initialRole)) {
+      _role = widget.initialRole!;
+    }
+  }
+
   bool _details = false;
   bool _passwordMethod = false;
   @override
@@ -41,20 +55,14 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   Widget build(BuildContext context) {
     final session = context.watch<DriverSession>();
     final labels = _details
-        ? {
-            if (_role != 'fleet_owner')
-              'licenseNumber': 'Driving licence number *',
-            if (_role != 'fleet_owner')
-              'licenseExpiry': 'Licence expiry (YYYY-MM-DD) *',
-            if (_role != 'driver') 'businessName': 'Business name *',
-          }
-        : const {
+        ? {if (_role != 'driver') 'businessName': 'Business name *'}
+        : {
             'firstName': 'First name *',
             'lastName': 'Last name *',
             'email': 'Email (or phone required)',
             'phone': 'Phone (or email required)',
-            'password': 'Password *',
-            'confirmPassword': 'Confirm password *',
+            if (_role != 'driver') 'password': 'Password *',
+            if (_role != 'driver') 'confirmPassword': 'Confirm password *',
           };
     return Scaffold(
       appBar: AppBar(
@@ -74,23 +82,11 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         padding: const EdgeInsets.all(24),
         children: [
           if (!_details) ...[
-            DropdownButtonFormField<String>(
-              initialValue: _role,
-              decoration: const InputDecoration(labelText: 'Account role'),
-              items: const [
-                DropdownMenuItem(value: 'driver', child: Text('Driver')),
-                DropdownMenuItem(
-                  value: 'fleet_owner',
-                  child: Text('Fleet Owner'),
-                ),
-                DropdownMenuItem(
-                  value: 'driver_fleet_owner',
-                  child: Text('Driver + Fleet Owner'),
-                ),
-              ],
+            ProviderRoleCards(
+              selected: _role,
               onChanged: session.busy
                   ? null
-                  : (v) => setState(() => _role = v!),
+                  : (value) => setState(() => _role = value),
             ),
             const SizedBox(height: 16),
             GoogleSignInButton(
@@ -126,7 +122,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             ),
           ] else
             const Text(
-              'These registration details are required by the backend before account OTP verification. Upload documents after authentication. Approval is reviewed separately.',
+              'Confirm your business details. Your licence photo, number and expiry are collected together after sign-in. Approval is reviewed separately.',
             ),
           for (final entry
               in (_details || _passwordMethod ? labels : <String, String>{})
@@ -163,12 +159,14 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
               onPressed: session.busy
                   ? null
                   : () async {
-                      if (!_details) {
+                      if (!_details && _role != 'driver') {
                         setState(() => _details = true);
                         return;
                       }
                       final input = <String, dynamic>{
                         'role': _role,
+                        if (_role != 'fleet_owner')
+                          'onboardingLicencePending': true,
                         for (final e in _fields.entries)
                           if (e.value.text.trim().isNotEmpty &&
                               !(_role == 'fleet_owner' &&
@@ -193,7 +191,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
               child: Text(
                 session.busy
                     ? 'Starting signup…'
-                    : _details
+                    : (_details || _role == 'driver')
                     ? 'Send account verification code'
                     : 'Continue',
               ),

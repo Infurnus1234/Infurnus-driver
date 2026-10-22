@@ -1,226 +1,194 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+
+import '../../core/operations_theme.dart';
+
 import 'package:provider/provider.dart';
 
-import '../../providers/app_state.dart';
-import '../../models/app_models.dart';
-import '../../widgets/infurnus_app_bar.dart';
-import '../../core/theme.dart';
+import '../../providers/driver_session.dart';
+
+/// Registration intent only. Server-verified claims determine account access.
+class ProviderRoleCards extends StatelessWidget {
+  final String? selected;
+  final ValueChanged<String>? onChanged;
+  const ProviderRoleCards({super.key, this.selected, this.onChanged});
+  static const options = [
+    (
+      'driver',
+      'Driver',
+      'Drive with your own vehicle or one assigned by a fleet.',
+      Icons.directions_car_outlined,
+    ),
+    (
+      'driver_fleet_owner',
+      'Driver + Fleet Owner',
+      'Earn as a driver and manage your vehicles and drivers.',
+      Icons.swap_horiz_rounded,
+    ),
+    (
+      'fleet_owner',
+      'Fleet Owner',
+      'Manage your fleet, assign vehicles and monitor your business.',
+      Icons.business_outlined,
+    ),
+  ];
+  @override
+  Widget build(BuildContext context) => Column(
+    children: [
+      for (final option in options)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 14),
+          child: Semantics(
+            selected: selected == option.$1,
+            button: true,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(18),
+              onTap: onChanged == null ? null : () => onChanged!(option.$1),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 160),
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: selected == option.$1
+                      ? const Color(0xFFE2F7E8)
+                      : Colors.white,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                    color: selected == option.$1
+                        ? Ops.actionPrimary
+                        : const Color(0xFFDDE4DF),
+                    width: selected == option.$1 ? 2 : 1,
+                  ),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(option.$4, color: Ops.actionPrimary, size: 30),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            option.$2,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            option.$3,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              height: 1.4,
+                              color: Ops.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Icon(
+                      selected == option.$1
+                          ? Icons.check_circle
+                          : Icons.radio_button_unchecked,
+                      color: selected == option.$1
+                          ? Ops.actionPrimary
+                          : const Color(0xFF89958E),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+    ],
+  );
+}
 
 class RoleSelectionScreen extends StatefulWidget {
   const RoleSelectionScreen({super.key});
-
   @override
   State<RoleSelectionScreen> createState() => _RoleSelectionScreenState();
 }
 
 class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
-  UserRole _selectedRole = UserRole.driverFleetOwner;
-
+  String? _role, _error;
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: InfurnusTheme.bgWhite,
-      appBar: const InfurnusAppBar(title: 'Role Selection'),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+  Widget build(BuildContext context) => Scaffold(
+    backgroundColor: Colors.white,
+    appBar: AppBar(
+      title: const Text('Choose your account'),
+      leading: IconButton(
+        tooltip: 'Back to login',
+        icon: const Icon(Icons.arrow_back),
+        onPressed: () => context.go('/login'),
+      ),
+    ),
+    body: SafeArea(
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 560),
+          child: ListView(
+            padding: const EdgeInsets.all(24),
             children: [
               const Text(
-                'Select Your Role',
-                style: TextStyle(
-                  color: InfurnusTheme.textDark,
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                ),
+                'How will you use INFURNUS?',
+                style: TextStyle(fontSize: 26, fontWeight: FontWeight.w700),
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 10),
               const Text(
-                'Choose the role that best describes you',
-                style: TextStyle(color: InfurnusTheme.textMuted, fontSize: 13),
+                'Choose the account that fits your work. Existing accounts keep their registered role.',
+                style: TextStyle(color: Ops.textSecondary, height: 1.5),
               ),
-              const SizedBox(height: 24),
-
-              _roleCard(
-                role: UserRole.driver,
-                title: 'Driver',
-                subtitle: 'Drive and earn with your own or assigned vehicle',
-                icon: Icons.directions_car,
+              const SizedBox(height: 26),
+              ProviderRoleCards(
+                selected: _role,
+                onChanged: (value) => setState(() {
+                  _role = value;
+                  _error = null;
+                }),
               ),
-              const SizedBox(height: 14),
-
-              _roleCard(
-                role: UserRole.fleetOwner,
-                title: 'Fleet Owner',
-                subtitle: 'Manage vehicles and drivers',
-                icon: Icons.business_center,
-              ),
-              const SizedBox(height: 14),
-
-              _roleCard(
-                role: UserRole.driverFleetOwner,
-                title: 'Driver + Fleet Owner',
-                subtitle: 'Drive and also manage your fleet',
-                icon: Icons.swap_horiz_rounded,
-                isRecommended: true,
-              ),
-
-              const Spacer(),
-
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: InfurnusTheme.buttonBlack,
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size.fromHeight(50),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              if (_error != null)
+                Semantics(
+                  liveRegion: true,
+                  child: Text(
+                    _error!,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
                 ),
-                onPressed: () {
-                  final appState = Provider.of<AppState>(
-                    context,
-                    listen: false,
-                  );
-                  if (appState.currentUser == null) {
-                    appState.register(
-                      fullName: 'New Provider User',
-                      email: 'provider@infurnus.com',
-                      phone: '+91 98765 00000',
-                      role: _selectedRole,
+              if (context.watch<DriverSession>().error != null)
+                Text(
+                  context.watch<DriverSession>().error!,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+              const SizedBox(height: 16),
+              FilledButton(
+                style: Ops.darkButton,
+                onPressed: () async {
+                  if (_role == null) {
+                    setState(
+                      () => _error = 'Select an account type to continue.',
                     );
-                  } else {
-                    appState.setRole(_selectedRole);
+                    return;
                   }
-                  context.push('/personal-details');
+                  final s = context.read<DriverSession>();
+                  if (s.authenticated) {
+                    if (await s.selectInitialRole(_role!) && context.mounted) {
+                      context.go(s.landingPath);
+                    }
+                  } else {
+                    context.go('/register?role=$_role');
+                  }
                 },
-                child: const Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text('Continue', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                    SizedBox(width: 8),
-                    Icon(Icons.arrow_forward, size: 18),
-                  ],
-                ),
+                child: const Text('Continue'),
               ),
             ],
           ),
         ),
       ),
-    );
-  }
-
-  Widget _roleCard({
-    required UserRole role,
-    required String title,
-    required String subtitle,
-    required IconData icon,
-    bool isRecommended = false,
-  }) {
-    final isSelected = _selectedRole == role;
-
-    return InkWell(
-      onTap: () {
-        setState(() {
-          _selectedRole = role;
-        });
-      },
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: isSelected ? InfurnusTheme.greenLight : Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isSelected
-                ? InfurnusTheme.primaryGreen
-                : const Color(0xFFE2E8F0),
-            width: isSelected ? 2 : 1,
-          ),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: isSelected
-                    ? InfurnusTheme.primaryGreen
-                    : const Color(0xFFF1F5F9),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(
-                icon,
-                color: isSelected ? Colors.white : InfurnusTheme.textMuted,
-                size: 24,
-              ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          title,
-                          style: const TextStyle(
-                            color: InfurnusTheme.textDark,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      if (isRecommended) ...[
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: InfurnusTheme.primaryGreen,
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: const Text(
-                            'POPULAR',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 8,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(
-                      color: InfurnusTheme.textMuted,
-                      fontSize: 11,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            RadioGroup<UserRole>(
-              groupValue: _selectedRole,
-              onChanged: (val) {
-                if (val != null) {
-                  setState(() => _selectedRole = val);
-                }
-              },
-              child: Radio<UserRole>(
-                value: role,
-                activeColor: InfurnusTheme.primaryGreen,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+    ),
+  );
 }

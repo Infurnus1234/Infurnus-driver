@@ -1,31 +1,19 @@
-
 import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import 'firebase_options.dart';
 import 'providers/app_state.dart';
 import 'providers/driver_session.dart';
 import 'router/app_router.dart';
-import 'core/theme.dart';
-import 'services/startup_permissions.dart';
+import 'core/operations_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
   try {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
-    final messaging = FirebaseMessaging.instance;
-    await messaging.requestPermission();
-    final token = await messaging.getToken();
-    debugPrint('FCM TOKEN: $token');
-  } catch (e) {
-    debugPrint('Firebase initialization / FCM error: $e');
+    await Firebase.initializeApp();
+  } catch (_) {
+    debugPrint('Firebase initialization unavailable.');
   }
-
   runApp(
     MultiProvider(
       providers: [
@@ -35,28 +23,52 @@ void main() async {
       child: const InfurnusApp(),
     ),
   );
-
-  WidgetsBinding.instance.addPostFrameCallback((_) async {
-    try {
-      await requestStartupLocation();
-    } catch (_) {
-      debugPrint('Startup location permission unavailable');
-    }
-  });
 }
 
-class InfurnusApp extends StatelessWidget {
+class InfurnusApp extends StatefulWidget {
   const InfurnusApp({super.key});
+  @override
+  State<InfurnusApp> createState() => _InfurnusAppState();
+}
+
+class _InfurnusAppState extends State<InfurnusApp> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final session = context.read<DriverSession>();
+    if (state == AppLifecycleState.resumed &&
+        session.authenticated &&
+        !session.busy) {
+      session.refresh();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    context.watch<DriverSession>();
+    final session = context.watch<DriverSession>();
+    final notificationRoute = session.pendingNotificationRoute;
+    if (notificationRoute != null && session.authenticated) {
+      session.pendingNotificationRoute = null;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (session.authenticated) appRouter.go(notificationRoute);
+      });
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) => appRouter.refresh());
-
     return MaterialApp.router(
       title: 'Infurnus Logistics & Fleet',
       debugShowCheckedModeBanner: false,
-      theme: InfurnusTheme.lightTheme,
+      theme: Ops.theme,
       routerConfig: appRouter,
     );
   }

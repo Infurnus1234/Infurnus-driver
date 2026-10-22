@@ -9,6 +9,7 @@ import 'package:infurnus_driver/main.dart';
 import 'package:infurnus_driver/providers/app_state.dart';
 import 'package:infurnus_driver/providers/driver_session.dart';
 import 'package:infurnus_driver/services/api_service.dart';
+import 'package:infurnus_driver/services/session_store.dart';
 import 'package:infurnus_driver/router/app_router.dart';
 
 void main() {
@@ -28,6 +29,7 @@ void main() {
         'verificationStatus': 'pending',
       };
       final api = ApiService(
+        store: MemorySessionStore(),
         client: MockClient((r) async {
           paths.add(r.url.path);
           dynamic data;
@@ -48,6 +50,14 @@ void main() {
                   },
                 }),
                 404,
+              );
+            case '/provider/onboarding':
+              return http.Response(
+                jsonEncode({
+                  'success': true,
+                  'data': {'dashboardAccessible': false, 'deferred_codes': []},
+                }),
+                200,
               );
             case '/provider/document-requirements':
               data = [];
@@ -88,7 +98,10 @@ void main() {
           );
         }),
       );
-      final session = DriverSession(api: api);
+      final session = DriverSession(
+        api: api,
+        onboardingDraftStore: MemorySessionStore(),
+      );
       await tester.pumpWidget(
         MultiProvider(
           providers: [
@@ -99,8 +112,27 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.text('Sign in with Google'), findsOneWidget);
-      await tester.tap(find.text('Create a Driver account'));
+      expect(find.text('Continue with Google'), findsOneWidget);
+      for (final legacy in [
+        '/personal-details',
+        '/profile-photo',
+        '/document-upload',
+      ]) {
+        appRouter.go(legacy);
+        await tester.pumpAndSettle();
+        expect(find.text('How will you use INFURNUS?'), findsOneWidget);
+        expect(find.text('Driving licence number *'), findsNothing);
+      }
+      appRouter.go('/login');
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Use email/phone signup'));
+      await tester.pumpAndSettle();
+      expect(find.text('How will you use INFURNUS?'), findsOneWidget);
+      await tester.tap(find.text('Continue'));
+      await tester.pumpAndSettle();
+      expect(find.text('Select an account type to continue.'), findsOneWidget);
+      await tester.tap(find.text('Driver'));
+      await tester.tap(find.text('Continue'));
       await tester.pumpAndSettle();
       expect(find.text('Create your account'), findsOneWidget);
       expect(find.text('Sign up with Google'), findsOneWidget);
@@ -112,8 +144,6 @@ void main() {
         'First name *': 'Fixture',
         'Last name *': 'Driver',
         'Email (or phone required)': 'driver@example.invalid',
-        'Password *': 'fixture-password',
-        'Confirm password *': 'fixture-password',
       };
       for (final entry in fields.entries) {
         final finder = find.byWidgetPredicate(
@@ -124,18 +154,9 @@ void main() {
       }
       expect(find.text('Driving licence number *'), findsNothing);
       expect(find.byIcon(Icons.upload_file), findsNothing);
-      await tester.ensureVisible(find.text('Continue'));
-      await tester.tap(find.text('Continue'));
-      await tester.pumpAndSettle();
-      for (final entry in {
-        'Driving licence number *': 'fixture',
-        'Licence expiry (YYYY-MM-DD) *': '2099-12-31',
-      }.entries) {
-        final finder = find.byWidgetPredicate(
-          (w) => w is TextField && w.decoration?.labelText == entry.key,
-        );
-        await tester.enterText(finder, entry.value);
-      }
+      expect(find.text('Continue'), findsNothing);
+      expect(find.text('Driving licence number *'), findsNothing);
+      expect(find.text('Licence expiry (YYYY-MM-DD) *'), findsNothing);
       final send = find.text('Send account verification code');
       await tester.ensureVisible(send);
       await tester.tap(send);
@@ -148,37 +169,23 @@ void main() {
       expect(find.text('Driver onboarding'), findsOneWidget);
       expect(find.text('Driver Dashboard'), findsNothing);
       expect(session.dashboardAllowed, isFalse);
-      await tester.ensureVisible(find.text('Personal details & licence'));
-      await tester.tap(find.text('Personal details & licence'));
+      expect(find.text('Your profile photo'), findsOneWidget);
+      expect(find.byType(Stepper), findsNothing);
+      expect(find.text('Choose source'), findsOneWidget);
+
+      expect(find.text('Driving licence number *'), findsNothing);
+      await tester.tap(find.text('Upload & continue'));
       await tester.pumpAndSettle();
-      final licenceInput = find.widgetWithText(
-        TextField,
-        'Driving licence number *',
-      );
-      await tester.ensureVisible(licenceInput);
-      await tester.enterText(licenceInput, 'TEST-INPUT-PRESERVED');
-      final requestsWhileTyping = paths.length;
-      await tester.pump(const Duration(seconds: 21));
-      await tester.pumpAndSettle();
-      expect(paths.length, requestsWhileTyping);
-      expect(find.text('TEST-INPUT-PRESERVED'), findsOneWidget);
-      expect(tester.testTextInput.hasAnyClients, isTrue);
-      FocusManager.instance.primaryFocus?.unfocus();
-      await tester.pump(const Duration(seconds: 21));
-      await tester.pumpAndSettle();
-      expect(paths.length, greaterThan(requestsWhileTyping));
-      appRouter.go('/driver/dashboard');
-      await tester.pumpAndSettle();
-      expect(find.text('Driver verification'), findsOneWidget);
+      expect(find.text('Select one profile image.'), findsOneWidget);
+      expect(find.text('Your profile photo'), findsOneWidget);
       profile['verificationStatus'] = 'rejected';
       profile['rejectionReason'] = 'Licence image is unreadable';
       await session.refresh();
+      appRouter.go('/verification-status');
       await tester.pumpAndSettle();
-      expect(
-        find.textContaining('Licence image is unreadable'),
-        findsOneWidget,
-      );
-      expect(find.text('Driver Dashboard'), findsNothing);
+      expect(find.text('Verification summary'), findsOneWidget);
+      expect(find.textContaining('Licence image is unreadable'), findsWidgets);
+      expect(session.dashboardAllowed, isFalse);
       expect(
         paths,
         containsAll([
@@ -194,29 +201,11 @@ void main() {
         'documentMetadata': {'documentCode': 'legacy_identity'},
         'verificationStatus': 'rejected',
       });
-      appRouter.go('/onboarding');
+      appRouter.go('/onboarding?task=summary');
       await tester.pumpAndSettle();
-      await tester.ensureVisible(find.text('KYC & driver documents'));
-      await tester.tap(find.text('KYC & driver documents'));
-      await tester.pumpAndSettle();
-      final legacy = find.text('legacy identity (optional)');
-      expect(legacy, findsOneWidget);
-      await tester.ensureVisible(legacy);
-      final tile = find.ancestor(of: legacy, matching: find.byType(ListTile));
-      await tester.tap(
-        find.descendant(of: tile, matching: find.byIcon(Icons.upload_file)),
-      );
-      await tester.pumpAndSettle();
-      expect(find.text('Upload legacy identity'), findsOneWidget);
-      expect(find.text('Add camera page'), findsOneWidget);
-      expect(find.text('Gallery'), findsOneWidget);
-      expect(find.text('Files'), findsOneWidget);
-      await tester.tap(find.text('Cancel'));
-      await tester.pumpAndSettle();
-      await tester.ensureVisible(find.text('Review & submit'));
-      await tester.tap(find.text('Review & submit'));
-      await tester.pumpAndSettle();
-      expect(find.textContaining('Driver profile:'), findsOneWidget);
+      // A requested later task cannot skip the first missing photo.
+      expect(find.text('Ready for review'), findsOneWidget);
+      expect(find.text('legacy identity (optional)'), findsNothing);
       await tester.pumpWidget(const SizedBox());
       session.dispose();
     },

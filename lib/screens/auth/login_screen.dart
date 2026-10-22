@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../providers/driver_session.dart';
 import '../../widgets/google_sign_in_button.dart';
 import '../../core/theme.dart';
+import 'role_selection_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -16,15 +17,50 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _identifier = TextEditingController();
+  final _password = TextEditingController();
+  bool _passwordLogin = false;
   bool _rememberMe = true;
   bool _useEmail = false;
   String? _clientValidationMessage;
+  bool _testOnboardingAvailable = false;
+
+  @override
+  void initState() {
+    super.initState();
+    context.read<DriverSession>().api.testOnboardingAvailable().then((enabled) {
+      if (mounted) setState(() => _testOnboardingAvailable = enabled);
+    });
+  }
 
   @override
   void dispose() {
     _identifier.dispose();
+    _password.dispose();
     super.dispose();
   }
+
+  Future<String?> _chooseExistingRole() => showModalBottomSheet<String>(
+    context: context,
+    isScrollControlled: true,
+    builder: (sheetContext) => SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Choose the account to sign in to',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            ProviderRoleCards(
+              onChanged: (role) => Navigator.of(sheetContext).pop(role),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
 
   void _validateAndSubmit(DriverSession session) async {
     setState(() => _clientValidationMessage = null);
@@ -41,22 +77,45 @@ class _LoginScreenState extends State<LoginScreen> {
 
     if (_useEmail || rawInput.contains('@')) {
       if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(rawInput)) {
-        setState(() => _clientValidationMessage = 'Please enter a valid email address.');
+        setState(
+          () =>
+              _clientValidationMessage = 'Please enter a valid email address.',
+        );
         return;
       }
     } else {
       final digits = rawInput.replaceAll(RegExp(r'\D'), '');
       if (digits.length < 10) {
-        setState(() => _clientValidationMessage = 'Please enter a valid 10-digit mobile number.');
+        setState(
+          () => _clientValidationMessage =
+              'Please enter a valid 10-digit mobile number.',
+        );
         return;
       }
     }
 
-    final fullIdentifier = !_useEmail && !rawInput.contains('@') && !rawInput.startsWith('+')
-        ? '+91$rawInput'
-        : rawInput;
+    final fullIdentifier = rawInput;
 
-    final success = await session.login(fullIdentifier, 'InfurnusOTPLogin@123');
+    if (_passwordLogin && _password.text.isEmpty) {
+      setState(
+        () => _clientValidationMessage = 'Enter your Fleet account password.',
+      );
+      return;
+    }
+    var success = await session.login(
+      fullIdentifier,
+      _passwordLogin ? _password.text : '',
+    );
+    if (!mounted) return;
+    if (!success && session.errorCode == 'ACCOUNT_ROLE_REQUIRED') {
+      final role = await _chooseExistingRole();
+      if (!mounted || role == null) return;
+      success = await session.login(
+        fullIdentifier,
+        _passwordLogin ? _password.text : '',
+        accountRole: role,
+      );
+    }
     if (!mounted) return;
     if (success) {
       context.go('/otp');
@@ -161,18 +220,29 @@ class _LoginScreenState extends State<LoginScreen> {
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: const Color(0xFFCBD5E1), width: 1.2),
+                            border: Border.all(
+                              color: const Color(0xFFCBD5E1),
+                              width: 1.2,
+                            ),
                           ),
                           child: Row(
                             children: [
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 15),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 15,
+                                ),
                                 decoration: const BoxDecoration(
-                                  border: Border(right: BorderSide(color: Color(0xFFE2E8F0))),
+                                  border: Border(
+                                    right: BorderSide(color: Color(0xFFE2E8F0)),
+                                  ),
                                 ),
                                 child: Row(
                                   children: [
-                                    const Text('🇮🇳', style: TextStyle(fontSize: 18)),
+                                    const Text(
+                                      '🇮🇳',
+                                      style: TextStyle(fontSize: 18),
+                                    ),
                                     const SizedBox(width: 6),
                                     Text(
                                       '+91',
@@ -183,7 +253,11 @@ class _LoginScreenState extends State<LoginScreen> {
                                       ),
                                     ),
                                     const SizedBox(width: 4),
-                                    const Icon(Icons.arrow_drop_down, size: 18, color: InfurnusTheme.textMuted),
+                                    const Icon(
+                                      Icons.arrow_drop_down,
+                                      size: 18,
+                                      color: InfurnusTheme.textMuted,
+                                    ),
                                   ],
                                 ),
                               ),
@@ -192,15 +266,25 @@ class _LoginScreenState extends State<LoginScreen> {
                                   controller: _identifier,
                                   enabled: !session.busy,
                                   keyboardType: TextInputType.phone,
-                                  autofillHints: const [AutofillHints.telephoneNumber],
-                                  style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w500),
+                                  autofillHints: const [
+                                    AutofillHints.telephoneNumber,
+                                  ],
+                                  style: GoogleFonts.inter(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w500,
+                                  ),
                                   decoration: const InputDecoration(
                                     hintText: 'Enter Phone Number',
-                                    hintStyle: TextStyle(color: InfurnusTheme.textMuted),
+                                    hintStyle: TextStyle(
+                                      color: InfurnusTheme.textMuted,
+                                    ),
                                     border: InputBorder.none,
                                     enabledBorder: InputBorder.none,
                                     focusedBorder: InputBorder.none,
-                                    contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+                                    contentPadding: EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 15,
+                                    ),
                                   ),
                                 ),
                               ),
@@ -221,6 +305,30 @@ class _LoginScreenState extends State<LoginScreen> {
 
                       const SizedBox(height: 12),
 
+                      TextButton(
+                        onPressed: session.busy
+                            ? null
+                            : () => setState(
+                                () => _passwordLogin = !_passwordLogin,
+                              ),
+                        child: Text(
+                          _passwordLogin
+                              ? 'Use Driver OTP login'
+                              : 'Use Fleet account password',
+                        ),
+                      ),
+                      if (_passwordLogin) ...[
+                        TextField(
+                          controller: _password,
+                          obscureText: true,
+                          enabled: !session.busy,
+                          autofillHints: const [AutofillHints.password],
+                          decoration: const InputDecoration(
+                            labelText: 'Account password',
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                      ],
                       // Remember my login checkbox
                       Row(
                         children: [
@@ -230,14 +338,18 @@ class _LoginScreenState extends State<LoginScreen> {
                             child: Checkbox(
                               value: _rememberMe,
                               activeColor: InfurnusTheme.primaryGreen,
-                              onChanged: (v) => setState(() => _rememberMe = v ?? true),
+                              onChanged: (v) =>
+                                  setState(() => _rememberMe = v ?? true),
                             ),
                           ),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
                               'Remember my login for faster sign-in',
-                              style: GoogleFonts.inter(fontSize: 12, color: InfurnusTheme.textDark),
+                              style: GoogleFonts.inter(
+                                fontSize: 12,
+                                color: InfurnusTheme.textDark,
+                              ),
                             ),
                           ),
                           TextButton(
@@ -249,17 +361,25 @@ class _LoginScreenState extends State<LoginScreen> {
                                   }),
                             child: Text(
                               _useEmail ? 'Use Phone' : 'Use Email',
-                              style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: InfurnusTheme.primaryGreen),
+                              style: GoogleFonts.inter(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: InfurnusTheme.primaryGreen,
+                              ),
                             ),
                           ),
                         ],
                       ),
 
                       // Error display
-                      if (_clientValidationMessage != null || session.error != null) ...[
+                      if (_clientValidationMessage != null ||
+                          session.error != null) ...[
                         Container(
                           margin: const EdgeInsets.symmetric(vertical: 8),
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 10,
+                          ),
                           decoration: BoxDecoration(
                             color: const Color(0xFFFEF2F2),
                             borderRadius: BorderRadius.circular(10),
@@ -267,12 +387,19 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           child: Row(
                             children: [
-                              const Icon(Icons.error_outline, size: 18, color: InfurnusTheme.dangerRed),
+                              const Icon(
+                                Icons.error_outline,
+                                size: 18,
+                                color: InfurnusTheme.dangerRed,
+                              ),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
                                   _clientValidationMessage ?? session.error!,
-                                  style: GoogleFonts.inter(color: InfurnusTheme.dangerRed, fontSize: 13),
+                                  style: GoogleFonts.inter(
+                                    color: InfurnusTheme.dangerRed,
+                                    fontSize: 13,
+                                  ),
                                 ),
                               ),
                             ],
@@ -288,21 +415,31 @@ class _LoginScreenState extends State<LoginScreen> {
                           backgroundColor: InfurnusTheme.buttonBlack,
                           foregroundColor: Colors.white,
                           minimumSize: const Size.fromHeight(52),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
                         ),
-                        onPressed: session.busy ? null : () => _validateAndSubmit(session),
+                        onPressed: session.busy
+                            ? null
+                            : () => _validateAndSubmit(session),
                         child: session.busy
                             ? const SizedBox(
                                 height: 20,
                                 width: 20,
-                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
                               )
                             : Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   Text(
                                     'Continue',
-                                    style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.bold),
+                                    style: GoogleFonts.inter(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                   const SizedBox(width: 8),
                                   const Icon(Icons.arrow_forward, size: 18),
@@ -311,14 +448,32 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
 
                       // Debug Preview Dashboard Button
+                      if (_testOnboardingAvailable)
+                        TextButton(
+                          onPressed: session.busy
+                              ? null
+                              : () async {
+                                  final ok = await session
+                                      .startTestOnboarding();
+                                  if (context.mounted && ok) {
+                                    context.go('/onboarding');
+                                  }
+                                },
+                          child: const Text('Onboarding Without Login'),
+                        ),
                       if (!kReleaseMode) ...[
                         const SizedBox(height: 10),
                         OutlinedButton(
                           style: OutlinedButton.styleFrom(
                             foregroundColor: InfurnusTheme.primaryGreen,
-                            side: const BorderSide(color: InfurnusTheme.primaryGreen, width: 1.5),
+                            side: const BorderSide(
+                              color: InfurnusTheme.primaryGreen,
+                              width: 1.5,
+                            ),
                             minimumSize: const Size.fromHeight(44),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
                           ),
                           onPressed: session.busy
                               ? null
@@ -329,13 +484,25 @@ class _LoginScreenState extends State<LoginScreen> {
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const Icon(Icons.bug_report, size: 18, color: InfurnusTheme.primaryGreen),
+                              const Icon(
+                                Icons.bug_report,
+                                size: 18,
+                                color: InfurnusTheme.primaryGreen,
+                              ),
                               const SizedBox(width: 6),
-                              const Icon(Icons.phone, size: 16, color: InfurnusTheme.primaryGreen),
+                              const Icon(
+                                Icons.phone,
+                                size: 16,
+                                color: InfurnusTheme.primaryGreen,
+                              ),
                               const SizedBox(width: 6),
                               Text(
                                 'Preview Dashboard (Testing Only)',
-                                style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 12, color: InfurnusTheme.textDark),
+                                style: GoogleFonts.inter(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                  color: InfurnusTheme.textDark,
+                                ),
                               ),
                             ],
                           ),
@@ -348,11 +515,25 @@ class _LoginScreenState extends State<LoginScreen> {
 
                       // Google Sign In & Create Account
                       GoogleSignInButton(
-                        label: 'Sign in with Google',
+                        label: 'Continue with Google',
                         enabled: !session.busy,
                         onIdToken: (token) async {
-                          await session.authenticateGoogle(token);
-                          if (context.mounted && session.authenticated) {
+                          var ok = await session.authenticateGoogle(
+                            token,
+                            signup: true,
+                          );
+                          if (mounted &&
+                              !ok &&
+                              session.errorCode == 'ACCOUNT_ROLE_REQUIRED') {
+                            final role = await _chooseExistingRole();
+                            if (!mounted || role == null) return;
+                            ok = await session.authenticateGoogle(
+                              token,
+                              signup: true,
+                              accountRole: role,
+                            );
+                          }
+                          if (context.mounted && ok && session.authenticated) {
                             context.go(session.landingPath);
                           }
                         },
@@ -360,9 +541,11 @@ class _LoginScreenState extends State<LoginScreen> {
 
                       const SizedBox(height: 8),
                       TextButton(
-                        onPressed: session.busy ? null : () => context.go('/register'),
+                        onPressed: session.busy
+                            ? null
+                            : () => context.go('/role-selection'),
                         child: Text(
-                          'Create a Driver account',
+                          'Use email/phone signup',
                           style: GoogleFonts.inter(
                             fontWeight: FontWeight.bold,
                             color: InfurnusTheme.textDark,
