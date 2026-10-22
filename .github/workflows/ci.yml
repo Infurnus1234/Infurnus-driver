@@ -8,7 +8,9 @@ permissions:
   contents: read
 jobs:
   driver:
-    runs-on: ubuntu-latest
+    # Existing approved golden baselines were rendered on Windows.
+    # Keep exact comparisons on that host; never relax pixel thresholds.
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
