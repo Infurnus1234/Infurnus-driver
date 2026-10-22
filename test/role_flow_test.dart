@@ -1,10 +1,9 @@
+import 'support/golden_fonts.dart';
+
 import 'package:infurnus_driver/screens/auth/role_selection_screen.dart';
 
 import 'guided_onboarding_test.dart' show FixtureSession;
 
-import 'dart:io';
-
-import 'package:flutter/services.dart';
 
 import 'dart:convert';
 
@@ -82,28 +81,7 @@ void main() {
     s.dispose();
   });
   setUpAll(() async {
-    final config = File('.dart_tool/package_config.json').absolute;
-    final packages =
-        (jsonDecode(await config.readAsString()) as Map)['packages'] as List;
-    final flutter = packages.firstWhere((p) => p['name'] == 'flutter') as Map;
-    final root = Directory.fromUri(
-      config.uri.resolve(flutter['rootUri'] as String),
-    ).parent.parent;
-    final fonts = root.uri.resolve('bin/cache/artifacts/material_fonts/');
-    final text = FontLoader('Roboto')
-      ..addFont(
-        File.fromUri(fonts.resolve('roboto-regular.ttf'))
-            .readAsBytes()
-            .then(ByteData.sublistView),
-      );
-    final icons = FontLoader('MaterialIcons')
-      ..addFont(
-        File.fromUri(fonts.resolve('materialicons-regular.otf'))
-            .readAsBytes()
-            .then(ByteData.sublistView),
-      );
-    await text.load();
-    await icons.load();
+    await loadGoldenFonts();
   });
 
   for (final role in ['driver', 'driver_fleet_owner', 'fleet_owner']) {
