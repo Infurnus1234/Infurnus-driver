@@ -4,7 +4,6 @@ import 'package:infurnus_driver/screens/auth/role_selection_screen.dart';
 
 import 'guided_onboarding_test.dart' show FixtureSession;
 
-
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
