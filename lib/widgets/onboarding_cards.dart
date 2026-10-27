@@ -560,46 +560,175 @@ class DocumentChecklistCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final effectiveLabel = statusLabel ?? (isCompleted ? 'Approved' : 'Upload');
+    final isApproved =
+        isCompleted || effectiveLabel.toLowerCase().contains('approved');
+    final isPending =
+        effectiveLabel.toLowerCase().contains('pending') ||
+        effectiveLabel.toLowerCase().contains('review') ||
+        effectiveLabel.toLowerCase().contains('submitted') ||
+        effectiveLabel.toLowerCase().contains('under review');
+    final isRejected =
+        effectiveLabel.toLowerCase().contains('reject') ||
+        effectiveLabel.toLowerCase().contains('correct') ||
+        effectiveLabel.toLowerCase().contains('action');
+
+    Color badgeBg;
+    Color badgeText;
+    Color badgeBorder;
+    IconData badgeIcon;
+
+    if (isApproved) {
+      badgeBg = const Color(0xFFDCFCE7);
+      badgeText = const Color(0xFF15803D);
+      badgeBorder = const Color(0xFF86EFAC);
+      badgeIcon = Icons.check_circle;
+    } else if (isPending) {
+      badgeBg = const Color(0xFFFEF3C7);
+      badgeText = const Color(0xFFB45309);
+      badgeBorder = const Color(0xFFFDE68A);
+      badgeIcon = Icons.access_time_filled;
+    } else if (isRejected) {
+      badgeBg = const Color(0xFFFEE2E2);
+      badgeText = const Color(0xFFB91C1C);
+      badgeBorder = const Color(0xFFFCA5A5);
+      badgeIcon = Icons.error_outline;
+    } else {
+      badgeBg = const Color(0xFFEFF6FF);
+      badgeText = const Color(0xFF2563EB);
+      badgeBorder = const Color(0xFFBFDBFE);
+      badgeIcon = Icons.upload_file;
+    }
+
+    if (statusColor != null) {
+      badgeText = statusColor!;
+    }
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFE2E8F0), width: 1.0),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isRejected ? const Color(0xFFFCA5A5) : const Color(0xFFE2E8F0),
+          width: isRejected ? 1.5 : 1.0,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(12),
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             child: Row(
               children: [
-                if (isCompleted)
-                  const Icon(
-                    Icons.check_circle,
-                    color: Color(0xFF10B981),
-                    size: 20,
-                  )
-                else
-                  Icon(icon, color: const Color(0xFF475569), size: 20),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF1E293B),
+                // Leading Icon in round container
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: isApproved
+                        ? const Color(0xFFDCFCE7)
+                        : isRejected
+                        ? const Color(0xFFFEE2E2)
+                        : isPending
+                        ? const Color(0xFFFEF3C7)
+                        : const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Center(
+                    child: Icon(
+                      isApproved ? Icons.check_circle : icon,
+                      color: isApproved
+                          ? const Color(0xFF16A34A)
+                          : isRejected
+                          ? const Color(0xFFDC2626)
+                          : isPending
+                          ? const Color(0xFFD97706)
+                          : const Color(0xFF475569),
+                      size: 22,
                     ),
                   ),
                 ),
-                const Icon(
-                  Icons.chevron_right,
-                  color: Color(0xFF94A3B8),
-                  size: 20,
+                const SizedBox(width: 14),
+                // Title and optional subtitle
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
+                      if (subtitle != null && subtitle!.isNotEmpty) ...[
+                        const SizedBox(height: 3),
+                        Text(
+                          subtitle!,
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            color: isRejected
+                                ? const Color(0xFFDC2626)
+                                : const Color(0xFF64748B),
+                            fontWeight: isRejected
+                                ? FontWeight.w600
+                                : FontWeight.normal,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
+                const SizedBox(width: 10),
+                // Status Badge Chip
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: badgeBg,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: badgeBorder),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(badgeIcon, size: 12, color: badgeText),
+                      const SizedBox(width: 4),
+                      Text(
+                        effectiveLabel,
+                        style: TextStyle(
+                          color: badgeText,
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (onTap != null) ...[
+                  const SizedBox(width: 6),
+                  const Icon(
+                    Icons.chevron_right,
+                    color: Color(0xFF94A3B8),
+                    size: 18,
+                  ),
+                ],
               ],
             ),
           ),

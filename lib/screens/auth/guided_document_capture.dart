@@ -649,32 +649,39 @@ class _GuidedDocumentCaptureState extends State<GuidedDocumentCapture> {
           TextFormField(
             initialValue: widget.draft.number,
             enabled: !disabled,
-            decoration: const InputDecoration(
-              labelText: 'Document number (optional)',
+            decoration: InputDecoration(
+              labelText: isAadhaar
+                  ? 'Aadhaar number (optional)'
+                  : 'Document number (optional)',
+              hintText: isAadhaar ? 'XXXX-XXXX-1234' : null,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
             maxLength: 100,
             onChanged: (v) => widget.draft.number = v,
           ),
-          CalendarField(
-            key: ValueKey('${widget.scope}:${widget.rule.code}:expiry'),
-            label:
-                'Expiry (YYYY-MM-DD${widget.rule.requiresExpiry ? ', required' : ', optional'})',
-            initialValue: widget.draft.expiry,
-            validator: (value) {
-              final date = value?.trim() ?? '';
-              if (date.isEmpty) {
-                return widget.rule.requiresExpiry
-                    ? 'Expiry is required by this document policy.'
+          if (!isAadhaar)
+            CalendarField(
+              key: ValueKey('${widget.scope}:${widget.rule.code}:expiry'),
+              label:
+                  'Expiry (YYYY-MM-DD${widget.rule.requiresExpiry ? ', required' : ', optional'})',
+              initialValue: widget.draft.expiry,
+              validator: (value) {
+                final date = value?.trim() ?? '';
+                if (date.isEmpty) {
+                  return widget.rule.requiresExpiry
+                      ? 'Expiry is required by this document policy.'
+                      : null;
+                }
+                return !OnboardingRules.validDate(date) ||
+                        date.compareTo(OnboardingRules.today()) < 0
+                    ? 'Enter a valid date today or later.'
                     : null;
-              }
-              return !OnboardingRules.validDate(date) ||
-                      date.compareTo(OnboardingRules.today()) < 0
-                  ? 'Enter a valid date today or later.'
-                  : null;
-            },
-            enabled: !disabled,
-            onChanged: (v) => widget.draft.expiry = v,
-          ),
+              },
+              enabled: !disabled,
+              onChanged: (v) => widget.draft.expiry = v,
+            ),
         ],
         if (_picking)
           const LinearProgressIndicator(semanticsLabel: 'Opening image source'),
