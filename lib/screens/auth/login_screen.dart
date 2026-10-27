@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart' show kReleaseMode;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
@@ -22,15 +21,6 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _rememberMe = true;
   bool _useEmail = false;
   String? _clientValidationMessage;
-  bool _testOnboardingAvailable = false;
-
-  @override
-  void initState() {
-    super.initState();
-    context.read<DriverSession>().api.testOnboardingAvailable().then((enabled) {
-      if (mounted) setState(() => _testOnboardingAvailable = enabled);
-    });
-  }
 
   @override
   void dispose() {
@@ -313,37 +303,27 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
 
-                      const SizedBox(height: 12),
-
-                      TextButton(
-                        onPressed: session.busy
-                            ? null
-                            : () => setState(
-                                () => _passwordLogin = !_passwordLogin,
-                              ),
-                        child: Text(
-                          _passwordLogin
-                              ? 'Use Driver OTP login'
-                              : 'Use Fleet account password',
-                        ),
-                      ),
-                      const Text(
-                        'Driver: OTP login. Fleet Owner: password, then OTP.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 12),
-                      ),
                       if (_passwordLogin) ...[
+                        const SizedBox(height: 12),
                         TextField(
                           controller: _password,
                           obscureText: true,
                           enabled: !session.busy,
                           autofillHints: const [AutofillHints.password],
-                          decoration: const InputDecoration(
+                          decoration: InputDecoration(
                             labelText: 'Account password',
+                            suffixIcon: IconButton(
+                              icon: const Icon(Icons.close, size: 18),
+                              onPressed: () => setState(() {
+                                _passwordLogin = false;
+                                _password.clear();
+                                _clientValidationMessage = null;
+                              }),
+                            ),
                           ),
                         ),
-                        const SizedBox(height: 12),
                       ],
+                      const SizedBox(height: 14),
                       // Remember my login checkbox
                       Row(
                         children: [
@@ -462,67 +442,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                       ),
 
-                      // Debug Preview Dashboard Button
-                      if (_testOnboardingAvailable)
-                        TextButton(
-                          onPressed: session.busy
-                              ? null
-                              : () async {
-                                  final ok = await session
-                                      .startTestOnboarding();
-                                  if (context.mounted && ok) {
-                                    context.go('/onboarding');
-                                  }
-                                },
-                          child: const Text('Onboarding Without Login'),
-                        ),
-                      if (!kReleaseMode) ...[
-                        const SizedBox(height: 10),
-                        OutlinedButton(
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: InfurnusTheme.primaryGreen,
-                            side: const BorderSide(
-                              color: InfurnusTheme.primaryGreen,
-                              width: 1.5,
-                            ),
-                            minimumSize: const Size.fromHeight(44),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                          ),
-                          onPressed: session.busy
-                              ? null
-                              : () {
-                                  session.enablePreview();
-                                  context.go('/driver/dashboard');
-                                },
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(
-                                Icons.bug_report,
-                                size: 18,
-                                color: InfurnusTheme.primaryGreen,
-                              ),
-                              const SizedBox(width: 6),
-                              const Icon(
-                                Icons.phone,
-                                size: 16,
-                                color: InfurnusTheme.primaryGreen,
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                'Preview Dashboard (Testing Only)',
-                                style: GoogleFonts.inter(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12,
-                                  color: InfurnusTheme.textDark,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
+                      const SizedBox(height: 16),
 
                       const SizedBox(height: 14),
                       const Divider(color: Color(0xFFE2E8F0)),

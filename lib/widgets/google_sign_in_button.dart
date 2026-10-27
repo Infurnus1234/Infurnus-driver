@@ -39,12 +39,9 @@ class _GoogleSignInButtonState extends State<GoogleSignInButton> {
   Future<void> _initialize() async {
     const webClient = String.fromEnvironment('GOOGLE_WEB_CLIENT_ID');
     if (kIsWeb && webClient.isEmpty) {
-      _showError('Google sign-in is not configured.');
       return;
     }
     try {
-      // Android identifies the application by package/signing certificate.
-      // Without a Dart define, its SDK reads default_web_client_id from Android resources.
       _initialization ??= GoogleSignIn.instance.initialize(
         clientId: kIsWeb ? webClient : null,
         serverClientId: kIsWeb || webClient.isEmpty ? null : webClient,
@@ -57,11 +54,14 @@ class _GoogleSignInButtonState extends State<GoogleSignInButton> {
         if (kIsWeb && event is GoogleSignInAuthenticationEventSignIn) {
           unawaited(_accept(event.user));
         }
-      }, onError: _sdkError);
+      }, onError: (err) {
+        debugPrint('Google auth event: $err');
+      });
       setState(() => _ready = true);
     } catch (error) {
-      _sdkError(error);
-      _showError('Google sign-in could not be initialized.');
+      debugPrint('Google sign-in unavailable: $error');
+      // Do not display error text on initial load before the user interacts
+      if (mounted) setState(() => _ready = false);
     }
   }
 

@@ -26,7 +26,7 @@ void main() {
   );
 
   testWidgets(
-    'Debug preview button is visible on LoginScreen and opens dashboard with test banner',
+    'LoginScreen does not expose debug preview dashboard button',
     (tester) async {
       tester.view.physicalSize = const Size(800, 1200);
       tester.view.devicePixelRatio = 1.0;
@@ -45,13 +45,10 @@ void main() {
       await tester.pumpAndSettle();
       expect(
         find.textContaining('Preview Dashboard (Testing Only)'),
-        findsOneWidget,
+        findsNothing,
       );
-
-      await tester.tap(find.textContaining('Preview Dashboard (Testing Only)'));
-      await tester.pumpAndSettle();
-
-      expect(find.text('TEST PREVIEW — NOT AUTHENTICATED'), findsOneWidget);
+      expect(find.text('Continue'), findsOneWidget);
+      expect(find.text('Enter Phone Number'), findsOneWidget);
     },
   );
 

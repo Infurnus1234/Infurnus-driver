@@ -12,6 +12,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../models/onboarding_rules.dart';
 import '../../services/api_service.dart';
 import '../../widgets/calendar_field.dart';
+import '../../widgets/onboarding_cards.dart';
 
 /// Memory-only drafts: never written to shared storage, never treated as uploads.
 class CaptureDraft {
@@ -307,30 +308,104 @@ class _GuidedDocumentCaptureState extends State<GuidedDocumentCapture> {
   Widget build(BuildContext context) {
     final disabled =
         _picking || widget.disabled || !widget.rule.collectionAllowed;
+    final isAadhaar = widget.rule.code.startsWith('aadhaar');
+    final isLicence = widget.rule.code == 'driver_license';
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (widget.draft.files.isEmpty)
-          Center(
-            child: Container(
-              key: ValueKey(
-                photo ? 'circular-photo-placeholder' : 'document-placeholder',
+        if (widget.draft.files.isEmpty) ...[
+          if (photo)
+            Center(
+              child: Container(
+                key: const ValueKey('circular-photo-placeholder'),
+                width: 160,
+                height: 160,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: const Color(0xFFCBD5E1),
+                    width: 1.5,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.04),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: const [
+                    Icon(
+                      Icons.person_outline,
+                      size: 64,
+                      color: Color(0xFF64748B),
+                    ),
+                    SizedBox(height: 4),
+                    Icon(Icons.camera_alt, size: 20, color: Color(0xFF00A14D)),
+                  ],
+                ),
               ),
-              width: photo ? 160 : double.infinity,
-              height: photo ? 160 : 150,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surface,
-                shape: photo ? BoxShape.circle : BoxShape.rectangle,
-                border: Border.all(color: Theme.of(context).dividerColor),
-                borderRadius: photo ? null : BorderRadius.circular(12),
-              ),
-              child: Icon(
-                photo ? Icons.person_outline : Icons.document_scanner_outlined,
-                size: 64,
+            )
+          else if (isAadhaar) ...[
+            const AadhaarCardGraphic(),
+            Container(
+              key: const ValueKey('document-placeholder'),
+              child: const SizedBox.shrink(),
+            ),
+          ] else if (isLicence) ...[
+            const DrivingLicenceCardGraphic(),
+            Container(
+              key: const ValueKey('document-placeholder'),
+              child: const SizedBox.shrink(),
+            ),
+          ] else ...[
+            Center(
+              child: Container(
+                key: const ValueKey('document-placeholder'),
+                width: double.infinity,
+                height: 150,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: const Color(0xFFE2E8F0),
+                    width: 1.2,
+                  ),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      widget.rule.code.contains('vehicle')
+                          ? Icons.directions_car_outlined
+                          : Icons.document_scanner_outlined,
+                      size: 48,
+                      color: const Color(0xFF64748B),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      widget.rule.label.toUpperCase(),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.1,
+                        color: Color(0xFF475569),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
+          ],
+          const SizedBox(height: 16),
+        ],
+
         for (var i = 0; i < widget.draft.files.length; i++) ...[
           if (widget.draft.files[i].mimeType.startsWith('image/'))
             Center(
@@ -351,7 +426,7 @@ class _GuidedDocumentCaptureState extends State<GuidedDocumentCapture> {
                   : AspectRatio(
                       aspectRatio: 1.586,
                       child: ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(14),
                         child: Image.memory(
                           Uint8List.fromList(widget.draft.files[i].bytes),
                           fit: BoxFit.contain,
@@ -365,67 +440,168 @@ class _GuidedDocumentCaptureState extends State<GuidedDocumentCapture> {
                     ),
             )
           else
-            const Padding(
-              padding: EdgeInsets.all(24),
-              child: Icon(Icons.picture_as_pdf, size: 64),
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.picture_as_pdf,
+                    size: 40,
+                    color: Color(0xFFEF4444),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Text(
+                      widget.draft.files[i].name,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            title: Text('Selected locally — page ${i + 1}'),
-            subtitle: Text(
-              widget.draft.files[i].name,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
+          Container(
+            margin: const EdgeInsets.only(top: 8, bottom: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF1F5F9),
+              borderRadius: BorderRadius.circular(10),
             ),
-            trailing: IconButton(
-              tooltip: 'Remove page ${i + 1}',
-              icon: const Icon(Icons.close),
-              onPressed: disabled
-                  ? null
-                  : () {
-                      widget.draft.files.removeAt(i);
-                      widget.changed();
-                      setState(() {});
-                    },
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.check_circle,
+                  size: 18,
+                  color: Color(0xFF16A34A),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Selected locally — page ${i + 1} (${widget.draft.files[i].name})',
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Remove page ${i + 1}',
+                  icon: const Icon(
+                    Icons.close,
+                    size: 18,
+                    color: Color(0xFFEF4444),
+                  ),
+                  onPressed: disabled
+                      ? null
+                      : () {
+                          widget.draft.files.removeAt(i);
+                          widget.changed();
+                          setState(() {});
+                        },
+                ),
+              ],
             ),
           ),
         ],
+
         const SizedBox(height: 12),
-        if (!widget.rule.collectionAllowed)
-          const Text(
-            'Identity collection is unavailable. Use an approved alternative or contact support.',
+
+        // Dual-side upload buttons inspired by Ola Driver Aadhaar upload screen
+        if (!photo && widget.rule.minimumPages >= 1) ...[
+          DualSideUploadArea(
+            onUploadFront: _chooseSource,
+            onUploadBack: _chooseSource,
+            frontUploaded: widget.draft.files.isNotEmpty,
+            backUploaded: widget.draft.files.length >= 2,
+            disabled: disabled,
           ),
-        if (widget.rule.code.startsWith('aadhaar') &&
-            widget.rule.collectionAllowed)
-          CheckboxListTile(
-            value: widget.draft.identityConsent,
-            onChanged: disabled
-                ? null
-                : (v) =>
-                      setState(() => widget.draft.identityConsent = v == true),
-            title: const Text(
-              'I consent to the authorized verification purpose and confirm this is a permitted masked copy.',
+          const SizedBox(height: 12),
+        ],
+
+        if (!widget.rule.collectionAllowed)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: Text(
+              'Identity collection is unavailable. Use an approved alternative or contact support.',
+              style: TextStyle(color: Color(0xFFDC2626), fontSize: 13),
             ),
           ),
-        OutlinedButton.icon(
-          onPressed: disabled ? null : _chooseSource,
-          icon: Icon(
-            photo
-                ? Icons.add_a_photo_outlined
-                : Icons.document_scanner_outlined,
+
+        if (widget.rule.code.startsWith('aadhaar') &&
+            widget.rule.collectionAllowed)
+          Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            decoration: BoxDecoration(
+              color: widget.draft.identityConsent
+                  ? const Color(0xFFF0FDF4)
+                  : const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: widget.draft.identityConsent
+                    ? const Color(0xFF86EFAC)
+                    : const Color(0xFFE2E8F0),
+              ),
+            ),
+            child: CheckboxListTile(
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 4,
+              ),
+              value: widget.draft.identityConsent,
+              activeColor: const Color(0xFF16A34A),
+              onChanged: disabled
+                  ? null
+                  : (v) => setState(
+                      () => widget.draft.identityConsent = v == true,
+                    ),
+              title: const Text(
+                'I consent to the authorized verification purpose and confirm this is a permitted masked copy.',
+                style: TextStyle(fontSize: 13, height: 1.4),
+              ),
+            ),
           ),
-          label: Text(
-            widget.draft.files.isEmpty
-                ? 'Choose source'
-                : 'Replace or add pages',
+
+        SizedBox(
+          height: 48,
+          child: OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(
+              side: const BorderSide(color: Color(0xFFCBD5E1)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            onPressed: disabled ? null : _chooseSource,
+            icon: Icon(
+              photo
+                  ? Icons.add_a_photo_outlined
+                  : Icons.document_scanner_outlined,
+              size: 20,
+            ),
+            label: Text(
+              widget.draft.files.isEmpty
+                  ? 'Choose source'
+                  : 'Replace or add pages',
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
           ),
         ),
+        const SizedBox(height: 8),
         Text(
           photo
               ? 'JPEG, PNG or WebP • up to 10 MB. Camera opens only when you choose it.'
               : imageOnly
               ? 'JPEG, PNG or WebP • one image up to 10 MB.'
               : '${widget.rule.minimumPages}–5 files • up to 15 MB each, 30 MB total. Capture additional pages in order.',
+          style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
         ),
         if (!photo && widget.showMetadata) ...[
           const SizedBox(height: 16),

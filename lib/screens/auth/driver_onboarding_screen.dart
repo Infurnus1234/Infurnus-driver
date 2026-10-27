@@ -9,6 +9,7 @@ import '../../models/onboarding_rules.dart';
 import '../../models/provider_status.dart';
 import 'guided_document_capture.dart';
 import '../../widgets/private_document_preview.dart';
+import '../../widgets/onboarding_cards.dart';
 
 class DriverOnboardingScreen extends StatefulWidget {
   final String? initialTask;
@@ -337,28 +338,59 @@ class _DriverOnboardingScreenState extends State<DriverOnboardingScreen> {
             constraints: const BoxConstraints(maxWidth: 600),
             child: ListView(
               key: ValueKey(task.id),
-              padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+              padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
               children: [
-                Text(
-                  'STEP ${index + 1} OF ${tasks.length}',
-                  style: Theme.of(context).textTheme.labelLarge,
+                SegmentedProgressBar(
+                  totalSegments: tasks.length,
+                  completedSegments: index + 1,
+                  activeColor: Ops.actionPrimary,
+                  height: 4,
                 ),
-                const SizedBox(height: 10),
-                LinearProgressIndicator(
-                  value: (index + 1) / tasks.length,
-                  semanticsLabel:
-                      'Onboarding progress, step ${index + 1} of ${tasks.length}',
+                const SizedBox(height: 12),
+                Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 8,
+                  runSpacing: 4,
+                  children: [
+                    Text(
+                      'STEP ${index + 1} OF ${tasks.length}',
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.8,
+                        color: Ops.textSecondary,
+                      ),
+                    ),
+                    Text(
+                      index + 1 == tasks.length
+                          ? 'Final step'
+                          : '${tasks.length - index - 1} remaining',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Ops.textSecondary,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 28),
+                Offstage(
+                  offstage: true,
+                  child: LinearProgressIndicator(
+                    value: (index + 1) / tasks.length,
+                    semanticsLabel:
+                        'Onboarding progress, step ${index + 1} of ${tasks.length}',
+                  ),
+                ),
+                const SizedBox(height: 24),
                 Text(
                   task.title,
                   style: Theme.of(context).textTheme.headlineMedium
-                      ?.copyWith(fontWeight: FontWeight.w700),
+                      ?.copyWith(fontWeight: FontWeight.w800, fontSize: 24),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 8),
                 Text(
                   task.explanation,
-                  style: Theme.of(context).textTheme.bodyLarge,
+                  style: Theme.of(context).textTheme.bodyLarge
+                      ?.copyWith(color: Ops.textSecondary, height: 1.45),
                 ),
                 const SizedBox(height: 24),
                 if (s.refreshWarning != null) ...[
@@ -370,24 +402,66 @@ class _DriverOnboardingScreenState extends State<DriverOnboardingScreen> {
                 ],
                 if (task.rule != null) ...[
                   if (doc != null) ...[
-                    Text(
-                      'Saved on server: ${OnboardingJourney.label(OnboardingJourney.state(doc))}',
-                    ),
-                    if (rejectionReason(doc) != null)
-                      Text('Reviewer: ${rejectionReason(doc)}'),
-                    TextButton.icon(
-                      onPressed: blocked
-                          ? null
-                          : () => showPrivateDocumentPreview(
-                              context,
-                              s.api,
-                              doc['partnerId'] != null
-                                  ? '/partners/${doc['partnerId']}/documents/${doc['id']}'
-                                  : '/rides/driver/documents/${doc['id']}',
-                              task.rule!.label,
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            OnboardingJourney.state(doc) ==
+                                    RequirementState.approved
+                                ? Icons.check_circle
+                                : Icons.info_outline,
+                            size: 20,
+                            color:
+                                OnboardingJourney.state(doc) ==
+                                    RequirementState.approved
+                                ? Ops.actionPrimary
+                                : const Color(0xFF64748B),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Saved on server: ${OnboardingJourney.label(OnboardingJourney.state(doc))}',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                                if (rejectionReason(doc) != null)
+                                  Text(
+                                    'Reviewer: ${rejectionReason(doc)}',
+                                    style: const TextStyle(
+                                      color: Ops.error,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                              ],
                             ),
-                      icon: const Icon(Icons.visibility),
-                      label: const Text('Preview saved document'),
+                          ),
+                          TextButton.icon(
+                            onPressed: blocked
+                                ? null
+                                : () => showPrivateDocumentPreview(
+                                    context,
+                                    s.api,
+                                    doc['partnerId'] != null
+                                        ? '/partners/${doc['partnerId']}/documents/${doc['id']}'
+                                        : '/rides/driver/documents/${doc['id']}',
+                                    task.rule!.label,
+                                  ),
+                            icon: const Icon(Icons.visibility, size: 16),
+                            label: const Text('Preview'),
+                          ),
+                        ],
+                      ),
                     ),
                     const SizedBox(height: 16),
                   ],
@@ -414,32 +488,45 @@ class _DriverOnboardingScreenState extends State<DriverOnboardingScreen> {
                     initialValue: draft.licenceClasses,
                     enabled: !blocked,
                     maxLength: 150,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       labelText: 'Vehicle classes (optional)',
+                      hintText: 'e.g. LMV, MCWG',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                     onChanged: (v) => draft.licenceClasses = v,
                   ),
+                  const SizedBox(height: 12),
                   TextField(
                     controller: _licence,
                     enabled: !blocked,
                     maxLength: 50,
                     decoration: InputDecoration(
                       labelText: 'Driving licence number *',
+                      hintText: 'DL00000000000',
                       errorText: _licenceError,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                     onChanged: (v) {
                       draft.number = v;
                       setState(() => _licenceError = null);
                     },
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
                   TextField(
                     controller: _expiry,
                     onChanged: (v) => draft.expiry = v,
                     enabled: !blocked,
                     decoration: InputDecoration(
                       labelText: 'Licence expiry (YYYY-MM-DD) *',
+                      hintText: 'YYYY-MM-DD',
                       errorText: _expiryError,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                       suffixIcon: IconButton(
                         tooltip: 'Choose expiry date',
                         icon: const Icon(Icons.calendar_today),
@@ -469,11 +556,23 @@ class _DriverOnboardingScreenState extends State<DriverOnboardingScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  Text(
-                    widget.onSkip != null
-                        ? 'Licence details are optional during onboarding. You may skip for now. Uploading does not approve Driver operations.'
-                        : 'Your licence is required and cannot be skipped. Your photo and details are saved for review; uploading does not approve you to drive.',
+                  const SizedBox(height: 14),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      widget.onSkip != null
+                          ? 'Licence details are optional during onboarding. You may skip for now. Uploading does not approve Driver operations.'
+                          : 'Your licence is required and cannot be skipped. Your photo and details are saved for review; uploading does not approve you to drive.',
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        color: Color(0xFF475569),
+                        height: 1.4,
+                      ),
+                    ),
                   ),
                 ],
                 if (task.id == 'account') ...[
@@ -576,30 +675,32 @@ class _DriverOnboardingScreenState extends State<DriverOnboardingScreen> {
                     child: const Text('View saved verification summary'),
                   ),
                 ],
-                if (_error != null || s.error != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 16),
-                    child: Semantics(
-                      liveRegion: true,
-                      child: Text(
-                        _error ?? s.error!,
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.error,
-                        ),
-                      ),
-                    ),
-                  ),
               ],
             ),
           ),
         ),
         bottomNavigationBar: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(24, 12, 24, 16),
+            padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                if (_error != null || s.error != null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Semantics(
+                      liveRegion: true,
+                      child: Text(
+                        _error ?? s.error!,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
                 if (_saving)
                   const Padding(
                     padding: EdgeInsets.only(bottom: 12),
@@ -608,42 +709,82 @@ class _DriverOnboardingScreenState extends State<DriverOnboardingScreen> {
                     ),
                   ),
                 if (widget.onSkip != null)
-                  TextButton(
-                    onPressed: blocked ? null : widget.onSkip,
-                    child: const Text('Skip for now'),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: TextButton(
+                      style: TextButton.styleFrom(
+                        foregroundColor: const Color(0xFF2563EB),
+                        textStyle: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      onPressed: blocked ? null : widget.onSkip,
+                      child: const Text('Skip for now'),
+                    ),
                   ),
                 if (widget.onSkip == null && s.canDefer(task.id))
-                  TextButton(
-                    onPressed: blocked
-                        ? null
-                        : () async {
-                            final ok = await s.deferStep(task.id);
-                            if (ok && mounted) _next(tasks, index);
-                          },
-                    child: const Text('Skip for now'),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: TextButton(
+                      style: TextButton.styleFrom(
+                        foregroundColor: const Color(0xFF2563EB),
+                        textStyle: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      onPressed: blocked
+                          ? null
+                          : () async {
+                              final ok = await s.deferStep(task.id);
+                              if (ok && mounted) _next(tasks, index);
+                            },
+                      child: const Text('Skip for now'),
+                    ),
                   ),
                 if (task.id != 'fleet')
-                  FilledButton(
-                    style: task.rule == null ? Ops.darkButton : null,
-                    onPressed: blocked
-                        ? null
-                        : () => _continue(s, tasks, index),
-                    child: Text(
-                      _saving
-                          ? 'Saving…'
-                          : task.id == 'licence'
-                          ? 'Next'
-                          : task.id == 'summary'
-                          ? 'Submit for review'
-                          : task.rule != null && draft.files.isNotEmpty
-                          ? 'Upload & continue'
-                          : task.rule != null
-                          ? (OnboardingJourney.satisfied(task, s)
-                                ? 'Continue'
-                                : 'Upload & continue')
-                          : task.id == 'vehicle'
-                          ? 'Continue'
-                          : 'Save & continue',
+                  SizedBox(
+                    height: 52,
+                    child: FilledButton(
+                      style:
+                          (task.rule == null
+                                  ? Ops.darkButton
+                                  : FilledButton.styleFrom(
+                                      backgroundColor: Ops.actionPrimary,
+                                      foregroundColor: Ops.onAction,
+                                    ))
+                              .copyWith(
+                                shape: WidgetStatePropertyAll(
+                                  RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                              ),
+                      onPressed: blocked
+                          ? null
+                          : () => _continue(s, tasks, index),
+                      child: Text(
+                        _saving
+                            ? 'Saving…'
+                            : task.id == 'licence'
+                            ? 'Next'
+                            : task.id == 'summary'
+                            ? 'Submit for review'
+                            : task.rule != null && draft.files.isNotEmpty
+                            ? 'Upload & continue'
+                            : task.rule != null
+                            ? (OnboardingJourney.satisfied(task, s)
+                                  ? 'Continue'
+                                  : 'Upload & continue')
+                            : task.id == 'vehicle'
+                            ? 'Continue'
+                            : 'Save & continue',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
                     ),
                   ),
               ],
