@@ -150,6 +150,23 @@ class _DriverOnboardingScreenState extends State<DriverOnboardingScreen> {
         if (s.deferredSteps.contains(task.id)) {
           if (!await s.resumeStep(task.id)) return;
         }
+        // When opened from the verification checklist for a specific task,
+        // return there after a successful upload instead of advancing linearly.
+        // When opened from the verification checklist for a specific task,
+        // return to the checklist only after completing exactly that task.
+        if (widget.initialTask != null &&
+            task.id != 'summary' &&
+            (task.id == widget.initialTask ||
+                (['setup', 'driver_license'].contains(widget.initialTask) &&
+                    task.id == 'licence'))) {
+          if (mounted) {
+            final router = GoRouter.maybeOf(context);
+            if (router != null) {
+              router.go('/verification-status');
+              return;
+            }
+          }
+        }
         if (task.id == 'setup') {
           setState(() => _current = 'profile_photo');
         } else {
@@ -768,7 +785,7 @@ class _DriverOnboardingScreenState extends State<DriverOnboardingScreen> {
                         _saving
                             ? 'Saving…'
                             : task.id == 'licence'
-                            ? 'Next'
+                            ? 'Continue'
                             : task.id == 'summary'
                             ? 'Submit for review'
                             : task.rule != null && draft.files.isNotEmpty

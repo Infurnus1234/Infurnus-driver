@@ -186,7 +186,13 @@ class _GuidedDocumentCaptureState extends State<GuidedDocumentCapture> {
     return result;
   }
 
-  Future<void> _pick(String source) async {
+  /// Pick files from [source] and merge them into the draft.
+  ///
+  /// [targetSide] controls dual-side documents:
+  ///   null  → standard append / replace behaviour (single-file or multi-page).
+  ///   0     → replace the front side (index 0) only.
+  ///   1     → replace or append the back side (index 1) only.
+  Future<void> _pick(String source, {int? targetSide}) async {
     widget.onBusyChanged?.call(true);
     setState(() {
       _picking = true;
@@ -230,9 +236,40 @@ class _GuidedDocumentCaptureState extends State<GuidedDocumentCapture> {
           );
         }
       }
-      final next = !imageOnly && source == 'CAMERA'
-          ? [...widget.draft.files, ...files]
-          : files;
+
+      List<DocumentFile> next;
+      if (photo) {
+        // Profile photo: always single image, replace entirely.
+        next = files.take(1).toList();
+      } else if (targetSide != null) {
+        // Dual-side button: surgically replace the targeted index only,
+        // without wiping the other side.
+        final current = List<DocumentFile>.from(widget.draft.files);
+        final replacement = files.first;
+        if (targetSide == 0) {
+          // Replace or insert front at index 0.
+          if (current.isEmpty) {
+            current.add(replacement);
+          } else {
+            current[0] = replacement;
+          }
+        } else {
+          // Replace or append back at index 1.
+          if (current.length <= 1) {
+            current.add(replacement);
+          } else {
+            current[1] = replacement;
+          }
+        }
+        next = current;
+      } else if (source == 'CAMERA' && !imageOnly) {
+        // Camera in multi-page mode: append.
+        next = [...widget.draft.files, ...files];
+      } else {
+        // Gallery / File / imageOnly: replace (standard behaviour).
+        next = files;
+      }
+
       if (next.length > (imageOnly ? 1 : 5) ||
           next.fold<int>(0, (n, f) => n + f.bytes.length) > 30 * 1024 * 1024) {
         throw const ApiException('Use at most 5 pages and 30 MB in total.');
@@ -264,7 +301,7 @@ class _GuidedDocumentCaptureState extends State<GuidedDocumentCapture> {
     }
   }
 
-  Future<void> _chooseSource() async {
+  Future<void> _chooseSource({int? targetSide}) async {
     final source = await showModalBottomSheet<String>(
       context: context,
       showDragHandle: true,
@@ -278,7 +315,11 @@ class _GuidedDocumentCaptureState extends State<GuidedDocumentCapture> {
               subtitle: Text(
                 photo
                     ? 'Take or retake your photo'
-                    : 'Capture another document page',
+                    : targetSide == null
+                    ? 'Capture another document page'
+                    : targetSide == 0
+                    ? 'Capture the front side'
+                    : 'Capture the back side',
               ),
               onTap: () => Navigator.pop(context, 'CAMERA'),
             ),
@@ -301,7 +342,7 @@ class _GuidedDocumentCaptureState extends State<GuidedDocumentCapture> {
         ),
       ),
     );
-    if (mounted && source != null) await _pick(source);
+    if (mounted && source != null) await _pick(source, targetSide: targetSide);
   }
 
   @override
@@ -518,8 +559,8 @@ class _GuidedDocumentCaptureState extends State<GuidedDocumentCapture> {
         // Dual-side upload buttons inspired by Ola Driver Aadhaar upload screen
         if (!photo && widget.rule.minimumPages >= 1) ...[
           DualSideUploadArea(
-            onUploadFront: _chooseSource,
-            onUploadBack: _chooseSource,
+            onUploadFront: () => _chooseSource(targetSide: 0),
+            onUploadBack: () => _chooseSource(targetSide: 1),
             frontUploaded: widget.draft.files.isNotEmpty,
             backUploaded: widget.draft.files.length >= 2,
             disabled: disabled,

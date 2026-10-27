@@ -109,7 +109,7 @@ void main() {
       expect(find.text('Licence expiry (YYYY-MM-DD) *'), findsOneWidget);
       expect(find.text('Choose source'), findsOneWidget);
       expect(find.text('Skip for now'), findsNothing);
-      await tester.tap(find.text('Next'));
+      await tester.tap(find.text('Continue'));
       await tester.pumpAndSettle();
       expect(
         find.text('Add the required licence photo or pages before continuing.'),
@@ -118,7 +118,7 @@ void main() {
       expect(s.uploads, 0);
       await pick(tester, 'Gallery');
       await tester.runAsync(() async {
-        await tester.tap(find.text('Next'));
+        await tester.tap(find.text('Continue'));
         await Future<void>.delayed(const Duration(milliseconds: 100));
       });
       await tester.pumpAndSettle();
@@ -129,7 +129,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Your driving licence'), findsOneWidget);
       expect(find.text('FIXTURE'), findsOneWidget);
-      await tester.tap(find.text('Next'));
+      await tester.tap(find.text('Continue'));
       await tester.pumpAndSettle();
       expect(s.uploads, 1);
     },

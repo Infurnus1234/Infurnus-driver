@@ -405,9 +405,8 @@ class DriverSession extends ChangeNotifier {
       return '/fleet/dashboard';
     }
     if (dashboardAllowed) return '/driver/dashboard';
-    if (!onboardingLoaded || profile == null || missingUploads.isNotEmpty) {
-      return '/onboarding';
-    }
+    if (!onboardingLoaded || profile == null) return '/onboarding';
+    // Profile is loaded; direct to the checklist whether uploads are missing or not.
     return '/verification-status';
   }
 
