@@ -166,12 +166,21 @@ class ApiService {
         'Cookie': _cookies.entries.map((e) => '${e.key}=${e.value}').join('; '),
     });
     http.Response response;
+    // Use a longer timeout for multipart file uploads (documents can be large
+    // PDFs uploaded over slow mobile connections).
+    final timeout = files != null
+        ? const Duration(seconds: 90)
+        : const Duration(seconds: 25);
     try {
       response = await (() async => http.Response.fromStream(
         await _client.send(request),
-      ))().timeout(const Duration(seconds: 25));
+      ))().timeout(timeout);
     } on TimeoutException {
-      throw const ApiException('The server timed out. Please retry.');
+      throw ApiException(
+        files != null
+            ? 'Upload timed out. Check your connection and try again with a smaller file or better signal.'
+            : 'The server timed out. Please retry.',
+      );
     } on http.ClientException {
       throw const ApiException(
         'Unable to connect. Check your internet connection.',

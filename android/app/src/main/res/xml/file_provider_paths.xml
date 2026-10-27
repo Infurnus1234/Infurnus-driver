@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    FileProvider paths for image_picker camera capture.
+    Allows the camera app to write a temporary photo file to app-internal cache
+    without needing WRITE_EXTERNAL_STORAGE on Android 7+ (API 24+).
+    The image_picker plugin uses this provider to retrieve the captured image.
+-->
+<paths>
+    <!-- Temporary camera capture files go here (image_picker default) -->
+    <external-path
+        name="external_files"
+        path="." />
+    <!-- Internal cache for camera temp files -->
+    <cache-path
+        name="internal_cache"
+        path="." />
+    <!-- External cache for camera temp files on older devices -->
+    <external-cache-path
+        name="external_cache"
+        path="." />
+</paths>

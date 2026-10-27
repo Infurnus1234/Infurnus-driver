@@ -162,14 +162,16 @@ class _GuidedDocumentCaptureState extends State<GuidedDocumentCapture> {
       ];
     }
     final picker = ImagePicker();
-    final images = source == 'CAMERA' || imageOnly
-        ? [
-            await picker.pickImage(
-              source: source == 'CAMERA'
-                  ? ImageSource.camera
-                  : ImageSource.gallery,
-            ),
-          ].whereType<XFile>().toList()
+    final images = source == 'CAMERA'
+        ? [await picker.pickImage(source: ImageSource.camera)]
+              .whereType<XFile>()
+              .toList()
+        : imageOnly
+        // imageOnly documents (profile photo, vehicle photos) need exactly
+        // one image — use pickImage so Android doesn't return multiple.
+        ? [await picker.pickImage(source: ImageSource.gallery)]
+              .whereType<XFile>()
+              .toList()
         : await picker.pickMultiImage(limit: 5);
     final result = <DocumentFile>[];
     for (final f in images) {
