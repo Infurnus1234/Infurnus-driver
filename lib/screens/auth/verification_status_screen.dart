@@ -43,10 +43,7 @@ class VerificationStatusScreen extends StatelessWidget {
         scrolledUnderElevation: 0,
         title: const Text(
           'Verification summary',
-          style: TextStyle(
-            color: Colors.transparent,
-            fontSize: 0.01,
-          ),
+          style: TextStyle(color: Colors.transparent, fontSize: 0.01),
         ),
         leading: Navigator.canPop(context)
             ? IconButton(
@@ -135,23 +132,25 @@ class VerificationStatusScreen extends StatelessWidget {
                   title: 'Aadhar Card',
                   isCompleted: s.partnerDocuments.any(
                     (d) =>
-                        (d['documentType'] ?? '').toString().contains('aadhaar') &&
+                        (d['documentType'] ?? '').toString().contains(
+                          'aadhaar',
+                        ) &&
                         providerStatus(d['status']) == ProviderStatus.approved,
                   ),
-                  onTap: s.busy
-                      ? null
-                      : () => context.push('/provider-assets'),
+                  onTap: s.busy ? null : () => context.push('/provider-assets'),
                 ),
                 for (final doc in s.partnerDocuments.where(
-                  (d) => !(d['documentType'] ?? '').toString().contains('aadhaar'),
+                  (d) =>
+                      !(d['documentType'] ?? '').toString().contains('aadhaar'),
                 ))
                   DocumentChecklistCard(
                     icon: Icons.badge_outlined,
-                    title: ((doc['metadata'] as Map?)?['documentCode'] ??
-                            doc['documentType'] ??
-                            'Operator Document')
-                        .toString()
-                        .replaceAll('_', ' '),
+                    title:
+                        ((doc['metadata'] as Map?)?['documentCode'] ??
+                                doc['documentType'] ??
+                                'Operator Document')
+                            .toString()
+                            .replaceAll('_', ' '),
                     isCompleted:
                         providerStatus(doc['status']) ==
                         ProviderStatus.approved,
@@ -187,9 +186,9 @@ class VerificationStatusScreen extends StatelessWidget {
                     title: 'Aadhar Card',
                     isCompleted: s.documents.any(
                       (d) =>
-                          (d['documentType'] ?? '')
-                              .toString()
-                              .contains('aadhaar') &&
+                          (d['documentType'] ?? '').toString().contains(
+                            'aadhaar',
+                          ) &&
                           providerStatus(d['verificationStatus']) ==
                               ProviderStatus.approved,
                     ),

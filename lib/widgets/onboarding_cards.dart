@@ -583,11 +583,7 @@ class DocumentChecklistCard extends StatelessWidget {
                     size: 20,
                   )
                 else
-                  Icon(
-                    icon,
-                    color: const Color(0xFF475569),
-                    size: 20,
-                  ),
+                  Icon(icon, color: const Color(0xFF475569), size: 20),
                 const SizedBox(width: 14),
                 Expanded(
                   child: Text(

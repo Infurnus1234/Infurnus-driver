@@ -48,15 +48,16 @@ class _GoogleSignInButtonState extends State<GoogleSignInButton> {
       );
       await _initialization;
       if (!mounted) return;
-      _subscription = GoogleSignIn.instance.authenticationEvents.listen((
-        event,
-      ) {
-        if (kIsWeb && event is GoogleSignInAuthenticationEventSignIn) {
-          unawaited(_accept(event.user));
-        }
-      }, onError: (err) {
-        debugPrint('Google auth event: $err');
-      });
+      _subscription = GoogleSignIn.instance.authenticationEvents.listen(
+        (event) {
+          if (kIsWeb && event is GoogleSignInAuthenticationEventSignIn) {
+            unawaited(_accept(event.user));
+          }
+        },
+        onError: (err) {
+          debugPrint('Google auth event: $err');
+        },
+      );
       setState(() => _ready = true);
     } catch (error) {
       debugPrint('Google sign-in unavailable: $error');

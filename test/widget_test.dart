@@ -25,32 +25,31 @@ void main() {
     },
   );
 
-  testWidgets(
-    'LoginScreen does not expose debug preview dashboard button',
-    (tester) async {
-      tester.view.physicalSize = const Size(800, 1200);
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(() => tester.view.resetPhysicalSize());
-      addTearDown(() => tester.view.resetDevicePixelRatio());
+  testWidgets('LoginScreen does not expose debug preview dashboard button', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 1200);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() => tester.view.resetPhysicalSize());
+    addTearDown(() => tester.view.resetDevicePixelRatio());
 
-      await tester.pumpWidget(
-        MultiProvider(
-          providers: [
-            ChangeNotifierProvider(create: (_) => AppState()),
-            ChangeNotifierProvider(create: (_) => DriverSession()),
-          ],
-          child: const InfurnusApp(),
-        ),
-      );
-      await tester.pumpAndSettle();
-      expect(
-        find.textContaining('Preview Dashboard (Testing Only)'),
-        findsNothing,
-      );
-      expect(find.text('Continue'), findsOneWidget);
-      expect(find.text('Enter Phone Number'), findsOneWidget);
-    },
-  );
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider(create: (_) => AppState()),
+          ChangeNotifierProvider(create: (_) => DriverSession()),
+        ],
+        child: const InfurnusApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.textContaining('Preview Dashboard (Testing Only)'),
+      findsNothing,
+    );
+    expect(find.text('Continue'), findsOneWidget);
+    expect(find.text('Enter Phone Number'), findsOneWidget);
+  });
 
   test('Production state contains no seeded user, rides or financial data', () {
     final state = AppState();
