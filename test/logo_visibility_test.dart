@@ -50,8 +50,11 @@ void main() {
     await tester.runAsync(() async {
       final capture = await boundary.toImage();
       final bytes = await capture.toByteData(format: ui.ImageByteFormat.png);
-      await File('../artifacts/logo-replacement-20261026/driver-header-320.png')
-          .writeAsBytes(bytes!.buffer.asUint8List());
+      final output = File(
+        '../artifacts/logo-replacement-20261026/driver-header-320.png',
+      );
+      await output.parent.create(recursive: true);
+      await output.writeAsBytes(bytes!.buffer.asUint8List());
     });
   });
 }
