@@ -31,19 +31,37 @@ class DriverNotificationService {
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
   final ApiService api;
   final void Function(String route)? onOpen;
+  final void Function(Map<String, dynamic> data)? onRideUpdate;
   final List<StreamSubscription<dynamic>> _subscriptions = [];
   final Set<String> _seen = {};
   final timing = NotificationTiming();
   bool _disposed = false, _initialized = false, _stopping = false;
   Future<void> _registration = Future<void>.value();
   String? _registeredId;
-  DriverNotificationService({required this.api, this.onOpen});
+  DriverNotificationService({
+    required this.api,
+    this.onOpen,
+    this.onRideUpdate,
+  });
 
   void _open(Map<String, dynamic> data) {
     if (_disposed || api.accessToken == null) return;
     timing.record(data, 'openedAt');
+    onRideUpdate?.call(data);
     final route = notificationDestination(data);
     if (route != null) onOpen?.call(route);
+  }
+
+  /// Shared by the FCM listener and deterministic SDK-boundary tests.
+  bool handleForegroundData(Map<String, dynamic> data, {String? fallbackId}) {
+    if (_disposed || _stopping || api.accessToken == null) return false;
+    timing.record(data, 'foregroundReceivedAt', fallbackId: fallbackId);
+    if (notificationOfferExpired(data)) return false;
+    final id = data['notificationId']?.toString() ?? fallbackId;
+    if (id != null && !_seen.add(id)) return false;
+    if (_seen.length > 200) _seen.remove(_seen.first);
+    onRideUpdate?.call(data);
+    return true;
   }
 
   Future<void> init() async {
@@ -110,16 +128,14 @@ class DriverNotificationService {
       _subscriptions.add(
         FirebaseMessaging.onMessage.listen((message) {
           if (_disposed) return;
-          timing.record(
+          if (!handleForegroundData(
             message.data,
-            'foregroundReceivedAt',
             fallbackId: message.messageId,
-          );
-          if (notificationOfferExpired(message.data)) return;
+          )) {
+            return;
+          }
           final id =
               message.data['notificationId']?.toString() ?? message.messageId;
-          if (id != null && !_seen.add(id)) return;
-          if (_seen.length > 200) _seen.remove(_seen.first);
           final notification = message.notification;
           if (notification != null) {
             unawaited(

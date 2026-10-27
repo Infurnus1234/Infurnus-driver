@@ -14,11 +14,15 @@ void main() async {
   } catch (_) {
     debugPrint('Firebase initialization unavailable.');
   }
+  // Complete secure restoration behind the native launch splash. The first
+  // Flutter frame is the real destination, never a restoration/error page.
+  final session = DriverSession();
+  await session.restore();
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AppState()),
-        ChangeNotifierProvider(create: (_) => DriverSession()..restore()),
+        ChangeNotifierProvider.value(value: session),
       ],
       child: const InfurnusApp(),
     ),
@@ -48,9 +52,13 @@ class _InfurnusAppState extends State<InfurnusApp> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     final session = context.read<DriverSession>();
     if (state == AppLifecycleState.resumed &&
-        session.authenticated &&
-        !session.busy) {
-      session.refresh();
+        !session.busy &&
+        !session.restoring) {
+      if (session.restorationNeedsRetry) {
+        session.restore();
+      } else if (session.authenticated) {
+        session.refresh();
+      }
     }
   }
 

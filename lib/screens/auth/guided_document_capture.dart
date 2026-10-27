@@ -11,11 +11,13 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../models/onboarding_rules.dart';
 import '../../services/api_service.dart';
+import '../../widgets/calendar_field.dart';
 
 /// Memory-only drafts: never written to shared storage, never treated as uploads.
 class CaptureDraft {
   List<DocumentFile> files = [];
-  String source = 'GALLERY', expiry = '', number = '';
+  bool identityConsent = false;
+  String source = 'GALLERY', expiry = '', number = '', licenceClasses = '';
 }
 
 Future<String?> validateCaptureDraft(
@@ -303,7 +305,8 @@ class _GuidedDocumentCaptureState extends State<GuidedDocumentCapture> {
 
   @override
   Widget build(BuildContext context) {
-    final disabled = _picking || widget.disabled;
+    final disabled =
+        _picking || widget.disabled || !widget.rule.collectionAllowed;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -388,6 +391,22 @@ class _GuidedDocumentCaptureState extends State<GuidedDocumentCapture> {
           ),
         ],
         const SizedBox(height: 12),
+        if (!widget.rule.collectionAllowed)
+          const Text(
+            'Identity collection is unavailable. Use an approved alternative or contact support.',
+          ),
+        if (widget.rule.code.startsWith('aadhaar') &&
+            widget.rule.collectionAllowed)
+          CheckboxListTile(
+            value: widget.draft.identityConsent,
+            onChanged: disabled
+                ? null
+                : (v) =>
+                      setState(() => widget.draft.identityConsent = v == true),
+            title: const Text(
+              'I consent to the authorized verification purpose and confirm this is a permitted masked copy.',
+            ),
+          ),
         OutlinedButton.icon(
           onPressed: disabled ? null : _chooseSource,
           icon: Icon(
@@ -419,9 +438,11 @@ class _GuidedDocumentCaptureState extends State<GuidedDocumentCapture> {
             maxLength: 100,
             onChanged: (v) => widget.draft.number = v,
           ),
-          TextFormField(
+          CalendarField(
+            key: ValueKey('${widget.scope}:${widget.rule.code}:expiry'),
+            label:
+                'Expiry (YYYY-MM-DD${widget.rule.requiresExpiry ? ', required' : ', optional'})',
             initialValue: widget.draft.expiry,
-            autovalidateMode: AutovalidateMode.onUserInteraction,
             validator: (value) {
               final date = value?.trim() ?? '';
               if (date.isEmpty) {
@@ -435,10 +456,6 @@ class _GuidedDocumentCaptureState extends State<GuidedDocumentCapture> {
                   : null;
             },
             enabled: !disabled,
-            decoration: InputDecoration(
-              labelText:
-                  'Expiry (YYYY-MM-DD${widget.rule.requiresExpiry ? ', required' : ', optional'})',
-            ),
             onChanged: (v) => widget.draft.expiry = v,
           ),
         ],

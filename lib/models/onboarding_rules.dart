@@ -6,12 +6,16 @@ class DocumentRule {
   final bool onboardingDeferrable;
   final bool requiresExpiry;
   final int minimumPages;
+  final bool? collectionAuthorized;
+  bool get collectionAllowed =>
+      !code.startsWith('aadhaar') || collectionAuthorized == true;
   const DocumentRule(
     this.code, {
     this.required = false,
     this.onboardingDeferrable = false,
     this.requiresExpiry = false,
     this.minimumPages = 1,
+    this.collectionAuthorized,
   });
   factory DocumentRule.fromJson(Map<String, dynamic> json) => DocumentRule(
     json['document_code'] as String,
@@ -19,8 +23,11 @@ class DocumentRule {
     onboardingDeferrable: json['onboarding_deferrable'] == true,
     requiresExpiry: json['requires_expiry'] as bool,
     minimumPages: (json['minimum_pages'] as num).toInt(),
+    collectionAuthorized: json['aadhaar_collection_allowed'] == true,
   );
-  bool get imageOnly => ['profile_photo', 'vehicle_front_photo'].contains(code);
+  bool get imageOnly =>
+      code == 'profile_photo' ||
+      (code.startsWith('vehicle_') && code.endsWith('_photo'));
   String get uploadType =>
       const [
         'profile_photo',
@@ -130,6 +137,19 @@ class OnboardingRules {
     List<DocumentFile> files,
     Map<String, String> metadata,
   ) {
+    if (!rule.collectionAllowed) {
+      return 'This identity collection is not authorized. Use an approved alternative.';
+    }
+    if (rule.code.startsWith('aadhaar') &&
+        (metadata['identityConsent'] != 'true' ||
+            metadata['maskedIdentity'] != 'true')) {
+      return 'Consent to the authorized purpose and select a permitted masked copy.';
+    }
+    if (rule.code.startsWith('aadhaar') &&
+        metadata['documentNumber'] != null &&
+        !RegExp(r'^[Xx*]{8}[0-9]{4}$').hasMatch(metadata['documentNumber']!)) {
+      return 'Do not enter an unmasked identity number.';
+    }
     if (files.length < rule.minimumPages ||
         files.length > 5 ||
         (rule.imageOnly && files.length != 1)) {

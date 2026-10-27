@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import '../../widgets/assigned_vehicle_card.dart';
 import '../../widgets/ride_pin_dialog.dart';
 
@@ -11,6 +13,7 @@ import '../../widgets/driver_bottom_nav.dart';
 import '../../widgets/operations.dart';
 import '../../widgets/trip_map.dart';
 import '../../widgets/reference_components.dart';
+import '../../widgets/ride_customer_contact_card.dart';
 
 class OperationsDashboard extends StatelessWidget {
   const OperationsDashboard({super.key});
@@ -250,6 +253,7 @@ class OperationsDashboard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       RideDetails(ride: trip),
+                      const RideCustomerContactCard(),
                       Row(
                         children: [
                           TextButton.icon(
@@ -285,7 +289,8 @@ class OperationsDashboard extends StatelessWidget {
                         ? 'No ride offers right now.'
                         : 'You are offline.',
                   ),
-                for (final ride in session.rides) RideOfferCard(ride: ride),
+                for (final ride in session.rides)
+                  RideOfferCard(key: ValueKey(ride['id']), ride: ride),
               ],
             ],
           ),
@@ -300,7 +305,9 @@ class RideDetails extends StatelessWidget {
   const RideDetails({super.key, required this.ride});
   @override
   Widget build(BuildContext context) {
-    final fare = ride['finalFare'] ?? ride['fareEstimate'];
+    final fareInfo = (ride['rideInformation'] as Map?)?['fare'] as Map?;
+    final fare =
+        fareInfo?['amount'] ?? ride['finalFare'] ?? ride['fareEstimate'];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -350,7 +357,9 @@ class RideDetails extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  ride['finalFare'] == null ? 'Estimated fare' : 'Final fare',
+                  fareInfo?['authority'] == 'final' || ride['finalFare'] != null
+                      ? 'Final fare'
+                      : 'Estimated fare',
                   style: const TextStyle(color: Ops.textSecondary),
                 ),
                 Text(
@@ -382,23 +391,80 @@ class RideDetails extends StatelessWidget {
   }
 }
 
-class RideOfferCard extends StatelessWidget {
+class RideOfferCard extends StatefulWidget {
   final Map<String, dynamic> ride;
-  const RideOfferCard({super.key, required this.ride});
+  final DateTime Function()? clock;
+  const RideOfferCard({super.key, required this.ride, this.clock});
+  @override
+  State<RideOfferCard> createState() => _RideOfferCardState();
+}
+
+class _RideOfferCardState extends State<RideOfferCard> {
+  Timer? _timer;
+  DateTime _localAnchor = DateTime.now();
+  DateTime? _serverAnchor;
+  Map<String, dynamic> get ride => widget.ride;
+  void _synchronize() {
+    _serverAnchor = DateTime.tryParse(ride['serverTime']?.toString() ?? '');
+    _localAnchor =
+        DateTime.tryParse(ride['_receivedAt']?.toString() ?? '') ??
+        widget.clock?.call() ??
+        DateTime.now();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _synchronize();
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant RideOfferCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.ride['serverTime'] != ride['serverTime'] ||
+        oldWidget.ride['id'] != ride['id']) {
+      _synchronize();
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final session = context.watch<DriverSession>();
     final expiry = DateTime.tryParse(
       ride['dispatchExpiresAt']?.toString() ?? '',
     );
-    final expired = expiry != null && !expiry.isAfter(DateTime.now());
+    final localNow = widget.clock?.call() ?? DateTime.now();
+    final now =
+        _serverAnchor?.add(localNow.difference(_localAnchor)) ?? localNow;
+    final remaining = expiry?.difference(now).inMilliseconds;
+    final seconds = remaining == null || remaining <= 0
+        ? 0
+        : (remaining / 1000).ceil();
+    final expired = expiry == null || seconds <= 0;
     return OpsPanel(
       title: expired ? 'Offer expired' : 'New Ride Request',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           RideDetails(ride: ride),
-          if (expiry != null) Text('Expires ${expiry.toLocal()}'),
+          Text(
+            'Trip To ${ride['destinationAddress'] ?? 'Destination available after PIN verification'}',
+          ),
+          Text(
+            expiry == null
+                ? 'Offer deadline unavailable'
+                : 'Time remaining: ${seconds ~/ 60}:${(seconds % 60).toString().padLeft(2, '0')}',
+          ),
           Row(
             children: [
               Expanded(
@@ -407,7 +473,7 @@ class RideOfferCard extends StatelessWidget {
                   onPressed: session.busy || expired
                       ? null
                       : () => session.decline(ride['id'] as String),
-                  child: const Text('Decline'),
+                  child: const Text('Reject'),
                 ),
               ),
               const SizedBox(width: 12),
@@ -445,7 +511,8 @@ class ServerRideRequestsScreen extends StatelessWidget {
             if (session.error != null)
               OpsError(session.error!, retry: session.refresh),
             if (session.rides.isEmpty) const OpsEmpty('No current offers.'),
-            for (final ride in session.rides) RideOfferCard(ride: ride),
+            for (final ride in session.rides)
+              RideOfferCard(key: ValueKey(ride['id']), ride: ride),
           ],
         ),
       ),

@@ -26,8 +26,13 @@ void main() {
             201,
           );
         }
+        expect(r.url.queryParameters['includePagination'], 'true');
         return http.Response(
-          jsonEncode({'success': true, 'data': tickets}),
+          jsonEncode({
+            'success': true,
+            'data': tickets,
+            'pagination': {'page': 1, 'pageSize': 25, 'hasNext': false},
+          }),
           200,
         );
       }),
@@ -70,7 +75,14 @@ void main() {
                 }),
                 503,
               )
-            : http.Response(jsonEncode({'success': true, 'data': []}), 200),
+            : http.Response(
+                jsonEncode({
+                  'success': true,
+                  'data': [],
+                  'pagination': {'page': 1, 'pageSize': 25, 'hasNext': false},
+                }),
+                200,
+              ),
       ),
     );
     final session = DriverSession(api: api);

@@ -102,11 +102,21 @@ class _LoginScreenState extends State<LoginScreen> {
       );
       return;
     }
+    session.api.rememberMe = _rememberMe;
     var success = await session.login(
       fullIdentifier,
       _passwordLogin ? _password.text : '',
     );
     if (!mounted) return;
+    if (!success &&
+        session.errorCode == 'INVALID_CREDENTIALS' &&
+        !_passwordLogin) {
+      setState(() {
+        _passwordLogin = true;
+        _clientValidationMessage = 'Fleet Owner accounts need an account password, followed by OTP. Enter your password to continue, or switch back for Driver OTP login.';
+      });
+      return;
+    }
     if (!success && session.errorCode == 'ACCOUNT_ROLE_REQUIRED') {
       final role = await _chooseExistingRole();
       if (!mounted || role == null) return;
@@ -317,6 +327,11 @@ class _LoginScreenState extends State<LoginScreen> {
                               : 'Use Fleet account password',
                         ),
                       ),
+                      const Text(
+                        'Driver: OTP login. Fleet Owner: password, then OTP.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 12),
+                      ),
                       if (_passwordLogin) ...[
                         TextField(
                           controller: _password,
@@ -518,6 +533,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         label: 'Continue with Google',
                         enabled: !session.busy,
                         onIdToken: (token) async {
+                          session.api.rememberMe = _rememberMe;
                           var ok = await session.authenticateGoogle(
                             token,
                             signup: true,
@@ -545,7 +561,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             ? null
                             : () => context.go('/role-selection'),
                         child: Text(
-                          'Use email/phone signup',
+                          'Create an account with email or phone',
                           style: GoogleFonts.inter(
                             fontWeight: FontWeight.bold,
                             color: InfurnusTheme.textDark,
@@ -572,6 +588,18 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
             ),
           ),
+          if (session.restorationNeedsRetry)
+            MaterialBanner(
+              content: const Text(
+                'Your saved session could not be restored. Retry when connected or sign in again.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: session.busy ? null : session.restore,
+                  child: const Text('Retry session'),
+                ),
+              ],
+            ),
         ],
       ),
     );

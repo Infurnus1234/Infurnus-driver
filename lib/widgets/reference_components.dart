@@ -31,13 +31,12 @@ class InfurnusBrand extends StatelessWidget {
         ),
         const SizedBox(width: 12),
       ],
-      const Text(
-        'N',
-        style: TextStyle(
-          color: Ops.success,
-          fontWeight: FontWeight.w900,
-          fontSize: 25,
-        ),
+      Image.asset(
+        'assets/images/infurnus_logo.png',
+        width: 34,
+        height: 34,
+        fit: BoxFit.contain,
+        semanticLabel: 'INFURNUS logo',
       ),
       const SizedBox(width: 5),
       const Flexible(

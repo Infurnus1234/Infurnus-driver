@@ -52,6 +52,8 @@ class _SupportTicketsScreenState extends State<SupportTicketsScreen> {
   bool _busy = false;
   String? _error;
   int _page = 1;
+  bool _hasNext = false;
+  int? _failedPage;
   @override
   void initState() {
     super.initState();
@@ -65,7 +67,9 @@ class _SupportTicketsScreenState extends State<SupportTicketsScreen> {
     super.dispose();
   }
 
-  Future<void> _load() async {
+  Future<void> _load({int? page}) async {
+    if (!mounted) return;
+    final targetPage = page ?? _page;
     setState(() {
       _busy = true;
       _error = null;
@@ -73,17 +77,25 @@ class _SupportTicketsScreenState extends State<SupportTicketsScreen> {
     try {
       final data = await context.read<DriverSession>().api.request(
         'GET',
-        '/support/tickets?page=$_page&pageSize=25',
+        '/support/tickets?page=$targetPage&pageSize=25&includePagination=true',
       );
       if (mounted) {
-        setState(
-          () => _tickets = (data as List)
+        setState(() {
+          _tickets = (data['items'] as List)
               .map((e) => Map<String, dynamic>.from(e as Map))
-              .toList(),
-        );
+              .toList();
+          _page = targetPage;
+          _hasNext = data['pagination']['hasNext'] as bool;
+          _failedPage = null;
+        });
       }
     } catch (e) {
-      if (mounted) setState(() => _error = e.toString());
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _failedPage = targetPage;
+        });
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -107,8 +119,7 @@ class _SupportTicketsScreenState extends State<SupportTicketsScreen> {
       );
       _subject.clear();
       _message.clear();
-      _page = 1;
-      if (mounted) await _load();
+      if (mounted) await _load(page: 1);
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());
     } finally {
@@ -168,8 +179,13 @@ class _SupportTicketsScreenState extends State<SupportTicketsScreen> {
             _error!,
             style: TextStyle(color: Theme.of(context).colorScheme.error),
           ),
+        if (_error != null)
+          TextButton(
+            onPressed: _busy ? null : () => _load(page: _failedPage),
+            child: const Text('Retry'),
+          ),
         const SizedBox(height: 20),
-        if (!_busy && _tickets.isEmpty)
+        if (!_busy && _error == null && _tickets.isEmpty)
           const Text('No support tickets on this page.'),
         ..._tickets.map(
           (t) => Card(
@@ -190,18 +206,16 @@ class _SupportTicketsScreenState extends State<SupportTicketsScreen> {
               onPressed: _busy || _page == 1
                   ? null
                   : () {
-                      _page--;
-                      _load();
+                      _load(page: _page - 1);
                     },
               child: const Text('Previous'),
             ),
             Text('Page $_page'),
             TextButton(
-              onPressed: _busy || _tickets.length < 25
+              onPressed: _busy || !_hasNext
                   ? null
                   : () {
-                      _page++;
-                      _load();
+                      _load(page: _page + 1);
                     },
               child: const Text('Next'),
             ),

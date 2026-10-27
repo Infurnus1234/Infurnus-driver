@@ -2,7 +2,7 @@ name: infurnus_driver
 description: "A new Flutter project."
 publish_to: 'none'
 
-version: 1.0.0+7
+version: 1.0.0+73
 
 environment:
   sdk: ^3.13.3
@@ -40,6 +40,8 @@ dependencies:
   cupertino_icons: ^1.0.8
 
 dev_dependencies:
+  integration_test:
+    sdk: flutter
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
@@ -54,18 +56,18 @@ flutter:
     - assets/images/login_background.png
 
 flutter_launcher_icons:
-  image_path: "assets/images/infurnus_logo.png"
+  image_path: "assets/images/infurnus_icon_safe.png"
   android: "launcher_icon"
   ios: true
-  image_path_ios: "assets/images/infurnus_logo.png"
+  image_path_ios: "assets/images/infurnus_icon_safe.png"
   adaptive_icon_background: "#000000"
-  adaptive_icon_foreground: "assets/images/infurnus_driver_adaptive_foreground.png"
+  adaptive_icon_foreground: "assets/images/infurnus_icon_safe.png"
 
 flutter_native_splash:
   color: "#000000"
-  image: "assets/images/infurnus_logo.png"
+  image: "assets/images/infurnus_launch_safe.png"
   android_12:
     color: "#000000"
-    image: "assets/images/infurnus_logo.png"
+    image: "assets/images/infurnus_launch_safe.png"
   ios: true
   web: false

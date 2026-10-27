@@ -48,8 +48,11 @@ class ApiService {
   bool get hasFleetRole => ['fleet_owner', 'driver_fleet_owner'].contains(role);
   bool get isAdmin => ['admin', 'super_admin'].contains(role);
   final Map<String, String> _cookies = {};
+  DateTime? signupOtpExpiresAt;
+  int otpResendAfterSeconds = 60;
   String? accessToken;
   bool isTestOnboarding = false;
+  bool rememberMe = true;
   String? _csrfToken;
   String? userId;
   Future<void>? _refreshing;
@@ -61,7 +64,7 @@ class ApiService {
           (client == null ? SecureSessionStore() : MemorySessionStore());
 
   Future<void> _saveSession() {
-    final value = accessToken == null
+    final value = accessToken == null || !rememberMe
         ? null
         : jsonEncode({
             'accessToken': accessToken,
@@ -190,11 +193,7 @@ class ApiService {
         retry &&
         accessToken != null &&
         !path.startsWith('/auth/')) {
-      try {
-        await (_refreshing ??= _refresh());
-      } finally {
-        _refreshing = null;
-      }
+      await refreshSession();
       return this.request(
         method,
         path,
@@ -249,6 +248,12 @@ class ApiService {
       );
     }
     if (response.statusCode == 204) return null;
+    if (envelope?['success'] == true &&
+        !envelope!.containsKey('data') &&
+        ((method == 'PATCH' && path == '/rides/driver/availability') ||
+            (method == 'POST' && path == '/rides/driver/location'))) {
+      return null;
+    }
     if (response.statusCode >= 200 &&
         response.statusCode < 300 &&
         envelope?['success'] == true &&
@@ -267,6 +272,21 @@ class ApiService {
       throw const ApiException(
         'The server response does not match the API contract.',
       );
+    }
+    if (method == 'GET' &&
+        Uri.parse(path).path == '/support/tickets' &&
+        Uri.parse(path).queryParameters['includePagination'] == 'true') {
+      final items = envelope['data'], pagination = envelope['pagination'];
+      if (items is! List ||
+          pagination is! Map ||
+          pagination['hasNext'] is! bool ||
+          pagination['page'] is! int ||
+          pagination['pageSize'] is! int) {
+        throw const ApiException(
+          'The support list does not match the API contract.',
+        );
+      }
+      return {'items': items, 'pagination': pagination};
     }
     if (method == 'GET' && Uri.parse(path).path == '/driver-applications') {
       final items = envelope['data'];
@@ -493,6 +513,22 @@ class ApiService {
       // server-side role guard, so an authenticated driver can complete onboarding.
       if (profile == null) return {};
       return profile;
+    } on ApiException catch (e) {
+      if (e.status == null ||
+          e.status == 408 ||
+          e.status == 429 ||
+          e.status! >= 500) {
+        // Verification succeeded; a failed profile fetch is recoverable. The
+        // session still has to be revalidated before the UI grants access.
+        await _saveSession();
+        rethrow;
+      }
+      try {
+        await logout();
+      } catch (_) {
+        clearSession();
+      }
+      rethrow;
     } catch (_) {
       try {
         await logout();
@@ -529,7 +565,16 @@ class ApiService {
     throw const ApiException('This account does not support that mode.', 403);
   }
 
-  Future<void> refreshSession() => _refresh();
+  Future<void> refreshSession() => _refreshing ??= _refreshOnce();
+
+  Future<void> _refreshOnce() async {
+    try {
+      await _refresh();
+    } finally {
+      _refreshing = null;
+    }
+  }
+
   Future<void> selectInitialRole(String selected) async {
     final data = await request(
       'POST',
@@ -633,6 +678,16 @@ class ApiService {
         'role': input['role'] ?? 'driver',
       },
     );
+    if (data is! Map ||
+        data['signupId'] is! String ||
+        (data['signupId'] as String).isEmpty) {
+      throw const ApiException(
+        'The verification request was not confirmed. Please retry.',
+      );
+    }
+    final cooldown = data['resendAfterSeconds'];
+    otpResendAfterSeconds = cooldown is int && cooldown > 0 ? cooldown : 60;
+    signupOtpExpiresAt = DateTime.tryParse(data['expiresAt']?.toString() ?? '');
     return data['signupId'] as String;
   }
 
@@ -642,6 +697,16 @@ class ApiService {
       '/auth/signup/resend',
       body: {'signupId': signupId},
     );
+    if (data is! Map ||
+        data['signupId'] is! String ||
+        (data['signupId'] as String).isEmpty) {
+      throw const ApiException(
+        'The verification request was not confirmed. Please retry.',
+      );
+    }
+    final cooldown = data['resendAfterSeconds'];
+    otpResendAfterSeconds = cooldown is int && cooldown > 0 ? cooldown : 60;
+    signupOtpExpiresAt = DateTime.tryParse(data['expiresAt']?.toString() ?? '');
     return data['signupId'] as String;
   }
 

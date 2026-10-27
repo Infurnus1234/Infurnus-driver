@@ -1,10 +1,16 @@
 import 'fleet_revenue_screen.dart';
 import 'fleet_vehicle_category_dialog.dart';
+import '../../widgets/calendar_field.dart';
 import 'managed_driver_screen.dart';
+
+import '../../widgets/private_document_preview.dart';
 
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+
+import '../../widgets/fleet_model_field.dart';
+
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 
@@ -20,7 +26,12 @@ import '../auth/document_upload_dialog.dart';
 import 'guided_provider_setup.dart';
 
 class ProviderAssetsScreen extends StatefulWidget {
-  const ProviderAssetsScreen({super.key});
+  final bool identityOnly, bankProofOnly;
+  const ProviderAssetsScreen({
+    super.key,
+    this.identityOnly = false,
+    this.bankProofOnly = false,
+  });
   @override
   State<ProviderAssetsScreen> createState() => _ProviderAssetsScreenState();
 }
@@ -30,6 +41,12 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
   Timer? _timer;
   String _search = '';
   int _tab = 0;
+  @override
+  void initState() {
+    super.initState();
+    if (widget.identityOnly || widget.bankProofOnly) _tab = 4;
+  }
+
   String _vehicleFilter = 'All';
   bool _guidedSetup = false;
   bool _matches(Map row) =>
@@ -72,6 +89,7 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
     Set<String> numbers = const {},
     Set<String> integers = const {},
     Set<String> booleans = const {},
+    Future<bool> Function(Map<String, dynamic>)? onSubmit,
   }) async {
     final fields = {
       for (final key in labels.keys)
@@ -84,8 +102,15 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
       if (labels.containsKey('category')) 'category',
     };
     bool optionalOpen = false;
+    bool submitting = false;
+    String? submitError;
     String? validate(String key, String? value) {
       final text = value?.trim() ?? '';
+      if (key == 'ownershipType' &&
+          text.isNotEmpty &&
+          !['OWNED', 'LEASED', 'FINANCED', 'OTHER'].contains(text)) {
+        return 'Choose OWNED, LEASED, FINANCED or OTHER';
+      }
       if (requiredFields.contains(key) && text.isEmpty) return 'Required';
       if (booleans.contains(key) && !['true', 'false'].contains(text)) {
         return 'Choose true or false';
@@ -106,6 +131,12 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
           (key.contains('Date') || key.contains('Expiry')) &&
           !OnboardingRules.validDate(text)) {
         return 'Use YYYY-MM-DD';
+      }
+      if (key == 'registrationExpiry' &&
+          text.isNotEmpty &&
+          fields['registrationDate']!.text.isNotEmpty &&
+          text.compareTo(fields['registrationDate']!.text) < 0) {
+        return 'Expiry must follow registration date';
       }
       return null;
     }
@@ -148,6 +179,18 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
               onChanged: (v) => fields[entry.key]!.text = v ?? '',
               validator: (v) => validate(entry.key, v),
             )
+          : entry.key.contains('Date') || entry.key.contains('Expiry')
+          ? CalendarField(
+              label: entry.value,
+              controller: fields[entry.key],
+              validator: (v) => validate(entry.key, v),
+            )
+          : entry.key == 'model' && fields.containsKey('make')
+          ? FleetModelField(
+              api: context.read<DriverSession>().api,
+              make: fields['make']!,
+              model: fields['model']!,
+            )
           : TextFormField(
               controller: fields[entry.key],
               keyboardType:
@@ -171,6 +214,14 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
                   child: ListView(
                     padding: const EdgeInsets.all(20),
                     children: [
+                      if (submitting) const LinearProgressIndicator(),
+                      if (submitError != null)
+                        Text(
+                          submitError!,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
+                          ),
+                        ),
                       if (labels.containsKey('plateNumber')) ...[
                         const Icon(
                           Icons.directions_car_outlined,
@@ -222,41 +273,65 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
                 child: Row(
                   children: [
                     TextButton(
-                      onPressed: () => Navigator.pop(context),
+                      onPressed: submitting
+                          ? null
+                          : () => Navigator.pop(context),
                       child: const Text('Cancel'),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: FilledButton(
                         style: Ops.darkButton,
-                        onPressed: () {
-                          final invalidOptional = fields.entries.any(
-                            (e) =>
-                                !primary.contains(e.key) &&
-                                validate(e.key, e.value.text) != null,
-                          );
-                          if (invalidOptional) {
-                            update(() => optionalOpen = true);
-                          }
-                          WidgetsBinding.instance.addPostFrameCallback(
-                            (_) => form.currentState?.validate(),
-                          );
-                          if (!form.currentState!.validate() ||
-                              invalidOptional) {
-                            return;
-                          }
-                          Navigator.pop(context, <String, dynamic>{
-                            for (final entry in fields.entries)
-                              if (entry.value.text.trim().isNotEmpty)
-                                entry.key: booleans.contains(entry.key)
-                                    ? entry.value.text.trim() == 'true'
-                                    : numbers.contains(entry.key)
-                                    ? double.parse(entry.value.text.trim())
-                                    : integers.contains(entry.key)
-                                    ? int.parse(entry.value.text.trim())
-                                    : entry.value.text.trim(),
-                          });
-                        },
+                        onPressed: submitting
+                            ? null
+                            : () async {
+                                final invalidOptional = fields.entries.any(
+                                  (e) =>
+                                      !primary.contains(e.key) &&
+                                      validate(e.key, e.value.text) != null,
+                                );
+                                if (invalidOptional) {
+                                  update(() => optionalOpen = true);
+                                }
+                                WidgetsBinding.instance.addPostFrameCallback(
+                                  (_) => form.currentState?.validate(),
+                                );
+                                if (!form.currentState!.validate() ||
+                                    invalidOptional) {
+                                  return;
+                                }
+                                final values = <String, dynamic>{
+                                  for (final entry in fields.entries)
+                                    if (entry.value.text.trim().isNotEmpty)
+                                      entry.key: booleans.contains(entry.key)
+                                          ? entry.value.text.trim() == 'true'
+                                          : numbers.contains(entry.key)
+                                          ? double.parse(
+                                              entry.value.text.trim(),
+                                            )
+                                          : integers.contains(entry.key)
+                                          ? int.parse(entry.value.text.trim())
+                                          : entry.value.text.trim(),
+                                };
+                                if (onSubmit != null) {
+                                  update(() {
+                                    submitting = true;
+                                    submitError = null;
+                                  });
+                                  final ok = await onSubmit(values);
+                                  if (!context.mounted) return;
+                                  if (!ok) {
+                                    update(() {
+                                      submitting = false;
+                                      submitError = _assets!.error ?? 'Could not save. Your entries are retained; retry.';
+                                    });
+                                    return;
+                                  }
+                                }
+                                if (context.mounted) {
+                                  Navigator.pop(context, values);
+                                }
+                              },
                         child: const Text('Save'),
                       ),
                     ),
@@ -320,6 +395,8 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
         'registrationDate': 'Registration date (optional, YYYY-MM-DD)',
         'registrationExpiry': 'Registration expiry (optional, YYYY-MM-DD)',
         'permitDetails': 'Commercial permit details (optional)',
+        'ownershipType': 'Ownership: OWNED, LEASED, FINANCED or OTHER',
+        'ownerNotes': 'Vehicle notes (optional)',
         'isCommercial': 'Commercial vehicle (true / false)',
       },
       initial: {'isCommercial': true, ...?vehicle},
@@ -327,13 +404,13 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
       numbers: {'fuelRatePerKm', 'loadCapacityKg'},
       integers: {'year', 'seatingCapacity'},
       booleans: {'isCommercial'},
+      onSubmit: (values) => _assets!.saveVehicle({
+        ...values,
+        ...category,
+      }, id: vehicle?['id'] as String?),
     );
     if (input != null) {
-      final ok = await _assets!.saveVehicle({
-        ...input,
-        ...category,
-      }, id: vehicle?['id'] as String?);
-      if (ok && vehicle == null && mounted) {
+      if (vehicle == null && mounted) {
         final saved = _assets!.vehicles
             .where(
               (v) =>
@@ -387,34 +464,75 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
   Widget _document(DocumentRule rule, {String? vehicleId}) {
     final doc = _assets!.documentFor(rule.code, vehicleId: vehicleId);
     final reason = doc == null ? null : rejectionReason(doc);
+    final expiry = DateTime.tryParse(doc?['expiresAt']?.toString() ?? '');
+    final expired =
+        expiry != null &&
+        expiry.isBefore(DateTime.now().subtract(const Duration(days: 1)));
+    final soon =
+        expiry != null &&
+        !expired &&
+        expiry.isBefore(DateTime.now().add(const Duration(days: 30)));
     return Card(
       child: ListTile(
+        onTap: doc == null || _assets!.busy
+            ? null
+            : () => showPrivateDocumentPreview(
+                context,
+                _assets!.api,
+                '/partners/${_assets!.partner!['id']}/documents/${doc['id']}',
+                rule.label,
+              ),
         title: Text(
           '${rule.label} — ${rule.required ? 'Required by policy' : 'Optional'}',
         ),
         subtitle: Text(
-          '${statusLabel(doc?['status'])}\n${rule.minimumPages}–5 files/pages; JPEG, PNG, WebP${rule.code == 'profile_photo' ? '' : ', PDF'}; ${rule.code == 'profile_photo' ? 10 : 15} MiB/file, 30 MiB total\nExpiry ${rule.requiresExpiry ? 'required' : 'optional'}${reason == null ? '' : '\nReason: $reason'}',
+          '${expired ? 'Expired' : statusLabel(doc?['status'])}${soon ? ' — expires within 30 days' : ''}${expiry == null ? '' : '\nExpiry: ${doc!['expiresAt']}'}\n${rule.minimumPages}–5 files/pages; JPEG, PNG, WebP${rule.code == 'profile_photo' ? '' : ', PDF'}; ${rule.code == 'profile_photo' ? 10 : 15} MiB/file, 30 MiB total\nExpiry ${rule.requiresExpiry ? 'required' : 'optional'}${reason == null ? '' : '\nReason: $reason'}',
         ),
         isThreeLine: true,
-        trailing: IconButton(
-          tooltip: doc == null ? 'Upload' : 'Replace / resubmit',
-          icon: const Icon(Icons.upload_file),
-          onPressed: _assets!.busy
-              ? null
-              : () {
-                  if (_assets!.partner == null) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                          'Please create your provider/business profile first.',
-                        ),
-                      ),
-                    );
-                    _business();
-                    return;
-                  }
-                  _upload(rule, vehicleId: vehicleId);
-                },
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              tooltip: doc == null ? 'Upload' : 'Replace / resubmit',
+              icon: const Icon(Icons.upload_file),
+              onPressed: _assets!.busy
+                  ? null
+                  : () {
+                      if (_assets!.partner == null) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Please create your provider/business profile first.',
+                            ),
+                          ),
+                        );
+                        _business();
+                        return;
+                      }
+                      _upload(rule, vehicleId: vehicleId);
+                    },
+            ),
+            if (doc != null &&
+                doc['status'] == 'PENDING' &&
+                (doc['version'] ?? 1) == 1)
+              IconButton(
+                tooltip: 'Remove unreviewed draft',
+                icon: const Icon(Icons.delete_outline),
+                onPressed: _assets!.busy
+                    ? null
+                    : () async {
+                        if (await confirmOperation(
+                          context,
+                          'Remove draft document?',
+                          'Only an original unreviewed draft can be removed. Reviewed or replaced evidence must be retained.',
+                        )) {
+                          await _assets!.removeDraftDocument(
+                            doc['id'] as String,
+                          );
+                        }
+                      },
+              ),
+          ],
         ),
       ),
     );
@@ -487,7 +605,9 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
             (assets.fleetMode &&
                 !assets.vehicles.any(
                   (v) =>
-                      providerStatus(v['approvalStatus']) ==
+                      providerStatus(
+                        v['verificationStatus'] ?? v['approvalStatus'],
+                      ) ==
                       ProviderStatus.approved,
                 )))) {
       _guidedSetup = true;
@@ -498,7 +618,6 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
         r.code: r,
     };
     for (final code in [
-      'aadhaar',
       'pan',
       'driving_licence',
       'profile_photo',
@@ -519,11 +638,17 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
     return Scaffold(
       appBar: AppBar(
         centerTitle: !assets.fleetMode,
-        title: assets.fleetMode
+        title: assets.fleetMode && !widget.identityOnly && !widget.bankProofOnly
             ? InfurnusBrand(
                 name: session.account?['firstName']?.toString() ?? 'Fleet',
               )
-            : const Text('Vehicles & documents'),
+            : Text(
+                widget.identityOnly
+                    ? 'Identity & Verification'
+                    : widget.bankProofOnly
+                    ? 'Bank proof'
+                    : 'Vehicles & documents',
+              ),
         actions: [
           IconButton(
             tooltip: 'Notifications',
@@ -537,7 +662,8 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
           ),
         ],
       ),
-      bottomNavigationBar: assets.fleetMode
+      bottomNavigationBar:
+          assets.fleetMode && !widget.identityOnly && !widget.bankProofOnly
           ? Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -615,7 +741,31 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
               onPressed: () => context.go(session.landingPath),
               child: const Text('Back to Driver onboarding / dashboard'),
             ),
+          if (assets.fleetMode &&
+              _tab == 4 &&
+              !widget.identityOnly &&
+              !widget.bankProofOnly) ...[
+            ListTile(
+              leading: const Icon(Icons.verified_user_outlined),
+              title: const Text('Identity & Verification'),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) =>
+                      const ProviderAssetsScreen(identityOnly: true),
+                ),
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.account_balance_outlined),
+              title: const Text('Bank Details & Payouts'),
+              onTap: () => context.push('/provider/bank-account'),
+            ),
+          ],
           if (!assets.fleetMode || _tab == 4) ...[
+            if (widget.identityOnly)
+              const Text(
+                'Verified means independent administrator documentary review, not government verification. Aadhaar collection requires the authorized masked-copy policy.',
+              ),
             Text(
               'Provider profile: ${statusLabel(assets.partner?['approvalStatus'])}',
               style: Theme.of(context).textTheme.titleLarge,
@@ -645,8 +795,33 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
                 'fleet_verification',
               ),
             ExpansionTile(
-              title: const Text('Provider documents'),
-              children: [for (final r in rules.values) _document(r)],
+              initiallyExpanded: widget.identityOnly || widget.bankProofOnly,
+              title: Text(
+                widget.bankProofOnly
+                    ? 'Bank proof — choose one accepted document'
+                    : 'Identity & Verification',
+              ),
+              children: widget.bankProofOnly
+                  ? [
+                      const Padding(
+                        padding: EdgeInsets.all(12),
+                        child: Text(
+                          'Upload one cancelled cheque, passbook page or statement showing the account holder and bank details. This is documentary review, not automated bank verification.',
+                        ),
+                      ),
+                      _document(const DocumentRule('bank_proof')),
+                    ]
+                  : [
+                      for (final r in rules.values.where(
+                        (r) => ![
+                          'bank_proof',
+                          'cancelled_cheque',
+                          'bank_statement',
+                          'bank_passbook',
+                        ].contains(r.code),
+                      ))
+                        _document(r),
+                    ],
             ),
           ],
           if (!assets.fleetMode || _tab == 1) ...[
@@ -670,7 +845,7 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
               ),
             if (!assets.fleetMode)
               FilledButton(
-                onPressed: assets.busy || !assets.approvedPartner
+                onPressed: assets.busy || assets.partner == null
                     ? null
                     : _vehicle,
                 child: const Text('Add vehicle'),
@@ -682,10 +857,11 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
                       (v) =>
                           _vehicleFilter == 'All' ||
                           (_vehicleFilter == 'Active'
-                              ? v['operationalStatus'] == 'ACTIVE'
-                              : v['operationalStatus'] != 'ACTIVE'),
+                              ? v['isActive'] == true
+                              : v['isActive'] == false),
                     ))
               Card(
+                key: ValueKey('fleet-vehicle-${v['id']}'),
                 child: ExpansionTile(
                   leading: const CircleAvatar(
                     backgroundColor: Ops.surfaceOverlay,
@@ -891,6 +1067,10 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
           ],
           if (assets.fleetMode && _tab == 2) ...[
             Text('Drivers', style: Theme.of(context).textTheme.titleLarge),
+            if (!assets.approvedPartner)
+              const Text(
+                'Your business must be approved before creating or inviting Drivers. Complete the business details and request verification from the provider profile.',
+              ),
             const SizedBox(height: 12),
             FilledButton.icon(
               icon: const Icon(Icons.person_add_alt),
@@ -898,6 +1078,37 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
               onPressed: assets.busy
                   ? null
                   : () async {
+                      if (!assets.approvedPartner) {
+                        final review = await showDialog<bool>(
+                          context: context,
+                          builder: (dialogContext) => AlertDialog(
+                            title: const Text('Business approval required'),
+                            content: Text(
+                              'Business status: ${statusLabel(assets.partner?['approvalStatus'])}. '
+                              'Complete your business details and submit them for review. '
+                              'Once approved, you can create Driver profiles here.',
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () =>
+                                    Navigator.pop(dialogContext, false),
+                                child: const Text('Close'),
+                              ),
+                              FilledButton(
+                                onPressed: () =>
+                                    Navigator.pop(dialogContext, true),
+                                child: const Text(
+                                  'Review business verification',
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                        if (review == true && mounted) {
+                          setState(() => _tab = 4);
+                        }
+                        return;
+                      }
                       final input = await _form(
                         'Create Driver profile',
                         const {
@@ -940,32 +1151,33 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
                     },
             ),
             const SizedBox(height: 12),
-            ApiPanel(
-              embedded: true,
-              api: session.api,
-              path: '/provider/managed-drivers',
-              builder: (context, data) => Column(
-                children: [
-                  for (final row in data as List)
-                    ListTile(
-                      title: Text('${row['firstName']} ${row['lastName']}'),
-                      subtitle: Text(
-                        'Onboarding: ${row['verificationStatus']}',
-                      ),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => ManagedDriverScreen(
-                            userId: row['userId'] as String,
+            if (assets.approvedPartner)
+              ApiPanel(
+                embedded: true,
+                api: session.api,
+                path: '/provider/managed-drivers',
+                builder: (context, data) => Column(
+                  children: [
+                    for (final row in data as List)
+                      ListTile(
+                        title: Text('${row['firstName']} ${row['lastName']}'),
+                        subtitle: Text(
+                          'Onboarding: ${row['verificationStatus']}',
+                        ),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => ManagedDriverScreen(
+                              userId: row['userId'] as String,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
-            ),
             OutlinedButton.icon(
-              onPressed: assets.busy
+              onPressed: assets.busy || !assets.approvedPartner
                   ? null
                   : () async {
                       final input = await _form(
@@ -1104,7 +1316,9 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
               ],
             ),
           ],
-          if (!assets.fleetMode || _tab == 4) ...[
+          if ((!assets.fleetMode || _tab == 4) &&
+              !widget.identityOnly &&
+              !widget.bankProofOnly) ...[
             if (assets.fleetMode) ...[
               const ModeSelector(),
               ListTile(

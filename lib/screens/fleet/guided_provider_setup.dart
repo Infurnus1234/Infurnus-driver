@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+
+import '../../widgets/fleet_model_field.dart';
+
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 
@@ -60,7 +63,10 @@ class _GuidedProviderSetupState extends State<GuidedProviderSetup> {
       final pending = _assets!.vehicles
           .where(
             (v) =>
-                providerStatus(v['approvalStatus']) != ProviderStatus.approved,
+                providerStatus(
+                  v['verificationStatus'] ?? v['approvalStatus'],
+                ) !=
+                ProviderStatus.approved,
           )
           .firstOrNull;
       if (pending != null) await _selectVehicle(pending);
@@ -261,7 +267,11 @@ class _GuidedProviderSetupState extends State<GuidedProviderSetup> {
                         ListTile(
                           contentPadding: EdgeInsets.zero,
                           title: Text(v['plateNumber'].toString()),
-                          subtitle: Text(statusLabel(v['approvalStatus'])),
+                          subtitle: Text(
+                            statusLabel(
+                              v['verificationStatus'] ?? v['approvalStatus'],
+                            ),
+                          ),
                           trailing: TextButton(
                             onPressed: busy ? null : () => _selectVehicle(v),
                             child: const Text('Documents'),
@@ -276,11 +286,12 @@ class _GuidedProviderSetupState extends State<GuidedProviderSetup> {
                           ),
                         ),
                         const SizedBox(height: 12),
-                        TextField(
-                          controller: _model,
-                          enabled: !busy,
-                          decoration: const InputDecoration(
-                            labelText: 'Model *',
+                        IgnorePointer(
+                          ignoring: busy,
+                          child: FleetModelField(
+                            api: context.read<DriverSession>().api,
+                            make: _make,
+                            model: _model,
                           ),
                         ),
                         const SizedBox(height: 12),
@@ -424,7 +435,7 @@ class _GuidedProviderSetupState extends State<GuidedProviderSetup> {
                       ),
                     ] else ...[
                       Text(
-                        'Status: ${statusLabel(reviewEntity?['approvalStatus'])}',
+                        'Status: ${statusLabel(reviewEntity?['verificationStatus'] ?? reviewEntity?['approvalStatus'])}',
                       ),
                       for (final r in required)
                         ListTile(

@@ -1,3 +1,9 @@
+import 'dart:convert';
+
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+import 'package:infurnus_driver/services/api_service.dart';
+
 import 'support/golden_fonts.dart';
 
 import 'package:flutter/material.dart';
@@ -18,7 +24,19 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    final session = DriverSession();
+    final session = DriverSession(
+      api: ApiService(
+        client: MockClient(
+          (_) async => http.Response(
+            jsonEncode({
+              'success': true,
+              'data': {'firstName': 'Driver', 'lastName': 'Account'},
+            }),
+            200,
+          ),
+        ),
+      ),
+    );
     session.account = {'firstName': 'Driver', 'lastName': 'Account'};
     session.profile = {'verificationStatus': 'pending'};
     await tester.pumpWidget(

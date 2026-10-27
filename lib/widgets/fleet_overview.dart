@@ -15,7 +15,7 @@ class FleetOverview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final activeVehicles = assets.vehicles
-        .where((v) => v['operationalStatus'] == 'ACTIVE')
+        .where((v) => v['isActive'] == true)
         .length;
     final activeDrivers = assets.drivers
         .where(

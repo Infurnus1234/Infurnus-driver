@@ -125,7 +125,7 @@ void main() {
       }
       appRouter.go('/login');
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Use email/phone signup'));
+      await tester.tap(find.text('Create an account with email or phone'));
       await tester.pumpAndSettle();
       expect(find.text('How will you use INFURNUS?'), findsOneWidget);
       await tester.tap(find.text('Continue'));
@@ -161,9 +161,10 @@ void main() {
       await tester.ensureVisible(send);
       await tester.tap(send);
       await tester.pumpAndSettle();
-      expect(find.text('OTP Verification'), findsOneWidget);
+      expect(find.text('Verify your account'), findsOneWidget);
       expect(session.authenticated, isFalse);
       await tester.enterText(find.byType(TextField), '123456');
+      await tester.pump();
       await tester.tap(find.text('Verify & Continue'));
       await tester.pumpAndSettle();
       expect(find.text('Driver onboarding'), findsOneWidget);

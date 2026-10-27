@@ -30,6 +30,48 @@ void main() {
                   jsonEncode({
                     'success': true,
                     'data': {
+                      'analytics': {
+                        'timeZone': 'Asia/Kolkata',
+                        'period': {'from': null, 'to': null},
+                        'inventory': {
+                          'total': 1,
+                          'active': 1,
+                          'inactive': 0,
+                          'operating': 0,
+                        },
+                        'summary': {
+                          'totalJobs': 1,
+                          'completedTrips': 1,
+                          'grossFarePaise': '10025',
+                          'capturedPaise': '10025',
+                          'refundPaise': '2010',
+                          'collectedAfterRefundsPaise': '8015',
+                          'ownerNetEarningsPaise': null,
+                          'settledPaise': null,
+                        },
+                        'status': [],
+                        'trends': [],
+                        'history': [],
+                        'vehicles': [
+                          {
+                            'vehicleId': 'fixture-vehicle',
+                            'make': 'Fixture',
+                            'model': 'Sedan',
+                            'plateNumber': 'TEST ONLY',
+                            'active': true,
+                            'completedTrips': 1,
+                            'grossFarePaise': '10025',
+                            'collectedAfterRefundsPaise': '8015',
+                            'assignedDriverId': null,
+                          },
+                        ],
+                        'pagination': {
+                          'vehicles': {'offset': 0, 'total': 1},
+                          'history': {'offset': 0, 'total': 0},
+                          'trends': {'offset': 0, 'total': 0},
+                        },
+                        'availability': {},
+                      },
                       'timeZone': 'Asia/Kolkata',
                       'summary': {
                         'todayRevenuePaise': '8015',
@@ -73,8 +115,19 @@ void main() {
       addTearDown(s.dispose);
       await tester.pumpWidget(host(s, const FleetRevenuePanel()));
       await tester.pumpAndSettle();
-      expect(find.textContaining('Gross collected: ₹100.25'), findsOneWidget);
-      expect(find.textContaining('Refunds: ₹20.10'), findsOneWidget);
+      expect(
+        find.textContaining('Captured customer payments: ₹100.25'),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('Successful refunds / full reversals: ₹20.10'),
+        findsOneWidget,
+      );
+      expect(find.text('Collected after refunds: ₹80.15'), findsOneWidget);
+      expect(
+        find.text('Fleet Owner net earnings: Unavailable'),
+        findsOneWidget,
+      );
       expect(find.textContaining('Fixture Sedan'), findsOneWidget);
       await tester.ensureVisible(find.textContaining('Fixture Sedan'));
       await tester.tap(find.textContaining('Fixture Sedan'));

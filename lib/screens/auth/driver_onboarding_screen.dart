@@ -8,6 +8,7 @@ import '../../models/onboarding_journey.dart';
 import '../../models/onboarding_rules.dart';
 import '../../models/provider_status.dart';
 import 'guided_document_capture.dart';
+import '../../widgets/private_document_preview.dart';
 
 class DriverOnboardingScreen extends StatefulWidget {
   final String? initialTask;
@@ -91,6 +92,10 @@ class _DriverOnboardingScreenState extends State<DriverOnboardingScreen> {
           ok = true;
         } else {
           final metadata = <String, String>{
+            if (draft.identityConsent) ...{
+              'identityConsent': 'true',
+              'maskedIdentity': 'true',
+            },
             'uploadSource': draft.source,
             if (draft.number.trim().isNotEmpty)
               'documentNumber': draft.number.trim(),
@@ -176,6 +181,8 @@ class _DriverOnboardingScreenState extends State<DriverOnboardingScreen> {
       'documentNumber': draft.number,
       'expiresAt': draft.expiry,
       'uploadSource': draft.source,
+      if (draft.licenceClasses.trim().isNotEmpty)
+        'licenceClasses': draft.licenceClasses.trim(),
     };
     String? validation = OnboardingRules.validateProfile(input);
     if (validation == null && draft.files.isNotEmpty) {
@@ -368,6 +375,20 @@ class _DriverOnboardingScreenState extends State<DriverOnboardingScreen> {
                     ),
                     if (rejectionReason(doc) != null)
                       Text('Reviewer: ${rejectionReason(doc)}'),
+                    TextButton.icon(
+                      onPressed: blocked
+                          ? null
+                          : () => showPrivateDocumentPreview(
+                              context,
+                              s.api,
+                              doc['partnerId'] != null
+                                  ? '/partners/${doc['partnerId']}/documents/${doc['id']}'
+                                  : '/rides/driver/documents/${doc['id']}',
+                              task.rule!.label,
+                            ),
+                      icon: const Icon(Icons.visibility),
+                      label: const Text('Preview saved document'),
+                    ),
                     const SizedBox(height: 16),
                   ],
                   GuidedDocumentCapture(
@@ -389,6 +410,15 @@ class _DriverOnboardingScreenState extends State<DriverOnboardingScreen> {
                 ],
                 if (task.id == 'licence' || task.id == 'setup') ...[
                   const SizedBox(height: 24),
+                  TextFormField(
+                    initialValue: draft.licenceClasses,
+                    enabled: !blocked,
+                    maxLength: 150,
+                    decoration: const InputDecoration(
+                      labelText: 'Vehicle classes (optional)',
+                    ),
+                    onChanged: (v) => draft.licenceClasses = v,
+                  ),
                   TextField(
                     controller: _licence,
                     enabled: !blocked,

@@ -1,3 +1,4 @@
+import '../../widgets/account_details_card.dart';
 import '../../widgets/assigned_vehicle_card.dart';
 import '../driver/fleet_invitations_screen.dart';
 
@@ -417,10 +418,10 @@ class AccountScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final session = context.watch<DriverSession>();
     final name =
-        '${session.account?['firstName'] ?? session.profile?['firstName'] ?? ''} ${session.account?['lastName'] ?? session.profile?['lastName'] ?? ''}'
+        '${session.providerAccount?['firstName'] ?? session.account?['firstName'] ?? session.profile?['firstName'] ?? ''} ${session.providerAccount?['lastName'] ?? session.account?['lastName'] ?? session.profile?['lastName'] ?? ''}'
             .trim();
     return Scaffold(
-      appBar: AppBar(title: const Text('Account')),
+      appBar: AppBar(title: const Text('Profile & Settings')),
       bottomNavigationBar: session.api.providerMode == 'driver'
           ? const DriverBottomNav(currentIndex: 4)
           : null,
@@ -451,6 +452,7 @@ class AccountScreen extends StatelessWidget {
               ],
             ),
           ),
+          const AccountDetailsCard(),
           if (session.api.providerMode == 'driver') ...[
             AssignedVehicleCard(
               vehicle: session.assignedVehicle,

@@ -12,6 +12,7 @@ import '../services/api_service.dart';
 import '../services/notification_service.dart';
 import '../models/onboarding_rules.dart';
 import '../models/provider_status.dart';
+import '../models/ride_customer_contact.dart';
 
 class DriverSession extends ChangeNotifier {
   final ApiService api;
@@ -22,6 +23,107 @@ class DriverSession extends ChangeNotifier {
           onboardingDraftStore ?? SecureOnboardingDraftStore();
   Map<String, dynamic>? profile;
   Map<String, dynamic>? currentTrip;
+  RideCustomerContact? customerContact;
+  bool customerContactLoading = false;
+  String? customerContactError;
+  int _contactGeneration = 0;
+  Future<void>? _contactRequest;
+  String? _contactRideId;
+
+  bool get canRequestCustomerContact =>
+      authenticated &&
+      !isPreview &&
+      api.hasDriverRole &&
+      currentTrip?['id'] is String &&
+      const [
+        'driver_assigned',
+        'driver_arriving',
+        'driver_arrived',
+        'in_progress',
+      ].contains(currentTrip?['status']);
+
+  void _invalidateCustomerContact() {
+    _contactGeneration++;
+    customerContact = null;
+    customerContactError = null;
+    customerContactLoading = false;
+    _contactRideId = null;
+    _contactRequest = null;
+  }
+
+  void hideCustomerContact() {
+    _invalidateCustomerContact();
+    _notify();
+  }
+
+  Future<void> refreshCustomerContact() {
+    if (!canRequestCustomerContact) {
+      _invalidateCustomerContact();
+      _notify();
+      return Future.value();
+    }
+    final id = currentTrip!['id'] as String;
+    if (_contactRideId == id && _contactRequest != null) {
+      return _contactRequest!;
+    }
+    _invalidateCustomerContact();
+    final generation = _contactGeneration;
+    final userId = api.userId;
+    _contactRideId = id;
+    customerContactLoading = true;
+    final request = _fetchCustomerContact(id, userId, generation);
+    _contactRequest = request;
+    _notify();
+    return request;
+  }
+
+  Future<void> _fetchCustomerContact(
+    String id,
+    String? userId,
+    int generation,
+  ) async {
+    try {
+      final data = await api.request(
+        'GET',
+        '/rides/driver/rides/${Uri.encodeComponent(id)}/customer-contact',
+      );
+      if (_disposed ||
+          generation != _contactGeneration ||
+          api.userId != userId ||
+          !canRequestCustomerContact ||
+          currentTrip?['id'] != id) {
+        return;
+      }
+      customerContact = RideCustomerContact.fromJson(data as Map, id);
+    } catch (_) {
+      if (_disposed || generation != _contactGeneration) return;
+      customerContact = null;
+      customerContactError =
+          'Customer contact could not be verified. Refresh or try again.';
+    } finally {
+      if (generation == _contactGeneration) {
+        customerContactLoading = false;
+        _contactRequest = null;
+        _notify();
+      }
+    }
+  }
+
+  Future<Uri?> customerContactUri(String scheme) async {
+    if (scheme != 'tel' && scheme != 'sms') return null;
+    final id = currentTrip?['id'];
+    // One fresh, coalesced ownership/state check before passing PII to the OS.
+    await refreshCustomerContact();
+    final contact = customerContact;
+    if (!canRequestCustomerContact ||
+        currentTrip?['id'] != id ||
+        contact?.rideId != id ||
+        contact?.phone == null) {
+      return null;
+    }
+    return Uri(scheme: scheme, path: contact!.phone);
+  }
+
   Map<String, dynamic>? assignedVehicle;
   Map<String, dynamic>? history;
   int historyLimit = 20;
@@ -29,6 +131,8 @@ class DriverSession extends ChangeNotifier {
   Position? position;
   String? challengeId;
   String? signupId;
+  String? verificationContact;
+  DateTime? verificationResendAt;
   bool isPreview = false;
   bool restoring = false;
   bool restorationNeedsRetry = false;
@@ -36,7 +140,7 @@ class DriverSession extends ChangeNotifier {
   void enablePreview() {
     if (!kReleaseMode) {
       isPreview = true;
-      api.accessToken = 'preview-debug-token';
+      // Preview has no access credential and cannot authorize backend requests.
       api.role = 'driver';
       api.userId = 'preview-driver-id';
       onboardingLoaded = true;
@@ -95,6 +199,7 @@ class DriverSession extends ChangeNotifier {
   String? refreshWarning;
   int _pollFailures = 0;
   Map<String, dynamic>? account;
+  Map<String, dynamic>? providerAccount;
   Map<String, dynamic>? assignmentPreview;
   List<Map<String, dynamic>> documents = [];
   List<Map<String, dynamic>> partnerDocuments = [];
@@ -138,9 +243,11 @@ class DriverSession extends ChangeNotifier {
   String? errorCode;
   String realtimeStatus = 'Disconnected';
   DateTime? lastLocationSent;
+  DateTime? _lastLocationSampleSent;
   bool busy = false;
   bool _disposed = false;
   bool _sendingLocation = false;
+  bool _rideEventRefreshPending = false;
   StreamSubscription<Position>? _positions;
   io.Socket? _socket;
   Timer? _poll;
@@ -328,6 +435,9 @@ class DriverSession extends ChangeNotifier {
         debugPrintStack(stackTrace: stack, maxFrames: 6);
       }
       errorCode = e is ApiException ? e.code : null;
+      if (!_accountVerified && api.accessToken != null) {
+        restorationNeedsRetry = true;
+      }
       error = e is ApiException
           ? e.message
           : 'Unable to complete the action. Please retry.';
@@ -336,6 +446,7 @@ class DriverSession extends ChangeNotifier {
     } finally {
       busy = false;
       _notify();
+      _drainRideEventRefresh();
     }
   }
 
@@ -349,24 +460,43 @@ class DriverSession extends ChangeNotifier {
     }
     challengeId = null;
     signupId = null;
+    verificationContact = null;
+    verificationResendAt = null;
     challengeId = await api.login(identifier, password, accountRole);
+    verificationContact = identifier;
+    verificationResendAt = DateTime.now().add(
+      Duration(seconds: api.otpResendAfterSeconds),
+    );
   });
 
   Future<bool> signup(Map<String, dynamic> input) => run(() async {
     final validation = OnboardingRules.validateSignup(input);
     if (validation != null) throw ApiException(validation);
     signupId = null;
+    verificationContact = null;
+    verificationResendAt = null;
     challengeId = null;
+    verificationContact = null;
     signupId = await api.signup(input);
+    verificationContact = (input['phone'] ?? input['email']) as String?;
+    verificationResendAt = DateTime.now().add(
+      Duration(seconds: api.otpResendAfterSeconds),
+    );
   });
 
   Future<bool> resend() => run(() async {
     if (signupId != null) {
       signupId = await api.resendSignup(signupId!);
+      verificationResendAt = DateTime.now().add(
+        Duration(seconds: api.otpResendAfterSeconds),
+      );
       return;
     }
     if (challengeId == null) throw const ApiException('Start login first.');
     challengeId = await api.resendLogin(challengeId!);
+    verificationResendAt = DateTime.now().add(
+      Duration(seconds: api.otpResendAfterSeconds),
+    );
   });
 
   Future<bool> verify(String otp) => run(() async {
@@ -419,6 +549,8 @@ class DriverSession extends ChangeNotifier {
     _accountVerified = true;
     challengeId = null;
     signupId = null;
+    verificationContact = null;
+    verificationResendAt = null;
     _poll?.cancel();
     _poll = Timer.periodic(const Duration(seconds: 20), (_) {
       final inputContext = FocusManager.instance.primaryFocus?.context;
@@ -447,6 +579,7 @@ class DriverSession extends ChangeNotifier {
       _notifications?.dispose();
       _notifications = DriverNotificationService(
         api: api,
+        onRideUpdate: (data) => handleRideEvent('ride:lifecycle_updated', data),
         onOpen: (route) {
           if (!authenticated) return;
           pendingNotificationRoute = route;
@@ -457,20 +590,48 @@ class DriverSession extends ChangeNotifier {
     }
   }
 
-  Future<bool> restore() async {
-    if (busy || restoring) return false;
+  Future<bool>? _restoration;
+
+  // All startup/resume/retry callers share one rotation and initialization.
+  Future<bool> restore() {
+    final pending = _restoration;
+    if (pending != null) return pending;
+    if (busy) return Future.value(false);
+    return _restoration = _restoreOnce();
+  }
+
+  Future<bool> _restoreOnce() async {
     restoring = true;
     restorationNeedsRetry = false;
     try {
       final ok = await run(() async {
-        if (await api.restoreSession()) await _establishSession({});
+        for (var attempt = 0; ; attempt++) {
+          try {
+            if (api.accessToken != null) {
+              await api.refreshSession();
+              await _establishSession({});
+            } else if (await api.restoreSession()) {
+              await _establishSession({});
+            }
+            break;
+          } on ApiException catch (e) {
+            final recoverable =
+                e.status == null ||
+                e.status == 408 ||
+                e.status == 429 ||
+                (e.status != null && e.status! >= 500);
+            if (!recoverable || attempt >= 1) rethrow;
+            // Retain credentials on transport/server failures. Bound retries;
+            // persistent outages return to sign-in with the retry banner.
+            await Future<void>.delayed(const Duration(milliseconds: 600));
+          }
+        }
       });
-      // A network/server failure is not evidence that a saved session expired.
-      // Keep it in secure storage and offer retry without displaying Google login.
       restorationNeedsRetry = !ok && api.accessToken != null;
       return ok;
     } finally {
       restoring = false;
+      _restoration = null;
       _notify();
     }
   }
@@ -548,6 +709,8 @@ class DriverSession extends ChangeNotifier {
     await _load();
   });
   Future<void> _load() async {
+    _invalidateCustomerContact();
+    _notify();
     if (api.roleFlowEnabled &&
         !api.isAdmin &&
         !isPreview &&
@@ -575,7 +738,7 @@ class DriverSession extends ChangeNotifier {
                   : null;
               if (api.accessToken != _socket?.auth['token']) _connect();
               _joinTrip();
-              if (_positions == null) await _startLocation();
+              if (_positions == null) await _resumeLocation();
             }
           }
         }
@@ -638,6 +801,7 @@ class DriverSession extends ChangeNotifier {
       rules[rule.code] = DocumentRule(
         rule.code,
         required:
+            // Identity consent/authorization is separate from document necessity.
             rule.code == 'driver_license' ||
             rule.required ||
             (previous?.required ?? false),
@@ -649,6 +813,7 @@ class DriverSession extends ChangeNotifier {
         minimumPages: rule.minimumPages > (previous?.minimumPages ?? 0)
             ? rule.minimumPages
             : previous!.minimumPages,
+        collectionAuthorized: rule.collectionAuthorized,
       );
     }
     final nextDocuments = nextProfile == null
@@ -759,18 +924,30 @@ class DriverSession extends ChangeNotifier {
         : Map<String, dynamic>.from(nextTrip as Map);
     history = Map<String, dynamic>.from(nextHistory as Map);
     rides = (nextRides as List)
-        .map((r) => Map<String, dynamic>.from(r as Map))
+        .map(
+          (r) => <String, dynamic>{
+            ...Map<String, dynamic>.from(r as Map),
+            '_receivedAt': DateTime.now().toIso8601String(),
+          },
+        )
         .toList();
+    await refreshCustomerContact();
     if (api.accessToken != _socket?.auth['token']) _connect();
     _joinTrip();
     if ((online || currentTrip != null) && _positions == null) {
-      await _startLocation();
+      await _resumeLocation();
     }
     if (!online && currentTrip == null && _positions != null) {
       await _positions?.cancel();
       _positions = null;
     }
   }
+
+  Future<bool> saveAccount(Map<String, dynamic> input) => run(() async {
+    providerAccount = Map<String, dynamic>.from(
+      await api.request('PATCH', '/provider/account', body: input) as Map,
+    );
+  });
 
   Future<bool> saveProfile(Map<String, dynamic> input) => run(() async {
     final validation = OnboardingRules.validateProfile(input);
@@ -948,6 +1125,20 @@ class DriverSession extends ChangeNotifier {
     );
   });
 
+  Future<void> _resumeLocation() async {
+    try {
+      await _startLocation();
+    } catch (e) {
+      // GPS is an operational capability, not proof that a restored login failed.
+      // Keep authorization failures authoritative and surface local/GPS failures
+      // on the authenticated trip screen with its existing retry control.
+      if (e is ApiException && (e.status == 401 || e.status == 403)) rethrow;
+      error = e is ApiException
+          ? e.message
+          : 'Location unavailable. Check GPS and permissions, then retry.';
+    }
+  }
+
   Future<void> _startLocation() async {
     await _permission();
     position = await Geolocator.getCurrentPosition(
@@ -962,7 +1153,7 @@ class DriverSession extends ChangeNotifier {
         Geolocator.getPositionStream(
           locationSettings: AndroidSettings(
             accuracy: LocationAccuracy.high,
-            distanceFilter: 5,
+            distanceFilter: 0,
             intervalDuration: const Duration(seconds: 5),
             foregroundNotificationConfig: const ForegroundNotificationConfig(
               notificationTitle: 'Infurnus driver location',
@@ -999,6 +1190,10 @@ class DriverSession extends ChangeNotifier {
   }
 
   Future<void> _sendLocation(Position p) async {
+    if (_lastLocationSampleSent != null &&
+        !p.timestamp.isAfter(_lastLocationSampleSent!)) {
+      return;
+    }
     final payload = {
       'latitude': p.latitude,
       'longitude': p.longitude,
@@ -1032,6 +1227,7 @@ class DriverSession extends ChangeNotifier {
     } else {
       await api.request('POST', '/rides/driver/location', body: payload);
     }
+    _lastLocationSampleSent = p.timestamp;
     lastLocationSent = DateTime.now();
   }
 
@@ -1089,7 +1285,12 @@ class DriverSession extends ChangeNotifier {
     final expiry = DateTime.tryParse(
       offer['dispatchExpiresAt']?.toString() ?? '',
     );
-    if (expiry != null && !expiry.isAfter(DateTime.now())) {
+    final received = DateTime.tryParse(offer['_receivedAt']?.toString() ?? '');
+    final serverTime = DateTime.tryParse(offer['serverTime']?.toString() ?? '');
+    final offerNow = received != null && serverTime != null
+        ? serverTime.add(DateTime.now().difference(received))
+        : DateTime.now();
+    if (expiry != null && !expiry.isAfter(offerNow)) {
       throw const ApiException('This offer has expired. Refresh the offers.');
     }
     await api.request('POST', '/rides/${Uri.encodeComponent(id)}/accept');
@@ -1163,6 +1364,44 @@ class DriverSession extends ChangeNotifier {
     }
   });
 
+  static const _rideEvents = {
+    'ride:incoming',
+    'ride:taken',
+    'ride:driver_assigned',
+    'ride:lifecycle_updated',
+    'ride:completed',
+    'ride:cancelled',
+    'ride:route_updated',
+  };
+
+  /// Socket and push messages are invalidation hints; the authenticated API
+  /// remains authoritative. Coalesce events arriving during another operation.
+  void handleRideEvent(String event, dynamic payload) {
+    if (_disposed ||
+        !authenticated ||
+        !_rideEvents.contains(event) ||
+        payload is! Map) {
+      return;
+    }
+    final ride = payload['ride'];
+    final id = payload['rideId'] ?? (ride is Map ? ride['id'] : null);
+    if (id is! String || id.isEmpty) return;
+    if (id == currentTrip?['id']) {
+      _invalidateCustomerContact();
+      _notify();
+    }
+    _rideEventRefreshPending = true;
+    _drainRideEventRefresh();
+  }
+
+  void _drainRideEventRefresh() {
+    if (!_rideEventRefreshPending || busy || _disposed || !authenticated) {
+      return;
+    }
+    _rideEventRefreshPending = false;
+    unawaited(refresh());
+  }
+
   void _connect() {
     _socket?.dispose();
     _socket = io.io(
@@ -1184,24 +1423,16 @@ class DriverSession extends ChangeNotifier {
     });
     _socket!.onDisconnect((_) {
       realtimeStatus = 'Disconnected';
+      _invalidateCustomerContact();
       _notify();
     });
     _socket!.onConnectError((_) {
       realtimeStatus = 'Connection failed';
+      _invalidateCustomerContact();
       _notify();
     });
-    for (final event in [
-      'ride:incoming',
-      'ride:taken',
-      'ride:driver_assigned',
-      'ride:lifecycle_updated',
-      'ride:completed',
-      'ride:cancelled',
-      'ride:route_updated',
-    ]) {
-      _socket!.on(event, (_) {
-        if (!busy && authenticated) unawaited(refresh());
-      });
+    for (final event in _rideEvents) {
+      _socket!.on(event, (payload) => handleRideEvent(event, payload));
     }
     _socket!.connect();
     _expiry?.cancel();
@@ -1227,6 +1458,7 @@ class DriverSession extends ChangeNotifier {
         currentTrip!['id'],
         ack: (dynamic response) {
           if (response is Map && response['success'] == false) {
+            _invalidateCustomerContact();
             error = 'The server denied access to the ride updates.';
             _notify();
           }
@@ -1258,9 +1490,11 @@ class DriverSession extends ChangeNotifier {
     }
   });
   void _clear({bool persist = true}) {
+    _invalidateCustomerContact();
     _notifications?.dispose();
     _notifications = null;
     pendingNotificationRoute = null;
+    _rideEventRefreshPending = false;
     _positions?.cancel();
     _positions = null;
     _poll?.cancel();
@@ -1276,6 +1510,7 @@ class DriverSession extends ChangeNotifier {
     _pollFailures = 0;
     refreshWarning = null;
     account = null;
+    providerAccount = null;
     assignmentPreview = null;
     documents = [];
     partnerDocuments = [];
@@ -1284,6 +1519,8 @@ class DriverSession extends ChangeNotifier {
     documentRules = [];
     documentPages.clear();
     signupId = null;
+    verificationContact = null;
+    verificationResendAt = null;
     profile = null;
     currentTrip = null;
     assignedVehicle = null;
@@ -1293,6 +1530,7 @@ class DriverSession extends ChangeNotifier {
     challengeId = null;
     position = null;
     lastLocationSent = null;
+    _lastLocationSampleSent = null;
     realtimeStatus = 'Disconnected';
     api.clearSession(persist: persist);
   }

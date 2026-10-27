@@ -23,6 +23,11 @@ class _RoleOnboardingScreenState extends State<RoleOnboardingScreen> {
   final _first = TextEditingController(), _last = TextEditingController();
   String? _error;
   bool _working = false;
+  String? _draftOwner;
+  bool get _validNames => [
+    _first.text.trim(),
+    _last.text.trim(),
+  ].every((name) => name.isNotEmpty && name.length <= 100);
   @override
   void dispose() {
     _email.dispose();
@@ -49,6 +54,11 @@ class _RoleOnboardingScreenState extends State<RoleOnboardingScreen> {
   @override
   Widget build(BuildContext context) {
     final s = context.watch<DriverSession>(), data = s.roleEnrolment;
+    if (_draftOwner != s.api.userId) {
+      _draftOwner = s.api.userId;
+      _first.text = s.account?['firstName']?.toString() ?? '';
+      _last.text = s.account?['lastName']?.toString() ?? '';
+    }
     if (data == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
@@ -108,12 +118,14 @@ class _RoleOnboardingScreenState extends State<RoleOnboardingScreen> {
           padding: const EdgeInsets.all(24),
           children: [
             Text(
-              'STEP ${steps.length - remaining.length + 1} OF ${steps.length + 1}',
+              'STEP ${step == 'finish' ? steps.length + 1 : steps.indexOf(step) + 1} OF ${steps.length + 1}',
               style: Theme.of(context).textTheme.labelLarge,
             ),
             const SizedBox(height: 12),
             LinearProgressIndicator(
-              value: (steps.length - remaining.length) / (steps.length + 1),
+              value:
+                  (step == 'finish' ? steps.length : steps.indexOf(step)) /
+                  (steps.length + 1),
             ),
             const SizedBox(height: 28),
             Text(
@@ -261,14 +273,24 @@ class _RoleOnboardingScreenState extends State<RoleOnboardingScreen> {
             ] else if (step == 'details') ...[
               TextField(
                 controller: _first,
-                decoration: const InputDecoration(labelText: 'First name'),
+                maxLength: 100,
+                onChanged: (_) => setState(() {}),
+                decoration: const InputDecoration(
+                  labelText: 'First name',
+                  helperText: 'Required when saving details',
+                ),
               ),
               TextField(
                 controller: _last,
-                decoration: const InputDecoration(labelText: 'Last name'),
+                maxLength: 100,
+                onChanged: (_) => setState(() {}),
+                decoration: const InputDecoration(
+                  labelText: 'Last name',
+                  helperText: 'Required when saving details',
+                ),
               ),
               FilledButton(
-                onPressed: busy
+                onPressed: busy || !_validNames
                     ? null
                     : () => _act(() async {
                         if (!await s.saveAccountNames(

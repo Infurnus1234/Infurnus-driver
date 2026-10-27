@@ -151,6 +151,7 @@ class ProviderAssets extends ChangeNotifier {
         rule.code,
         required: rule.required || (old?.required ?? false),
         requiresExpiry: rule.requiresExpiry || (old?.requiresExpiry ?? false),
+        collectionAuthorized: rule.collectionAuthorized,
         minimumPages: rule.minimumPages > (old?.minimumPages ?? 0)
             ? rule.minimumPages
             : old!.minimumPages,
@@ -158,8 +159,15 @@ class ProviderAssets extends ChangeNotifier {
     }
     merged['vehicle_front_photo'] = const DocumentRule(
       'vehicle_front_photo',
-      required: true,
+      required: false,
     );
+    for (final code in [
+      'vehicle_rear_photo',
+      'vehicle_left_photo',
+      'vehicle_right_photo',
+    ]) {
+      merged.putIfAbsent(code, () => DocumentRule(code));
+    }
     return merged.values.toList();
   }
 
@@ -306,6 +314,13 @@ class ProviderAssets extends ChangeNotifier {
 
   Future<bool> unassign(String id) => run(() async {
     await api.request('POST', '/fleet/vehicles/$id/unassign');
+    await load();
+  });
+  Future<bool> removeDraftDocument(String id) => run(() async {
+    await api.request(
+      'DELETE',
+      '/partners/${partner!['id']}/documents/${Uri.encodeComponent(id)}',
+    );
     await load();
   });
   Future<bool> operate(String id, String status) => run(() async {

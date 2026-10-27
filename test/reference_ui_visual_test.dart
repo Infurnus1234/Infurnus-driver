@@ -152,6 +152,14 @@ void main() {
               client: MockClient((r) async {
                 dynamic data;
                 switch (r.url.path) {
+                  case '/provider/account':
+                    data = {
+                      'firstName': 'Fixture',
+                      'lastName': 'Driver',
+                      'email': 'fixture@example.test',
+                      'phone': '+919876543210',
+                    };
+                    break;
                   case '/partners/me':
                     data = {
                       'id': 'partner',
@@ -206,6 +214,7 @@ void main() {
                         'approvalStatus': 'APPROVED',
                         'verificationStatus': 'approved',
                         'operationalStatus': 'ACTIVE',
+                        'isActive': true,
                       },
                       {
                         'id': 'vehicle2',
@@ -216,6 +225,7 @@ void main() {
                         'approvalStatus': 'APPROVED',
                         'verificationStatus': 'approved',
                         'operationalStatus': 'INACTIVE',
+                        'isActive': false,
                       },
                     ];
                   case '/fleet/drivers':
@@ -319,7 +329,16 @@ void main() {
                     data = {};
                 }
                 return http.Response(
-                  jsonEncode({'success': true, 'data': data}),
+                  jsonEncode({
+                    'success': true,
+                    'data': data,
+                    if (r.url.path == '/support/tickets')
+                      'pagination': {
+                        'page': 1,
+                        'pageSize': 25,
+                        'hasNext': false,
+                      },
+                  }),
                   200,
                 );
               }),
@@ -342,6 +361,9 @@ void main() {
         session.rides = [
           {
             'id': 'fixture-offer',
+            'serverTime': '2099-01-01T00:00:00Z',
+            'dispatchExpiresAt': '2099-01-01T01:00:00Z',
+            '_receivedAt': DateTime.now().toIso8601String(),
             'pickupAddress': 'Boring Road, Patna',
             'destinationAddress': 'Patna Junction',
             'vehicleCategory': 'SEDAN',

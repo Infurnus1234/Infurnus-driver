@@ -34,10 +34,12 @@ final appRouter = GoRouter(
   initialLocation: '/login',
   redirect: (context, state) {
     final session = context.read<DriverSession>(), path = state.uri.path;
-    if (session.restoring || session.restorationNeedsRetry) {
-      return path == '/session-restore' ? null : '/session-restore';
+    if (session.restoring) {
+      return path == '/login' ? null : '/login';
     }
-    if (path == '/session-restore') return session.landingPath;
+    if (session.restorationNeedsRetry) {
+      return path == '/login' ? null : '/login';
+    }
     if (session.authenticated && session.roleEnrolment != null) {
       final landing = session.landingPath;
       if (landing == '/driver/active-trip') {
@@ -172,49 +174,6 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/fleet/reports',
       builder: (_, _) => const FleetReportsScreen(),
-    ),
-    GoRoute(
-      path: '/session-restore',
-      builder: (context, _) {
-        final session = context.watch<DriverSession>();
-        return Scaffold(
-          body: SafeArea(
-            child: Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (session.restoring) const CircularProgressIndicator(),
-                    const SizedBox(height: 16),
-                    Text(
-                      session.restoring
-                          ? 'Restoring your session…'
-                          : (session.error ??
-                                'Could not restore your session. Check your connection and retry.'),
-                    ),
-                    if (!session.restoring) ...[
-                      const SizedBox(height: 16),
-                      ElevatedButton(
-                        onPressed: () => session.restore(),
-                        child: const Text('Retry'),
-                      ),
-                      TextButton(
-                        onPressed: session.busy
-                            ? null
-                            : () async {
-                                await session.logout();
-                              },
-                        child: const Text('Sign in again'),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-          ),
-        );
-      },
     ),
     GoRoute(
       path: '/onboarding/assets',

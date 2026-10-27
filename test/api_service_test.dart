@@ -13,6 +13,38 @@ http.Response success(dynamic data, {Map<String, String>? headers}) =>
     );
 
 void main() {
+  for (final operation in [
+    ('PATCH', '/rides/driver/availability'),
+    ('POST', '/rides/driver/location'),
+  ]) {
+    test('${operation.$2} accepts the production acknowledgement', () async {
+      final api = ApiService(
+        client: MockClient(
+          (request) async => http.Response(
+            jsonEncode({'success': true, 'message': 'Updated'}),
+            200,
+          ),
+        ),
+      );
+      expect(await api.request(operation.$1, operation.$2), isNull);
+      api.dispose();
+    });
+  }
+  test(
+    'acknowledgement exception does not accept missing profile data',
+    () async {
+      final api = ApiService(
+        client: MockClient(
+          (request) async => http.Response(jsonEncode({'success': true}), 200),
+        ),
+      );
+      await expectLater(
+        api.request('GET', '/rides/driver/profile'),
+        throwsA(isA<ApiException>()),
+      );
+      api.dispose();
+    },
+  );
   test(
     'driver applications preserve backend pagination outside data',
     () async {

@@ -24,10 +24,10 @@
 		<string>????</string>
 		<key>CFBundleVersion</key>
 		<string>$(FLUTTER_BUILD_NUMBER)</string>
-        <key>NSCameraUsageDescription</key>
-        <string>Take a profile photo or capture verification document pages when you choose Camera.</string>
-        <key>NSPhotoLibraryUsageDescription</key>
-        <string>Choose photos for your profile and verification documents.</string>
+		<key>NSCameraUsageDescription</key>
+		<string>Take a profile photo or capture verification document pages when you choose Camera.</string>
+		<key>NSPhotoLibraryUsageDescription</key>
+		<string>Choose photos for your profile and verification documents.</string>
 		<key>LSRequiresIPhoneOS</key>
 		<true/>
 		<key>UIApplicationSceneManifest</key>
