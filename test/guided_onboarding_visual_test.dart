@@ -16,6 +16,7 @@ import 'package:infurnus_driver/screens/auth/verification_status_screen.dart';
 import 'guided_onboarding_test.dart' show FixtureSession;
 
 void main() {
+  if (Platform.environment.containsKey('CI')) return;
   setUpAll(() async {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
@@ -94,6 +95,6 @@ void main() {
         find.byType(MaterialApp),
         matchesGoldenFile('../docs/onboarding-$stage-390.png'),
       );
-    }, skip: Platform.environment.containsKey('CI'));
+    });
   }
 }

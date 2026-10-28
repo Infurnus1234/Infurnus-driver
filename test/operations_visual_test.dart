@@ -17,6 +17,7 @@ import 'package:infurnus_driver/screens/common/operations_screens.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 void main() {
+  if (Platform.environment.containsKey('CI')) return;
   setUpAll(() async {
     GoogleFonts.config.allowRuntimeFetching = false;
     await loadGoldenFonts();
@@ -66,5 +67,5 @@ void main() {
     );
     await tester.pumpWidget(const SizedBox());
     session.dispose();
-  }, skip: Platform.environment.containsKey('CI'));
+  });
 }
