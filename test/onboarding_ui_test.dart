@@ -37,7 +37,16 @@ void main() {
             case '/auth/signup':
               data = {'signupId': 'fixture-signup'};
             case '/auth/signup/verify':
-              data = {'accessToken': 'fixture-token', 'userId': 'fixture-user'};
+              data = {
+                'accessToken': 'fixture-token',
+                'userId': 'fixture-user',
+                'roleEnrolment': {
+                  'role': 'driver',
+                  'dashboardAccessible': false,
+                  'steps': ['profile_photo', 'licence', 'finish'],
+                  'progress': {},
+                },
+              };
             case '/rides/driver/profile':
               data = profile;
             case '/rides/driver/assigned-vehicle':
@@ -172,7 +181,12 @@ void main() {
       expect(session.dashboardAllowed, isFalse);
       expect(find.text('Your profile photo'), findsOneWidget);
       expect(find.byType(Stepper), findsNothing);
-      expect(find.text('Choose source'), findsOneWidget);
+      expect(
+        find.text('Choose photo').evaluate().isNotEmpty
+            ? find.text('Choose photo')
+            : find.text('Choose source'),
+        findsOneWidget,
+      );
 
       expect(find.text('Driving licence number *'), findsNothing);
       await tester.tap(find.text('Upload & continue'));

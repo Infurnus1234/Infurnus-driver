@@ -313,11 +313,14 @@ class DriverSession extends ChangeNotifier {
       code != 'driver_license' &&
       (['vehicle', 'fleet'].contains(code) ||
           (code == 'profile_photo' &&
-              !documentRules.any((r) => r.code == code)) ||
+              (!documentRules.any((r) => r.code == code) ||
+                  documentRules
+                      .where((r) => r.code == code)
+                      .any((r) => r.onboardingDeferrable))) ||
           (documentRules.any((r) => r.code == code) &&
               documentRules
                   .where((r) => r.code == code)
-                  .every((r) => r.onboardingDeferrable)));
+                  .any((r) => r.onboardingDeferrable)));
   Future<bool> deferStep(String code) => run(() async {
     if (!canDefer(code)) {
       throw const ApiException('This required step cannot be skipped.');

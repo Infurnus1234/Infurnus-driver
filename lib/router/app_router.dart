@@ -64,11 +64,12 @@ final appRouter = GoRouter(
         return landing == '/role-onboarding' ? null : landing;
       }
     }
-    if ({'/profile-photo', '/document-upload'}.contains(path)) {
-      return session.authenticated ? session.landingPath : '/role-selection';
-    }
-    if (path == '/personal-details' && !session.authenticated) {
-      return '/role-selection';
+    if ({
+      '/personal-details',
+      '/profile-photo',
+      '/document-upload',
+    }.contains(path)) {
+      return session.authenticated ? null : '/role-selection';
     }
     if (session.api.isTestOnboarding && session.authenticated) {
       return path == '/onboarding' || path == '/verification-status'

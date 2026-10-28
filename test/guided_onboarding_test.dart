@@ -79,7 +79,11 @@ Widget host(DriverSession session, Widget screen, {double scale = 1}) =>
     );
 Future<void> pick(WidgetTester tester, String label) async {
   final source = label.toLowerCase().contains('gallery') ? 'Gallery' : 'Camera';
-  final trigger = find.text('Choose source').evaluate().isNotEmpty
+  final trigger = find.text('Replace photo').evaluate().isNotEmpty
+      ? 'Replace photo'
+      : find.text('Choose photo').evaluate().isNotEmpty
+      ? 'Choose photo'
+      : find.text('Choose source').evaluate().isNotEmpty
       ? 'Choose source'
       : 'Replace or add pages';
   await tester.ensureVisible(find.text(trigger));
@@ -122,6 +126,7 @@ void main() {
     'local selection and failure do not advance; retry saves then shows licence',
     (tester) async {
       final s = FixtureSession()..failUpload = true;
+      s.documents.clear();
       addTearDown(s.dispose);
       await tester.pumpWidget(
         host(s, DriverOnboardingScreen(picker: (_, _) async => [image])),
@@ -274,6 +279,11 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
+      await tester.scrollUntilVisible(
+        find.text('Upload & continue'),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
       expect(find.text('Upload & continue'), findsOneWidget);
     },
   );
