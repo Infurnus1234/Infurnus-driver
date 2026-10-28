@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+
 import '../core/theme.dart';
 import '../core/operations_theme.dart';
 import '../providers/driver_session.dart';
@@ -66,7 +67,9 @@ class SettingsTile extends StatelessWidget {
       onTap: onTap,
       padding: const EdgeInsets.all(InfurnusTheme.s16),
       border: Border.all(
-        color: isDestructive ? InfurnusTheme.dangerRed.withValues(alpha: 0.3) : InfurnusTheme.borderSubtle,
+        color: isDestructive
+            ? InfurnusTheme.dangerRed.withValues(alpha: 0.3)
+            : InfurnusTheme.borderSubtle,
       ),
       child: Row(
         children: [
@@ -81,7 +84,9 @@ class SettingsTile extends StatelessWidget {
             ),
             child: Icon(
               icon,
-              color: isDestructive ? InfurnusTheme.dangerRed : InfurnusTheme.textDark,
+              color: isDestructive
+                  ? InfurnusTheme.dangerRed
+                  : InfurnusTheme.textDark,
               size: 22,
             ),
           ),
@@ -95,7 +100,9 @@ class SettingsTile extends StatelessWidget {
                   style: InfurnusTheme.interStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
-                    color: isDestructive ? InfurnusTheme.dangerRed : InfurnusTheme.textDark,
+                    color: isDestructive
+                        ? InfurnusTheme.dangerRed
+                        : InfurnusTheme.textDark,
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -114,7 +121,9 @@ class SettingsTile extends StatelessWidget {
           trailing ??
               Icon(
                 Icons.chevron_right,
-                color: isDestructive ? InfurnusTheme.dangerRed : InfurnusTheme.textMuted,
+                color: isDestructive
+                    ? InfurnusTheme.dangerRed
+                    : InfurnusTheme.textMuted,
                 size: 20,
               ),
         ],
@@ -210,12 +219,18 @@ class ErrorCard extends StatelessWidget {
       padding: const EdgeInsets.all(InfurnusTheme.s16),
       decoration: BoxDecoration(
         color: InfurnusTheme.dangerRed.withValues(alpha: 0.05),
-        border: Border.all(color: InfurnusTheme.dangerRed.withValues(alpha: 0.2)),
+        border: Border.all(
+          color: InfurnusTheme.dangerRed.withValues(alpha: 0.2),
+        ),
         borderRadius: BorderRadius.circular(InfurnusTheme.r16),
       ),
       child: Row(
         children: [
-          const Icon(Icons.error_outline, color: InfurnusTheme.dangerRed, size: 24),
+          const Icon(
+            Icons.error_outline,
+            color: InfurnusTheme.dangerRed,
+            size: 24,
+          ),
           const SizedBox(width: InfurnusTheme.s12),
           Expanded(
             child: Text(
@@ -230,7 +245,9 @@ class ErrorCard extends StatelessWidget {
           const SizedBox(width: InfurnusTheme.s8),
           TextButton(
             onPressed: onRetry,
-            style: TextButton.styleFrom(foregroundColor: InfurnusTheme.primaryGreen),
+            style: TextButton.styleFrom(
+              foregroundColor: InfurnusTheme.primaryGreen,
+            ),
             child: Text(
               'Retry',
               style: InfurnusTheme.interStyle(fontWeight: FontWeight.bold),

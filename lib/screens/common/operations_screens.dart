@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+
 import '../../widgets/account_details_card.dart';
+
 import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -434,21 +436,36 @@ class PersonalInformationScreen extends StatelessWidget {
 class AccountScreen extends StatelessWidget {
   const AccountScreen({super.key});
 
-  Future<void> _confirmLogout(BuildContext context, DriverSession session) async {
+  Future<void> _confirmLogout(
+    BuildContext context,
+    DriverSession session,
+  ) async {
     final shouldLogout = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(InfurnusTheme.r16)),
-        title: const Text('Log out', style: TextStyle(fontWeight: FontWeight.bold)),
-        content: const Text('Are you sure you want to log out of your account?'),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(InfurnusTheme.r16),
+        ),
+        title: const Text(
+          'Log out',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        content: const Text(
+          'Are you sure you want to log out of your account?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: Text('Cancel', style: TextStyle(color: InfurnusTheme.textMuted)),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: InfurnusTheme.textMuted),
+            ),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(dialogContext, true),
-            style: ElevatedButton.styleFrom(backgroundColor: InfurnusTheme.dangerRed),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: InfurnusTheme.dangerRed,
+            ),
             child: const Text('Log out'),
           ),
         ],
@@ -468,13 +485,18 @@ class AccountScreen extends StatelessWidget {
         '${session.providerAccount?['firstName'] ?? session.account?['firstName'] ?? session.profile?['firstName'] ?? ''} ${session.providerAccount?['lastName'] ?? session.account?['lastName'] ?? session.profile?['lastName'] ?? ''}'
             .trim();
     final displayName = name.isEmpty ? 'Driver Account' : name;
-    final verificationStatus = (session.profile?['verificationStatus'] ?? session.providerAccount?['verificationStatus'] ?? 'Pending').toString().replaceAll('_', ' ');
+    final verificationStatus =
+        (session.profile?['verificationStatus'] ??
+                session.providerAccount?['verificationStatus'] ??
+                'Pending')
+            .toString()
+            .replaceAll('_', ' ');
     final upperStatus = verificationStatus.toUpperCase();
     final statusColor = (upperStatus == 'VERIFIED' || upperStatus == 'APPROVED')
         ? InfurnusTheme.primaryGreen
         : (upperStatus == 'REJECTED')
-            ? InfurnusTheme.dangerRed
-            : InfurnusTheme.warningAmber;
+        ? InfurnusTheme.dangerRed
+        : InfurnusTheme.warningAmber;
 
     return Scaffold(
       backgroundColor: InfurnusTheme.bgWhite,

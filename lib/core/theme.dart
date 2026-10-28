@@ -105,10 +105,7 @@ class InfurnusTheme {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(r16),
           ),
-          textStyle: interStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-          ),
+          textStyle: interStyle(fontSize: 16, fontWeight: FontWeight.w700),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
@@ -119,10 +116,7 @@ class InfurnusTheme {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(r16),
           ),
-          textStyle: interStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-          ),
+          textStyle: interStyle(fontSize: 16, fontWeight: FontWeight.w700),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
@@ -148,7 +142,11 @@ class InfurnusTheme {
         hintStyle: interStyle(color: textMuted),
       ),
       textTheme: TextTheme(
-        displayLarge: interStyle(color: textDark, fontSize: 30, fontWeight: FontWeight.w700),
+        displayLarge: interStyle(
+          color: textDark,
+          fontSize: 30,
+          fontWeight: FontWeight.w700,
+        ),
         headlineMedium: interStyle(
           color: textDark,
           fontSize: 24,
