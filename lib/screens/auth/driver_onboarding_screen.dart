@@ -289,9 +289,11 @@ class _DriverOnboardingScreenState extends State<DriverOnboardingScreen> {
       final resume = OnboardingJourney.resume(tasks, s);
       final requestedId =
           ['setup', 'driver_license'].contains(widget.initialTask)
-          ? 'licence'
-          : widget.initialTask;
-      final requested = tasks.indexWhere((t) => t.id == requestedId);
+              ? 'licence'
+              : widget.initialTask;
+      final requested = tasks.indexWhere(
+        (t) => t.id == requestedId || t.rule?.code == requestedId,
+      );
       _current = tasks[requested >= 0 ? requested : resume].id;
       final savedDraft = _drafts['licence'];
       if (savedDraft != null) {
@@ -300,7 +302,7 @@ class _DriverOnboardingScreenState extends State<DriverOnboardingScreen> {
       }
       _initialized = true;
     }
-    var index = tasks.indexWhere((t) => t.id == _current);
+    var index = tasks.indexWhere((t) => t.id == _current || t.rule?.code == _current);
     if (index < 0) index = OnboardingJourney.resume(tasks, s);
     final task = tasks[index], blocked = _saving || s.busy || _choosing;
     final doc = task.rule == null

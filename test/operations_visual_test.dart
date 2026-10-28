@@ -13,8 +13,11 @@ import 'package:infurnus_driver/core/operations_theme.dart';
 import 'package:infurnus_driver/providers/driver_session.dart';
 import 'package:infurnus_driver/screens/common/operations_screens.dart';
 
+import 'package:google_fonts/google_fonts.dart';
+
 void main() {
   setUpAll(() async {
+    GoogleFonts.config.allowRuntimeFetching = false;
     await loadGoldenFonts();
   });
   testWidgets('account supports narrow device and large accessibility text', (

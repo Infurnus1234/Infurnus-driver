@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../providers/driver_session.dart';
 import '../../widgets/google_sign_in_button.dart';
@@ -205,7 +204,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       Center(
                         child: Text(
                           'Log in or sign up',
-                          style: GoogleFonts.inter(
+                          style: InfurnusTheme.interStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
                             color: InfurnusTheme.textDark,
@@ -246,7 +245,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                     const SizedBox(width: 6),
                                     Text(
                                       '+91',
-                                      style: GoogleFonts.inter(
+                                      style: InfurnusTheme.interStyle(
                                         fontSize: 15,
                                         fontWeight: FontWeight.w600,
                                         color: InfurnusTheme.textDark,
@@ -269,7 +268,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   autofillHints: const [
                                     AutofillHints.telephoneNumber,
                                   ],
-                                  style: GoogleFonts.inter(
+                                  style: InfurnusTheme.interStyle(
                                     fontSize: 15,
                                     fontWeight: FontWeight.w500,
                                   ),
@@ -341,7 +340,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           Expanded(
                             child: Text(
                               'Remember my login for faster sign-in',
-                              style: GoogleFonts.inter(
+                              style: InfurnusTheme.interStyle(
                                 fontSize: 12,
                                 color: InfurnusTheme.textDark,
                               ),
@@ -356,7 +355,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   }),
                             child: Text(
                               _useEmail ? 'Use Phone' : 'Use Email',
-                              style: GoogleFonts.inter(
+                              style: InfurnusTheme.interStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.bold,
                                 color: InfurnusTheme.primaryGreen,
@@ -391,7 +390,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               Expanded(
                                 child: Text(
                                   _clientValidationMessage ?? session.error!,
-                                  style: GoogleFonts.inter(
+                                  style: InfurnusTheme.interStyle(
                                     color: InfurnusTheme.dangerRed,
                                     fontSize: 13,
                                   ),
@@ -431,7 +430,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 children: [
                                   Text(
                                     'Continue',
-                                    style: GoogleFonts.inter(
+                                    style: InfurnusTheme.interStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.bold,
                                     ),
@@ -482,7 +481,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             : () => context.go('/role-selection'),
                         child: Text(
                           'Create an account with email or phone',
-                          style: GoogleFonts.inter(
+                          style: InfurnusTheme.interStyle(
                             fontWeight: FontWeight.bold,
                             color: InfurnusTheme.textDark,
                             fontSize: 13,
@@ -496,7 +495,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       Text(
                         'By continuing, you agree to our Terms of Service, Privacy Policy & Content Policy',
                         textAlign: TextAlign.center,
-                        style: GoogleFonts.inter(
+                        style: InfurnusTheme.interStyle(
                           fontSize: 10.5,
                           color: InfurnusTheme.textMuted,
                           height: 1.4,

@@ -1,13 +1,11 @@
-import '../../widgets/account_details_card.dart';
-import '../../widgets/assigned_vehicle_card.dart';
-import '../driver/fleet_invitations_screen.dart';
-
 import 'package:flutter/material.dart';
+import '../../widgets/account_details_card.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/operations_theme.dart';
+import '../../core/theme.dart';
 import '../../providers/driver_session.dart';
 import '../../widgets/driver_bottom_nav.dart';
 import '../../widgets/operations.dart';
@@ -412,171 +410,192 @@ class TripsScreen extends StatelessWidget {
   }
 }
 
+class PersonalInformationScreen extends StatelessWidget {
+  const PersonalInformationScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: InfurnusTheme.bgWhite,
+      appBar: AppBar(
+        title: const Text('Personal information'),
+        elevation: 0,
+        backgroundColor: InfurnusTheme.bgWhite,
+        foregroundColor: InfurnusTheme.textDark,
+      ),
+      body: const SingleChildScrollView(
+        padding: EdgeInsets.all(16),
+        child: AccountDetailsCard(),
+      ),
+    );
+  }
+}
+
 class AccountScreen extends StatelessWidget {
   const AccountScreen({super.key});
+
+  Future<void> _confirmLogout(BuildContext context, DriverSession session) async {
+    final shouldLogout = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(InfurnusTheme.r16)),
+        title: const Text('Log out', style: TextStyle(fontWeight: FontWeight.bold)),
+        content: const Text('Are you sure you want to log out of your account?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text('Cancel', style: TextStyle(color: InfurnusTheme.textMuted)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: ElevatedButton.styleFrom(backgroundColor: InfurnusTheme.dangerRed),
+            child: const Text('Log out'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldLogout == true && context.mounted) {
+      await session.logout();
+      if (context.mounted) context.go('/login');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final session = context.watch<DriverSession>();
     final name =
         '${session.providerAccount?['firstName'] ?? session.account?['firstName'] ?? session.profile?['firstName'] ?? ''} ${session.providerAccount?['lastName'] ?? session.account?['lastName'] ?? session.profile?['lastName'] ?? ''}'
             .trim();
+    final displayName = name.isEmpty ? 'Driver Account' : name;
+    final verificationStatus = (session.profile?['verificationStatus'] ?? session.providerAccount?['verificationStatus'] ?? 'Pending').toString().replaceAll('_', ' ');
+    final upperStatus = verificationStatus.toUpperCase();
+    final statusColor = (upperStatus == 'VERIFIED' || upperStatus == 'APPROVED')
+        ? InfurnusTheme.primaryGreen
+        : (upperStatus == 'REJECTED')
+            ? InfurnusTheme.dangerRed
+            : InfurnusTheme.warningAmber;
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Profile & Settings')),
+      backgroundColor: InfurnusTheme.bgWhite,
+      appBar: AppBar(
+        title: const Text('Profile & Settings'),
+        elevation: 0,
+        backgroundColor: InfurnusTheme.bgWhite,
+        foregroundColor: InfurnusTheme.textDark,
+      ),
       bottomNavigationBar: session.api.providerMode == 'driver'
           ? const DriverBottomNav(currentIndex: 4)
           : null,
       body: ListView(
-        padding: const EdgeInsets.all(Ops.padding),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
         children: [
-          OpsPanel(
-            title: name.isEmpty ? 'Your account' : name,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          // Profile Header Card
+          AppCard(
+            onTap: () => context.push('/personal-details'),
+            child: Row(
               children: [
-                Text(
-                  session.api.role == 'driver_fleet_owner'
-                      ? 'Driver + Fleet Owner'
-                      : session.api.hasFleetRole
-                      ? 'Fleet Owner'
-                      : 'Driver',
-                ),
-                Text(
-                  session.api.providerMode == 'driver'
-                      ? 'Driver Mode'
-                      : 'Fleet Owner Mode',
-                ),
-                if (session.profile != null)
-                  Text(
-                    'Verification: ${(session.profile!['verificationStatus'] ?? 'Unknown').toString().replaceAll('_', ' ')}',
+                CircleAvatar(
+                  radius: 28,
+                  backgroundColor: InfurnusTheme.iconBoxBg,
+                  child: Text(
+                    displayName.isNotEmpty ? displayName[0].toUpperCase() : 'D',
+                    style: const TextStyle(
+                      color: InfurnusTheme.textDark,
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        displayName,
+                        style: const TextStyle(
+                          color: InfurnusTheme.textDark,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Status: $verificationStatus',
+                        style: TextStyle(
+                          color: statusColor,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(
+                  Icons.chevron_right,
+                  color: InfurnusTheme.textMuted,
+                  size: 20,
+                ),
               ],
             ),
           ),
-          const AccountDetailsCard(),
-          if (session.api.providerMode == 'driver') ...[
-            AssignedVehicleCard(
-              vehicle: session.assignedVehicle,
-              loading: session.busy,
-              retry: session.refresh,
+          const SizedBox(height: 24),
+          const Text(
+            'Preferences & Support',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: InfurnusTheme.textDark,
             ),
-            ListTile(
-              leading: const Icon(Icons.group_add_outlined),
-              title: const Text('Fleet invitations'),
-              subtitle: const Text(
-                'Review invitations before allowing a Fleet to manage your profile',
-              ),
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => const FleetInvitationsScreen(),
-                ),
-              ),
-            ),
-          ],
-          if (session.error != null)
-            OpsError(session.error!, retry: session.refresh),
-          if (session.api.hasDriverRole && session.api.hasFleetRole)
-            ListTile(
-              tileColor: Ops.surfacePrimary,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(Ops.radius),
-              ),
-              leading: const Icon(Icons.swap_horiz),
-              title: const Text('Switch Mode'),
-              subtitle: Text(
-                session.api.providerMode == 'driver'
-                    ? 'Driver Mode'
-                    : 'Fleet Owner Mode',
-              ),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: session.busy ? null : () => showModeSwitcher(context),
-            ),
-          if (session.roleEnrolment != null && session.api.hasDriverRole)
-            _link(
-              context,
-              Icons.person_outline,
-              'Profile photo',
-              '/profile/photo',
-            ),
-          if (session.roleEnrolment != null &&
-              session.api.role == 'driver_fleet_owner')
-            _link(
-              context,
-              Icons.badge_outlined,
-              'Optional Driver licence details',
-              '/profile/driver-details',
-            ),
-          _link(
-            context,
-            Icons.local_shipping_outlined,
-            'Vehicles & documents',
-            '/provider-assets',
           ),
-          if (session.api.providerMode == 'driver')
-            _link(
-              context,
-              Icons.fact_check_outlined,
-              'Driver onboarding & verification',
-              '/verification-status',
-            ),
-          _link(
-            context,
-            Icons.notifications_outlined,
-            'Notifications',
-            '/notifications',
+          const SizedBox(height: 12),
+          SettingsTile(
+            icon: Icons.document_scanner_outlined,
+            title: 'Application summary & documents',
+            subtitle: 'View verification status and upload documents',
+            onTap: () => context.push('/verification-status'),
           ),
-          _link(
-            context,
-            Icons.tune,
-            'Notification preferences',
-            '/settings/notifications',
+          const SizedBox(height: 12),
+          SettingsTile(
+            icon: Icons.notifications_outlined,
+            title: 'Notifications',
+            subtitle: 'View your alerts and updates',
+            onTap: () => context.push('/notifications'),
           ),
-          _link(
-            context,
-            Icons.health_and_safety_outlined,
-            'Safety & device settings',
-            '/safety',
+          const SizedBox(height: 12),
+          SettingsTile(
+            icon: Icons.tune_outlined,
+            title: 'Notification preferences',
+            subtitle: 'Choose what you want to be notified about',
+            onTap: () => context.push('/settings/notifications'),
           ),
-          _link(
-            context,
-            Icons.support_agent,
-            'Help & support',
-            '/support-tickets',
+          const SizedBox(height: 12),
+          SettingsTile(
+            icon: Icons.security_outlined,
+            title: 'Safety & device settings',
+            subtitle: 'Permissions, SOS and device options',
+            onTap: () => context.push('/safety'),
           ),
-          ListTile(
-            leading: const Icon(Icons.logout, color: Ops.error),
-            title: const Text('Log out'),
-            onTap: session.busy
-                ? null
-                : () async {
-                    if (!await confirmOperation(
-                      context,
-                      'Log out?',
-                      'Your current session will end.',
-                    )) {
-                      return;
-                    }
-                    await session.logout();
-                    if (context.mounted) context.go('/login');
-                  },
+          const SizedBox(height: 12),
+          SettingsTile(
+            icon: Icons.help_outline,
+            title: 'Help center',
+            subtitle: 'Get support and FAQs',
+            onTap: () => context.push('/support-tickets'),
+          ),
+          const SizedBox(height: 32),
+          SettingsTile(
+            icon: Icons.logout,
+            title: 'Log out',
+            subtitle: 'Sign out from this device',
+            isDestructive: true,
+            onTap: () => _confirmLogout(context, session),
           ),
         ],
       ),
     );
   }
-
-  Widget _link(
-    BuildContext context,
-    IconData icon,
-    String title,
-    String path,
-  ) => Card(
-    child: ListTile(
-      leading: Icon(icon),
-      title: Text(title),
-      trailing: const Icon(Icons.chevron_right),
-      onTap: () => context.push(path),
-    ),
-  );
 }
 
 class SafetySettingsScreen extends StatelessWidget {

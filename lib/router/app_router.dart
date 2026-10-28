@@ -65,11 +65,13 @@ final appRouter = GoRouter(
       }
     }
     if ({
-      '/personal-details',
       '/profile-photo',
       '/document-upload',
     }.contains(path)) {
       return session.authenticated ? session.landingPath : '/role-selection';
+    }
+    if (path == '/personal-details' && !session.authenticated) {
+      return '/role-selection';
     }
     if (session.api.isTestOnboarding && session.authenticated) {
       return path == '/onboarding' || path == '/verification-status'
@@ -110,6 +112,7 @@ final appRouter = GoRouter(
     }
     if (session.api.isAdmin) return '/admin/dashboard';
     if ({
+      '/personal-details',
       '/support-tickets',
       '/safety',
       '/notifications',
@@ -208,7 +211,7 @@ final appRouter = GoRouter(
       path: '/role-selection',
       builder: (_, _) => const RoleSelectionScreen(),
     ),
-    GoRoute(path: '/personal-details', redirect: (_, _) => '/role-selection'),
+    GoRoute(path: '/personal-details', builder: (_, _) => const PersonalInformationScreen()),
     GoRoute(path: '/profile-photo', redirect: (_, _) => '/role-selection'),
     GoRoute(path: '/document-upload', redirect: (_, _) => '/role-selection'),
     GoRoute(
