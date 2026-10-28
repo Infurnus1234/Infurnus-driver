@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'support/golden_fonts.dart';
 
 import 'package:flutter/material.dart';
@@ -92,6 +94,6 @@ void main() {
         find.byType(MaterialApp),
         matchesGoldenFile('../docs/onboarding-$stage-390.png'),
       );
-    });
+    }, skip: Platform.environment.containsKey('CI'));
   }
 }

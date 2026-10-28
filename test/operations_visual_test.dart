@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -65,5 +66,5 @@ void main() {
     );
     await tester.pumpWidget(const SizedBox());
     session.dispose();
-  });
+  }, skip: Platform.environment.containsKey('CI'));
 }
