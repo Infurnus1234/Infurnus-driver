@@ -16,7 +16,6 @@ import 'package:infurnus_driver/screens/auth/verification_status_screen.dart';
 import 'guided_onboarding_test.dart' show FixtureSession;
 
 void main() {
-  if (Platform.environment.containsKey('CI')) return;
   setUpAll(() async {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
@@ -35,6 +34,7 @@ void main() {
     'pending-dashboard',
   ]) {
     testWidgets('guided onboarding visual $stage', (tester) async {
+      if (Platform.environment.containsKey('CI')) return;
       tester.view.physicalSize = const Size(390, 844);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetPhysicalSize);

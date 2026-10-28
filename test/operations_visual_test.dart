@@ -17,7 +17,6 @@ import 'package:infurnus_driver/screens/common/operations_screens.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 void main() {
-  if (Platform.environment.containsKey('CI')) return;
   setUpAll(() async {
     GoogleFonts.config.allowRuntimeFetching = false;
     await loadGoldenFonts();
@@ -25,6 +24,7 @@ void main() {
   testWidgets('account supports narrow device and large accessibility text', (
     tester,
   ) async {
+    if (Platform.environment.containsKey('CI')) return;
     tester.view.physicalSize = const Size(320, 700);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
