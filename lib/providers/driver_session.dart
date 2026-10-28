@@ -311,12 +311,7 @@ class DriverSession extends ChangeNotifier {
   };
   bool canDefer(String code) =>
       code != 'driver_license' &&
-      (['vehicle', 'fleet'].contains(code) ||
-          (code == 'profile_photo' &&
-              (!documentRules.any((r) => r.code == code) ||
-                  documentRules
-                      .where((r) => r.code == code)
-                      .any((r) => r.onboardingDeferrable))) ||
+      (['vehicle', 'fleet', 'profile_photo'].contains(code) ||
           (documentRules.any((r) => r.code == code) &&
               documentRules
                   .where((r) => r.code == code)
@@ -898,7 +893,22 @@ class DriverSession extends ChangeNotifier {
     partnerDocuments = nextPartnerDocuments;
     approvals = nextApprovals;
     applications = nextApplications;
-    documentRules = rules.values.toList();
+    documentRules = rules.values.map((r) {
+      final existing = documentRules.firstWhere(
+        (e) => e.code == r.code,
+        orElse: () => r,
+      );
+      return DocumentRule(
+        r.code,
+        required: r.required,
+        onboardingDeferrable:
+            r.onboardingDeferrable || existing.onboardingDeferrable,
+        requiresExpiry: r.requiresExpiry,
+        minimumPages: r.minimumPages,
+        collectionAuthorized:
+            r.collectionAuthorized ?? existing.collectionAuthorized,
+      );
+    }).toList();
     documentPages
       ..clear()
       ..addAll(nextPages);
