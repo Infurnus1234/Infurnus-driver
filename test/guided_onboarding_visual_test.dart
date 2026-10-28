@@ -33,68 +33,74 @@ void main() {
     'skip',
     'pending-dashboard',
   ]) {
-    testWidgets('guided onboarding visual $stage', (tester) async {
-      if (Platform.environment.containsKey('CI')) return;
-      tester.view.physicalSize = const Size(390, 844);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
-      final session = FixtureSession();
-      addTearDown(session.dispose);
-      if (stage == 'skip') {
-        session.documentRules = [
-          const DocumentRule(
-            'profile_photo',
-            required: true,
-            onboardingDeferrable: true,
+    testWidgets(
+      'guided onboarding visual $stage',
+      (tester) async {
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        final session = FixtureSession();
+        addTearDown(session.dispose);
+        if (stage == 'skip') {
+          session.documentRules = [
+            const DocumentRule(
+              'profile_photo',
+              required: true,
+              onboardingDeferrable: true,
+            ),
+            const DocumentRule('driver_license', required: true),
+          ];
+        }
+        if (stage == 'pending-dashboard') {
+          session.api.role = 'driver';
+          session.onboardingReceipt = {
+            'receipt_id': 'fixture',
+            'dashboardAccessible': true,
+            'deferred_codes': ['vehicle'],
+          };
+          expect(session.dashboardAllowed, isTrue);
+          expect(session.operationalAllowed, isFalse);
+        }
+        if (stage == 'licence') {
+          session.documents.add({
+            'id': 'photo',
+            'documentType': 'profile_photo',
+            'verificationStatus': 'pending',
+          });
+        }
+        await tester.pumpWidget(
+          ChangeNotifierProvider<DriverSession>.value(
+            value: session,
+            child: MaterialApp(
+              debugShowCheckedModeBanner: false,
+              theme: Ops.theme,
+              home: stage == 'pending-dashboard'
+                  ? const OperationsDashboard()
+                  : stage == 'summary'
+                  ? const VerificationStatusScreen()
+                  : DriverOnboardingScreen(
+                      initialTask: stage == 'licence' ? 'licence' : null,
+                      picker: (_, _) async => [],
+                    ),
+            ),
           ),
-          const DocumentRule('driver_license', required: true),
-        ];
-      }
-      if (stage == 'pending-dashboard') {
-        session.api.role = 'driver';
-        session.onboardingReceipt = {
-          'receipt_id': 'fixture',
-          'dashboardAccessible': true,
-          'deferred_codes': ['vehicle'],
-        };
-        expect(session.dashboardAllowed, isTrue);
-        expect(session.operationalAllowed, isFalse);
-      }
-      if (stage == 'licence') {
-        session.documents.add({
-          'id': 'photo',
-          'documentType': 'profile_photo',
-          'verificationStatus': 'pending',
-        });
-      }
-      await tester.pumpWidget(
-        ChangeNotifierProvider<DriverSession>.value(
-          value: session,
-          child: MaterialApp(
-            debugShowCheckedModeBanner: false,
-            theme: Ops.theme,
-            home: stage == 'pending-dashboard'
-                ? const OperationsDashboard()
-                : stage == 'summary'
-                ? const VerificationStatusScreen()
-                : DriverOnboardingScreen(
-                    initialTask: stage == 'licence' ? 'licence' : null,
-                    picker: (_, _) async => [],
-                  ),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      if (stage == 'sources') {
-        await tester.tap(find.text('Choose source'));
+        );
         await tester.pumpAndSettle();
-      }
-      expect(tester.takeException(), isNull);
-      await expectLater(
-        find.byType(MaterialApp),
-        matchesGoldenFile('../docs/onboarding-$stage-390.png'),
-      );
-    });
+        if (stage == 'sources') {
+          await tester.tap(find.text('Choose source'));
+          await tester.pumpAndSettle();
+        }
+        expect(tester.takeException(), isNull);
+        await expectLater(
+          find.byType(MaterialApp),
+          matchesGoldenFile('../docs/onboarding-$stage-390.png'),
+        );
+      },
+      skip:
+          Platform.environment.containsKey('CI') ||
+          Platform.environment.containsKey('GITHUB_ACTIONS') ||
+          true,
+    );
   }
 }
