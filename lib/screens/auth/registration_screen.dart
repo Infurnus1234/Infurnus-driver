@@ -10,7 +10,14 @@ import 'role_selection_screen.dart';
 
 class RegistrationScreen extends StatefulWidget {
   final String? initialRole;
-  const RegistrationScreen({super.key, this.initialRole});
+
+  /// When 'email_phone', hides the Google signup option and opens the
+  /// email/phone form directly. Null or any other value shows Google so the
+  /// user can switch to it (e.g. when entering /register directly).
+  final String? signupVia;
+
+  const RegistrationScreen({super.key, this.initialRole, this.signupVia});
+
   @override
   State<RegistrationScreen> createState() => _RegistrationScreenState();
 }
@@ -31,6 +38,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       key: TextEditingController(),
   };
   String _role = 'driver';
+
   @override
   void initState() {
     super.initState();
@@ -41,12 +49,22 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     ].contains(widget.initialRole)) {
       _role = widget.initialRole!;
     }
+    // When arriving via email/phone signup, open the form directly without
+    // requiring the user to tap the toggle button.
+    if (widget.signupVia == 'email_phone') {
+      _passwordMethod = true;
+    }
   }
 
   final _countryCode = TextEditingController(text: '+91');
   String? _validationError;
   bool _details = false;
   bool _passwordMethod = false;
+
+  /// True when the Google option should be rendered. Hidden when the user
+  /// explicitly chose "Sign up with email or phone" from the login screen.
+  bool get _showGoogle => widget.signupVia != 'email_phone';
+
   @override
   void dispose() {
     _countryCode.dispose();
@@ -89,37 +107,39 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 : (value) => setState(() => _role = value),
           ),
           const SizedBox(height: 16),
-          GoogleSignInButton(
-            signUp: true,
-            enabled: !session.busy,
-            onIdToken: (token) async {
-              await session.authenticateGoogle(
-                token,
-                signup: true,
-                providerRole: _role,
-              );
-              if (context.mounted && session.authenticated) {
-                context.go(session.landingPath);
-              }
-            },
-          ),
-          const Text(
-            'Google signup authenticates your selected provider role. Complete its onboarding next. Google identity does not approve your licence, KYC or vehicle.',
-          ),
-          const Text(
-            'Google takes you directly to onboarding without an OTP code.',
-          ),
-          const Divider(),
-          TextButton(
-            onPressed: session.busy
-                ? null
-                : () => setState(() => _passwordMethod = !_passwordMethod),
-            child: Text(
-              _passwordMethod
-                  ? 'Hide email/phone signup'
-                  : 'Use email/phone signup (OTP)',
+          if (_showGoogle) ...[
+            GoogleSignInButton(
+              signUp: true,
+              enabled: !session.busy,
+              onIdToken: (token) async {
+                await session.authenticateGoogle(
+                  token,
+                  signup: true,
+                  providerRole: _role,
+                );
+                if (context.mounted && session.authenticated) {
+                  context.go(session.landingPath);
+                }
+              },
             ),
-          ),
+            const Text(
+              'Google signup authenticates your selected provider role. Complete its onboarding next. Google identity does not approve your licence, KYC or vehicle.',
+            ),
+            const Text(
+              'Google takes you directly to onboarding without an OTP code.',
+            ),
+            const Divider(),
+            TextButton(
+              onPressed: session.busy
+                  ? null
+                  : () => setState(() => _passwordMethod = !_passwordMethod),
+              child: Text(
+                _passwordMethod
+                    ? 'Hide email/phone signup'
+                    : 'Use email/phone signup (OTP)',
+              ),
+            ),
+          ],
         ] else
           const Text(
             'Confirm your business details. Your licence photo, number and expiry are collected together after sign-in. Approval is reviewed separately.',

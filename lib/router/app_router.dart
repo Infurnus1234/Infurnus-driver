@@ -201,6 +201,7 @@ final appRouter = GoRouter(
         data: InfurnusTheme.lightTheme,
         child: RegistrationScreen(
           initialRole: state.uri.queryParameters['role'],
+          signupVia: state.uri.queryParameters['via'],
         ),
       ),
     ),

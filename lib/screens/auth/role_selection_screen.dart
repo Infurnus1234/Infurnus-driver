@@ -296,7 +296,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                               context.go(s.landingPath);
                             }
                           } else {
-                            context.go('/register?role=$_role');
+                            context.go('/register?role=$_role&via=email_phone');
                           }
                         },
                         child: const Text(

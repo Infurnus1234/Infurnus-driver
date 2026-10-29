@@ -313,7 +313,7 @@ class DriverSession extends ChangeNotifier {
   void clearLocalDeferrals() {
     _localDeferrals.clear();
     if (_onboardingDraftStore is MemorySessionStore) {
-      (_onboardingDraftStore as MemorySessionStore).value = '{}';
+      _onboardingDraftStore.value = '{}';
     } else {
       _onboardingDraftStore.write('{}');
     }
@@ -732,14 +732,14 @@ class DriverSession extends ChangeNotifier {
         );
       } catch (_) {
         roleEnrolment ??= {
-          'role': api.role ?? 'driver',
+          'role': api.role,
           'dashboardAccessible': false,
           'steps': ['profile_photo', 'licence', 'finish'],
           'progress': {},
         };
       }
       roleEnrolment ??= {
-        'role': api.role ?? 'driver',
+        'role': api.role,
         'dashboardAccessible': false,
         'steps': ['profile_photo', 'licence', 'finish'],
         'progress': {},

@@ -144,11 +144,9 @@ void main() {
       await tester.tap(find.text('Continue'));
       await tester.pumpAndSettle();
       expect(find.text('Create your account'), findsOneWidget);
-      expect(find.text('Sign up with Google'), findsOneWidget);
-      expect(find.byType(TextField), findsNothing);
-      expect(find.text('Continue'), findsNothing);
-      await tester.tap(find.text('Use email/phone signup (OTP)'));
-      await tester.pumpAndSettle();
+      // Email/phone path: Google button is hidden, form is open directly
+      expect(find.text('Sign up with Google'), findsNothing);
+      expect(find.text('Use email/phone signup (OTP)'), findsNothing);
       const fields = {
         'First name *': 'Fixture',
         'Last name *': 'Driver',
@@ -172,7 +170,12 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Verify your account'), findsOneWidget);
       expect(session.authenticated, isFalse);
-      await tester.enterText(find.byType(TextField), '123456');
+      // OTP screen: enter one digit per box (6 separate TextFields)
+      final otpBoxes = find.byType(TextField);
+      expect(otpBoxes.evaluate().length, 6);
+      for (var i = 0; i < 6; i++) {
+        await tester.enterText(otpBoxes.at(i), '${i + 1}');
+      }
       await tester.pump();
       await tester.tap(find.text('Verify & Continue'));
       await tester.pumpAndSettle();
