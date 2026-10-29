@@ -318,6 +318,7 @@ class DriverSession extends ChangeNotifier {
       _onboardingDraftStore.write('{}');
     }
   }
+
   Set<String> get deferredSteps => {
     ...((onboardingReceipt?['deferred_codes'] as List?) ?? const [])
         .cast<String>(),
