@@ -12,11 +12,11 @@ class DocumentRule {
   const DocumentRule(
     this.code, {
     this.required = false,
-    this.onboardingDeferrable = false,
+    bool? onboardingDeferrable,
     this.requiresExpiry = false,
     this.minimumPages = 1,
     this.collectionAuthorized,
-  });
+  }) : onboardingDeferrable = onboardingDeferrable ?? (code == 'profile_photo');
   factory DocumentRule.fromJson(Map<String, dynamic> json) => DocumentRule(
     json['document_code'] as String,
     required: json['required'] as bool,

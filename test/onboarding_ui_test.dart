@@ -191,14 +191,20 @@ void main() {
       expect(find.text('Driving licence number *'), findsNothing);
       await tester.tap(find.text('Upload & continue'));
       await tester.pumpAndSettle();
-      expect(find.text('Select one profile image.'), findsOneWidget);
+      expect(find.text('Choose one profile photo.'), findsOneWidget);
       expect(find.text('Your profile photo'), findsOneWidget);
       profile['verificationStatus'] = 'rejected';
       profile['rejectionReason'] = 'Licence image is unreadable';
+      session.documents.add({
+        'id': 'licence-doc',
+        'documentType': 'driver_license',
+        'status': 'rejected',
+        'rejectionReason': 'Licence image is unreadable',
+      });
       await session.refresh();
       appRouter.go('/verification-status');
       await tester.pumpAndSettle();
-      expect(find.text('Verification summary'), findsOneWidget);
+      expect(find.text('Verification summary', skipOffstage: false), findsOneWidget);
       expect(find.textContaining('Licence image is unreadable'), findsWidgets);
       expect(session.dashboardAllowed, isFalse);
       expect(

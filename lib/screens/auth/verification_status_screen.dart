@@ -43,7 +43,11 @@ class VerificationStatusScreen extends StatelessWidget {
         scrolledUnderElevation: 0,
         title: const Text(
           'Verification summary',
-          style: TextStyle(color: Colors.transparent, fontSize: 0.01),
+          style: TextStyle(
+            color: Color(0xFF0F172A),
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+          ),
         ),
         leading: Navigator.canPop(context)
             ? IconButton(

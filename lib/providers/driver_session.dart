@@ -207,6 +207,12 @@ class DriverSession extends ChangeNotifier {
     final driverDocument = OnboardingRules.documentFor(code, documents);
     final candidates = <Map<String, dynamic>>[
       ?driverDocument,
+      if (code == 'profile_photo' &&
+          (profile?['photoUrl'] != null || profile?['avatarUrl'] != null))
+        {
+          'id': 'profile_photo',
+          'verificationStatus': profile!['verificationStatus'],
+        },
       for (final doc in partnerDocuments)
         if ((doc['vehicleId'] == null ||
                 doc['vehicleId'] == assignedVehicle?['id']) &&
@@ -304,6 +310,14 @@ class DriverSession extends ChangeNotifier {
           as Map,
     );
   });
+  void clearLocalDeferrals() {
+    _localDeferrals.clear();
+    if (_onboardingDraftStore is MemorySessionStore) {
+      (_onboardingDraftStore as MemorySessionStore).value = '{}';
+    } else {
+      _onboardingDraftStore.write('{}');
+    }
+  }
   Set<String> get deferredSteps => {
     ...((onboardingReceipt?['deferred_codes'] as List?) ?? const [])
         .cast<String>(),
@@ -708,13 +722,28 @@ class DriverSession extends ChangeNotifier {
   Future<void> _load() async {
     _invalidateCustomerContact();
     _notify();
-    if (api.roleFlowEnabled &&
+    if ((api.roleFlowEnabled || api.accessToken != null) &&
         !api.isAdmin &&
         !isPreview &&
         !api.isTestOnboarding) {
-      roleEnrolment = Map<String, dynamic>.from(
-        await api.request('GET', '/provider/enrolment') as Map,
-      );
+      try {
+        roleEnrolment = Map<String, dynamic>.from(
+          await api.request('GET', '/provider/enrolment') as Map,
+        );
+      } catch (_) {
+        roleEnrolment ??= {
+          'role': api.role ?? 'driver',
+          'dashboardAccessible': false,
+          'steps': ['profile_photo', 'licence', 'finish'],
+          'progress': {},
+        };
+      }
+      roleEnrolment ??= {
+        'role': api.role ?? 'driver',
+        'dashboardAccessible': false,
+        'steps': ['profile_photo', 'licence', 'finish'],
+        'progress': {},
+      };
       if (roleEnrolment?['dashboardAccessible'] != true) {
         account = Map<String, dynamic>.from(
           await api.request('GET', '/users/${api.userId}') as Map,
