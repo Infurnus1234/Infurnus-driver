@@ -42,6 +42,7 @@ class PendingSession extends DriverSession {
         'verificationStatus': 'pending',
       },
     ];
+    clearLocalDeferrals();
   }
   @override
   bool get authenticated => true;
