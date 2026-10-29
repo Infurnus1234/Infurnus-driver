@@ -87,6 +87,7 @@ Future<void> pick(WidgetTester tester, String label) async {
       ? 'Choose source'
       : 'Replace or add pages';
   await tester.ensureVisible(find.text(trigger));
+  await tester.pumpAndSettle();
   await tester.tap(find.text(trigger));
   await tester.pumpAndSettle();
   await tester.tap(find.text(source));
