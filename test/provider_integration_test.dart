@@ -177,7 +177,7 @@ void main() {
     );
     expect(await restored.restore(), true);
     expect(restored.authenticated, true);
-    expect(restored.landingPath, '/onboarding');
+    expect(restored.landingPath, '/role-onboarding');
     expect(restored.dashboardAllowed, false);
     expect(restored.api.accessToken, 'rotated-access');
     await restored.logout();

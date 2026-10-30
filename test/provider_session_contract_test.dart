@@ -293,10 +293,13 @@ void main() {
           store,
         );
         final session = DriverSession(api: api);
-        expect(await session.restore(), !blocked);
-        expect(session.restorationNeedsRetry, blocked);
+        expect(await session.restore(), true);
+        expect(session.restorationNeedsRetry, false);
         expect(session.dashboardAllowed, false);
-        if (!blocked) expect(session.landingPath, '/fleet/dashboard');
+        expect(
+          session.landingPath,
+          blocked ? '/role-onboarding' : '/fleet/dashboard',
+        );
         session.dispose();
       });
     }
