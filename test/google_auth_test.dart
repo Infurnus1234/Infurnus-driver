@@ -185,7 +185,7 @@ void main() {
       isEmpty,
     );
     expect(session.dashboardAllowed, isFalse);
-    expect(session.landingPath, '/onboarding');
+    expect(session.landingPath, '/role-onboarding');
     expect(
       session.documentRules.map((r) => r.code),
       contains('driver_license'),
@@ -323,7 +323,7 @@ void main() {
       isTrue,
     );
     expect(session.authenticated, isTrue);
-    expect(session.landingPath, '/onboarding');
+    expect(session.landingPath, '/role-onboarding');
     expect(await session.saveAccountNames(' Fixture ', ' Driver '), isTrue);
     expect(session.account?['firstName'], 'Fixture');
     expect(session.dashboardAllowed, isFalse);

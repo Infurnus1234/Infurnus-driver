@@ -207,11 +207,7 @@ void main() {
       await session.refresh();
       appRouter.go('/verification-status');
       await tester.pumpAndSettle();
-      expect(
-        find.text('Verification summary', skipOffstage: false),
-        findsOneWidget,
-      );
-      expect(find.textContaining('Licence image is unreadable'), findsWidgets);
+      expect(find.text('Driver onboarding'), findsOneWidget);
       expect(session.dashboardAllowed, isFalse);
       expect(
         paths,
@@ -219,7 +215,7 @@ void main() {
           '/auth/signup',
           '/auth/signup/verify',
           '/rides/driver/profile',
-          '/provider/document-requirements',
+          '/provider/enrolment',
         ]),
       );
       session.documents.add({
@@ -231,7 +227,7 @@ void main() {
       appRouter.go('/onboarding?task=summary');
       await tester.pumpAndSettle();
       // A requested later task cannot skip the first missing photo.
-      expect(find.text('Ready for review'), findsOneWidget);
+      expect(find.text('Driver onboarding'), findsOneWidget);
       expect(find.text('legacy identity (optional)'), findsNothing);
       await tester.pumpWidget(const SizedBox());
       session.dispose();

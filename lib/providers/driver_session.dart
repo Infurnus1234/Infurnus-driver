@@ -753,21 +753,52 @@ class DriverSession extends ChangeNotifier {
           profile = await api.fetchDriverProfile();
           currentTrip = null;
           if (profile != null) {
-            final trip = await api.request('GET', '/rides/driver/current-trip');
-            if (trip is Map) {
-              currentTrip = Map<String, dynamic>.from(trip);
-              final vehicle = await api.request(
+            try {
+              final trip = await api.request(
                 'GET',
-                '/rides/driver/assigned-vehicle',
+                '/rides/driver/current-trip',
               );
-              assignedVehicle = vehicle is Map
-                  ? Map<String, dynamic>.from(vehicle)
-                  : null;
-              if (api.accessToken != _socket?.auth['token']) _connect();
-              _joinTrip();
-              if (_positions == null) await _resumeLocation();
+              if (trip is Map) {
+                currentTrip = Map<String, dynamic>.from(trip);
+                final vehicle = await api.request(
+                  'GET',
+                  '/rides/driver/assigned-vehicle',
+                );
+                assignedVehicle = vehicle is Map
+                    ? Map<String, dynamic>.from(vehicle)
+                    : null;
+                if (api.accessToken != _socket?.auth['token']) _connect();
+                _joinTrip();
+                if (_positions == null) await _resumeLocation();
+              }
+            } on ApiException catch (e) {
+              if (e.status != 404) rethrow;
             }
           }
+          try {
+            final appData = await api.request('GET', '/provider/approvals');
+            if (appData is List) {
+              approvals = appData
+                  .map((r) => Map<String, dynamic>.from(r as Map))
+                  .toList();
+            }
+          } on ApiException catch (e) {
+            if (e.status != 404) rethrow;
+          }
+        }
+        if (documentRules.isEmpty) {
+          documentRules = [
+            const DocumentRule(
+              'profile_photo',
+              required: true,
+              onboardingDeferrable: true,
+            ),
+            const DocumentRule(
+              'driver_license',
+              required: true,
+              requiresExpiry: true,
+            ),
+          ];
         }
         onboardingLoaded = true;
         return;

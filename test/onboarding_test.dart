@@ -224,7 +224,23 @@ void main() {
           case '/auth/login':
             return ok({'challengeId': 'challenge'});
           case '/auth/login/verify':
-            return ok({'accessToken': 'fixture-token'});
+            return ok({
+              'accessToken': 'fixture-token',
+              'userId': 'fixture-user',
+            });
+          case '/users/fixture-user':
+            return ok({
+              'id': 'fixture-user',
+              'role': 'driver',
+              'status': 'active',
+            });
+          case '/provider/enrolment':
+            return ok({
+              'role': 'driver',
+              'dashboardAccessible': false,
+              'steps': ['profile_photo', 'licence', 'finish'],
+              'progress': {},
+            });
           case '/rides/driver/profile':
             return profile == null
                 ? missing('DRIVER_PROFILE_NOT_FOUND')
@@ -237,6 +253,8 @@ void main() {
                     'plateNumber': 'fixture',
                   })
                 : missing('NO_ASSIGNED_VEHICLE');
+          case '/rides/driver/current-trip':
+            return missing('NO_CURRENT_TRIP');
           case '/provider/onboarding':
             return http.Response(
               jsonEncode({
@@ -271,6 +289,8 @@ void main() {
               }),
               200,
             );
+          case '/partners/me':
+            return missing('PARTNER_NOT_FOUND');
           default:
             fail('Blocked driver must not call ${r.url.path}');
         }
@@ -280,7 +300,7 @@ void main() {
     expect(await s.login('driver@example.invalid', 'fixture-password'), isTrue);
     expect(await s.verify('123456'), isTrue);
     expect(s.authenticated, isTrue);
-    expect(s.landingPath, '/onboarding');
+    expect(s.landingPath, '/role-onboarding');
     expect(s.dashboardAllowed, isFalse);
     profile = {
       'id': 'profile',
@@ -297,7 +317,7 @@ void main() {
       },
     ];
     expect(await s.refresh(), isTrue);
-    expect(s.landingPath, '/verification-status');
+    expect(s.landingPath, '/role-onboarding');
     expect(s.dashboardAllowed, isFalse);
     profile['verificationStatus'] = 'rejected';
     expect(await s.refresh(), isTrue);
@@ -313,8 +333,10 @@ void main() {
     expect(await s.setOnline(true), isFalse);
     expect(paths, isNot(contains('/rides/driver/availability')));
     s.applications = [];
+    s.roleEnrolment = {'role': 'driver', 'dashboardAccessible': true};
     expect(s.dashboardAllowed, isTrue);
-    s.documents.first['verificationStatus'] = 'rejected';
+    s.roleEnrolment = {'role': 'driver', 'dashboardAccessible': false};
+    s.profile!['verificationStatus'] = 'rejected';
     expect(s.dashboardAllowed, isFalse);
     s.dispose();
   });

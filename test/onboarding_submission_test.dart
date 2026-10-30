@@ -31,7 +31,16 @@ void main() {
           case '/auth/login':
             data = {'challengeId': 'fixture-challenge'};
           case '/auth/login/verify':
-            data = {'accessToken': 'fixture-token'};
+            data = {'accessToken': 'fixture-token', 'userId': 'fixture-user'};
+          case '/users/fixture-user':
+            data = {'id': 'fixture-user', 'role': 'driver', 'status': 'active'};
+          case '/provider/enrolment':
+            data = {
+              'role': 'driver',
+              'dashboardAccessible': reviewed,
+              'steps': ['profile_photo', 'licence', 'finish'],
+              'progress': {},
+            };
           case '/rides/driver/profile':
             data = profile;
           case '/rides/driver/assigned-vehicle':
@@ -42,6 +51,14 @@ void main() {
                   'code': 'NO_ASSIGNED_VEHICLE',
                   'message': 'No vehicle',
                 },
+              }),
+              404,
+            );
+          case '/rides/driver/current-trip':
+            return http.Response(
+              jsonEncode({
+                'success': false,
+                'error': {'code': 'NO_CURRENT_TRIP', 'message': 'No trip'},
               }),
               404,
             );
@@ -112,6 +129,14 @@ void main() {
                 },
               }),
               403,
+            );
+          case '/partners/me':
+            return http.Response(
+              jsonEncode({
+                'success': false,
+                'error': {'code': 'PARTNER_NOT_FOUND', 'message': 'No partner'},
+              }),
+              404,
             );
           default:
             fail('Unexpected request ${r.url.path}');
