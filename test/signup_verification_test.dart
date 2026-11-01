@@ -12,6 +12,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:provider/provider.dart';
+import 'package:go_router/go_router.dart';
 import 'package:infurnus_driver/core/operations_theme.dart';
 import 'package:infurnus_driver/models/signup_phone.dart';
 import 'package:infurnus_driver/providers/driver_session.dart';
@@ -151,6 +152,47 @@ void main() {
   // 2. OTP screen: login challenge shows signup hint without claiming delivery
   // ---------------------------------------------------------------------------
 
+  testWidgets(
+    'Fleet-created Driver can leave signup verification for existing-account OTP login',
+    (tester) async {
+      final api = ApiService(
+        client: MockClient((_) async => http.Response('{}', 500)),
+      );
+      final session = DriverSession(api: api)..signupId = 'opaque-signup-id';
+      final router = GoRouter(
+        initialLocation: '/otp',
+        routes: [
+          GoRoute(
+            path: '/otp',
+            builder: (_, _) => const OtpVerificationScreen(),
+          ),
+          GoRoute(
+            path: '/login',
+            builder: (_, _) =>
+                const Scaffold(body: Text('Existing account OTP login')),
+          ),
+        ],
+      );
+      await tester.pumpWidget(
+        ChangeNotifierProvider.value(
+          value: session,
+          child: MaterialApp.router(theme: Ops.theme, routerConfig: router),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.textContaining('Already added by your Fleet Owner?'),
+        findsOneWidget,
+      );
+      await tester.tap(find.text('Log in to existing account'));
+      await tester.pumpAndSettle();
+      expect(find.text('Existing account OTP login'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox());
+      router.dispose();
+      session.dispose();
+      api.dispose();
+    },
+  );
   testWidgets('login challenge offers signup without claiming OTP delivery', (
     tester,
   ) async {

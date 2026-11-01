@@ -578,6 +578,16 @@ class AccountScreen extends StatelessWidget {
             subtitle: 'View verification status and upload documents',
             onTap: () => context.push('/verification-status'),
           ),
+          if (session.api.hasDriverRole &&
+              session.api.providerMode == 'driver') ...[
+            const SizedBox(height: 12),
+            SettingsTile(
+              icon: Icons.group_add_outlined,
+              title: 'Fleet invitations',
+              subtitle: 'Review Fleet profile-management invitations',
+              onTap: () => context.push('/driver/fleet-invitations'),
+            ),
+          ],
           const SizedBox(height: 12),
           SettingsTile(
             icon: Icons.notifications_outlined,

@@ -130,6 +130,7 @@ class ApiService {
         isTestOnboarding && !path.startsWith('/driver-test-onboarding/')
         ? '/driver-test-onboarding$path'
         : path;
+    final requestAccessToken = accessToken;
     final http.BaseRequest request;
     if (files != null) {
       final multipart = http.MultipartRequest(
@@ -160,7 +161,9 @@ class ApiService {
       'Accept': 'application/json',
       'Content-Type': ?(files == null ? 'application/json' : null),
       'X-Provider-Mode': providerMode,
-      'Authorization': ?(accessToken == null ? null : 'Bearer $accessToken'),
+      'Authorization': ?(requestAccessToken == null
+          ? null
+          : 'Bearer $requestAccessToken'),
       'X-CSRF-Token': ?_csrfToken,
       if (_cookies.isNotEmpty)
         'Cookie': _cookies.entries.map((e) => '${e.key}=${e.value}').join('; '),
@@ -202,7 +205,8 @@ class ApiService {
         retry &&
         accessToken != null &&
         !path.startsWith('/auth/')) {
-      await refreshSession();
+      // A delayed 401 can belong to an older token that another request already rotated.
+      if (accessToken == requestAccessToken) await refreshSession();
       return this.request(
         method,
         path,
@@ -245,6 +249,7 @@ class ApiService {
           error['code'] == 'INVALID_GOOGLE_TOKEN';
       if (response.statusCode == 401 &&
           accessToken != null &&
+          accessToken == requestAccessToken &&
           !invalidLinkIdentity) {
         clearSession();
       }
@@ -381,22 +386,28 @@ class ApiService {
   }
 
   Future<void> _refresh() async {
+    final tokenBeforeRefresh = accessToken;
     try {
       final data = await request('POST', '/auth/refresh', retry: false);
+      if (accessToken != tokenBeforeRefresh) {
+        throw const ApiException(
+          'The session changed while refreshing. Retry after signing in.',
+          401,
+        );
+      }
       accessToken = data['accessToken'] as String;
       _csrfToken = data['csrfToken'] as String? ?? _csrfToken;
       await _saveSession();
     } on ApiException catch (e) {
-      if (e.status == 401 || e.status == 403) clearSession();
+      if ((e.status == 401 || e.status == 403) &&
+          accessToken == tokenBeforeRefresh) {
+        clearSession();
+      }
       rethrow;
     }
   }
 
-  Future<String> login(
-    String identifier, [
-    String password = '',
-    String? accountRole,
-  ]) async {
+  Future<String> login(String identifier, {String? accountRole}) async {
     clearSession();
     identifier = identifier.trim();
     if (identifier.isEmpty) {
@@ -434,8 +445,8 @@ class ApiService {
       body: {
         'email': ?email,
         'phone': ?phone,
-        if (password.isNotEmpty) 'password': password,
         'role': ?accountRole,
+        'driverFlow': true,
       },
     );
     return data['challengeId'] as String;
@@ -671,8 +682,6 @@ class ApiService {
       'lastName',
       'email',
       'phone',
-      'password',
-      'confirmPassword',
       'licenseNumber',
       'licenseExpiry',
       'businessName',

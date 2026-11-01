@@ -146,6 +146,13 @@ void main() {
       expect(find.text('Submitted for review'), findsOneWidget);
       expect(
         requests.where((r) => r == 'POST /provider/approval-requests'),
+        isEmpty,
+      );
+      await tester.ensureVisible(find.text('Request review'));
+      await tester.tap(find.text('Request review'));
+      await tester.pumpAndSettle();
+      expect(
+        requests.where((r) => r == 'POST /provider/approval-requests'),
         hasLength(1),
       );
       expect(find.text('Add vehicle'), findsNothing);

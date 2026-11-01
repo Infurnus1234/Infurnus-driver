@@ -15,8 +15,6 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _identifier = TextEditingController();
-  final _password = TextEditingController();
-  bool _passwordLogin = false;
   bool _rememberMe = true;
   bool _useEmail = false;
   String? _clientValidationMessage;
@@ -24,7 +22,6 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   void dispose() {
     _identifier.dispose();
-    _password.dispose();
     super.dispose();
   }
 
@@ -85,35 +82,13 @@ class _LoginScreenState extends State<LoginScreen> {
 
     final fullIdentifier = rawInput;
 
-    if (_passwordLogin && _password.text.isEmpty) {
-      setState(
-        () => _clientValidationMessage = 'Enter your Fleet account password.',
-      );
-      return;
-    }
     session.api.rememberMe = _rememberMe;
-    var success = await session.login(
-      fullIdentifier,
-      _passwordLogin ? _password.text : '',
-    );
+    var success = await session.login(fullIdentifier);
     if (!mounted) return;
-    if (!success &&
-        session.errorCode == 'INVALID_CREDENTIALS' &&
-        !_passwordLogin) {
-      setState(() {
-        _passwordLogin = true;
-        _clientValidationMessage = 'Fleet Owner accounts need an account password, followed by OTP. Enter your password to continue, or switch back for Driver OTP login.';
-      });
-      return;
-    }
     if (!success && session.errorCode == 'ACCOUNT_ROLE_REQUIRED') {
       final role = await _chooseExistingRole();
       if (!mounted || role == null) return;
-      success = await session.login(
-        fullIdentifier,
-        _passwordLogin ? _password.text : '',
-        accountRole: role,
-      );
+      success = await session.login(fullIdentifier, accountRole: role);
     }
     if (!mounted) return;
     if (success) {
@@ -302,27 +277,14 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
 
-                      if (_passwordLogin) ...[
-                        const SizedBox(height: 12),
-                        TextField(
-                          controller: _password,
-                          obscureText: true,
-                          enabled: !session.busy,
-                          autofillHints: const [AutofillHints.password],
-                          decoration: InputDecoration(
-                            labelText: 'Account password',
-                            suffixIcon: IconButton(
-                              icon: const Icon(Icons.close, size: 18),
-                              onPressed: () => setState(() {
-                                _passwordLogin = false;
-                                _password.clear();
-                                _clientValidationMessage = null;
-                              }),
-                            ),
-                          ),
-                        ),
-                      ],
-                      const SizedBox(height: 14),
+                      const SizedBox(height: 12),
+
+                      const Text(
+                        'Use your registered phone or email to receive an OTP. Fleet-created Drivers can sign in directly.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 12),
+                      ),
+                      const SizedBox(height: 12),
                       // Remember my login checkbox
                       Row(
                         children: [

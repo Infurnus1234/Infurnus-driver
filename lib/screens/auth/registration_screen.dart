@@ -29,8 +29,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       'lastName',
       'email',
       'phone',
-      'password',
-      'confirmPassword',
       'licenseNumber',
       'licenseExpiry',
       'businessName',
@@ -52,14 +50,14 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     // When arriving via email/phone signup, open the form directly without
     // requiring the user to tap the toggle button.
     if (widget.signupVia == 'email_phone') {
-      _passwordMethod = true;
+      _contactMethod = true;
     }
   }
 
   final _countryCode = TextEditingController(text: '+91');
   String? _validationError;
   bool _details = false;
-  bool _passwordMethod = false;
+  bool _contactMethod = false;
 
   /// True when the Google option should be rendered. Hidden when the user
   /// explicitly chose "Sign up with email or phone" from the login screen.
@@ -84,8 +82,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             'lastName': 'Last name *',
             'email': 'Email (or phone required)',
             'phone': 'Phone (or email required)',
-            if (_role != 'driver') 'password': 'Password *',
-            if (_role != 'driver') 'confirmPassword': 'Confirm password *',
           };
     return SignupVerificationLayout(
       title: _details ? 'Registration details' : 'Create your account',
@@ -132,9 +128,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             TextButton(
               onPressed: session.busy
                   ? null
-                  : () => setState(() => _passwordMethod = !_passwordMethod),
+                  : () => setState(() => _contactMethod = !_contactMethod),
               child: Text(
-                _passwordMethod
+                _contactMethod
                     ? 'Hide email/phone signup'
                     : 'Use email/phone signup (OTP)',
               ),
@@ -144,7 +140,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           const Text(
             'Confirm your business details. Your licence photo, number and expiry are collected together after sign-in. Approval is reviewed separately.',
           ),
-        if (_passwordMethod && !_details) ...[
+        if (_contactMethod && !_details) ...[
           TextField(
             controller: _countryCode,
             enabled: !session.busy,
@@ -156,20 +152,17 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           ),
         ],
         for (final entry
-            in (_details || _passwordMethod ? labels : <String, String>{})
+            in (_details || _contactMethod ? labels : <String, String>{})
                 .entries)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 8),
             child: TextField(
               controller: _fields[entry.key],
               enabled: !session.busy,
-              obscureText: entry.key.contains('assword'),
               maxLength: entry.key == 'businessName'
                   ? 150
                   : entry.key == 'licenseNumber'
                   ? 50
-                  : entry.key.contains('assword')
-                  ? 128
                   : entry.key == 'email'
                   ? 320
                   : entry.key.contains('Name')
@@ -190,7 +183,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           ),
         if (session.error != null)
           Text(session.error!, style: const TextStyle(color: Colors.red)),
-        if (_details || _passwordMethod)
+        if (_details || _contactMethod)
           FilledButton(
             onPressed: session.busy
                 ? null
@@ -219,17 +212,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                             !(_role == 'fleet_owner' &&
                                 e.key.startsWith('license')) &&
                             !(_role == 'driver' && e.key == 'businessName'))
-                          e.key: e.key.contains('assword')
-                              ? e.value.text
-                              : e.key == 'phone'
-                              ? phone
-                              : e.value.text.trim(),
+                          e.key: e.key == 'phone' ? phone : e.value.text.trim(),
                     };
                     final ok = await session.signup(input);
-                    if (ok) {
-                      _fields['password']!.clear();
-                      _fields['confirmPassword']!.clear();
-                    }
                     if (context.mounted && ok) context.go('/otp');
                   },
             child: Text(
@@ -240,6 +225,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                   : 'Continue',
             ),
           ),
+        const Text(
+          'If your Fleet Owner already added you, use Log in with the same phone number or email. Your Driver account already exists; do not register again.',
+        ),
         TextButton(
           onPressed: session.busy ? null : () => context.go('/login'),
           child: const Text('Already have an account? Log in'),

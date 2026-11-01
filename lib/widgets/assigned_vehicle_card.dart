@@ -1,3 +1,5 @@
+import 'assigned_owner_details.dart';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -142,6 +144,7 @@ class AssignedVehicleCard extends StatelessWidget {
                   Text(value['operationalStatus'].toString()),
               ],
             ),
+            AssignedOwnerDetails(owner: value['owner'] as Map?),
             if (canManage)
               TextButton(
                 onPressed: loading

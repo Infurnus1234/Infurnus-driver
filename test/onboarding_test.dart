@@ -103,9 +103,10 @@ void main() {
       expect(
         OnboardingRules.validateSignup({
           ...signup(),
-          'confirmPassword': 'different',
+          'password': '',
+          'confirmPassword': '',
         }),
-        isNotNull,
+        isNull,
       );
       expect(
         OnboardingRules.validateSignup({...signup(), 'email': ''}),
@@ -297,10 +298,10 @@ void main() {
       }),
     );
     final s = DriverSession(api: api);
-    expect(await s.login('driver@example.invalid', 'fixture-password'), isTrue);
+    expect(await s.login('driver@example.invalid'), isTrue);
     expect(await s.verify('123456'), isTrue);
     expect(s.authenticated, isTrue);
-    expect(s.landingPath, '/role-onboarding');
+    expect(s.landingPath, '/onboarding');
     expect(s.dashboardAllowed, isFalse);
     profile = {
       'id': 'profile',
@@ -317,7 +318,7 @@ void main() {
       },
     ];
     expect(await s.refresh(), isTrue);
-    expect(s.landingPath, '/role-onboarding');
+    expect(s.landingPath, '/verification-status');
     expect(s.dashboardAllowed, isFalse);
     profile['verificationStatus'] = 'rejected';
     expect(await s.refresh(), isTrue);

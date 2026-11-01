@@ -192,7 +192,9 @@ void main() {
     );
     s.documents.clear();
     addTearDown(s.dispose);
-    await tester.pumpWidget(host(s, const DriverOnboardingScreen()));
+    await tester.pumpWidget(
+      host(s, const DriverOnboardingScreen(initialTask: 'profile_photo')),
+    );
     await tester.tap(find.text('Skip for now').first);
     await tester.pumpAndSettle();
     expect(s.deferredSteps, contains('profile_photo'));

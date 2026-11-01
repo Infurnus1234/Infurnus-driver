@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -8,6 +10,7 @@ import '../models/route_geometry.dart';
 import '../providers/driver_session.dart';
 import '../services/api_service.dart';
 import 'operations.dart';
+import 'vehicle_motion.dart';
 
 class TripMap extends StatefulWidget {
   final bool compact;
@@ -16,7 +19,14 @@ class TripMap extends StatefulWidget {
   State<TripMap> createState() => _TripMapState();
 }
 
-class _TripMapState extends State<TripMap> {
+class _TripMapState extends State<TripMap> with SingleTickerProviderStateMixin {
+  late final VehicleMotion _motion;
+  BitmapDescriptor? _arrow;
+  bool _follow = true;
+  DateTime? _lastRouteAttempt;
+  DateTime? _offRouteSince;
+  Timer? _freshnessTimer;
+  bool _gpsStale = false;
   GoogleMapController? _controller;
   List<LatLng> _route = [];
   String? _error, _tripKey;
@@ -24,6 +34,7 @@ class _TripMapState extends State<TripMap> {
   bool _loading = false;
   bool? _configured;
   int _generation = 0;
+  int _routeVersion = -1;
   LatLng? _point(dynamic input) {
     if (input is! Map) return null;
     final lat = num.tryParse(input['latitude'].toString());
@@ -42,6 +53,17 @@ class _TripMapState extends State<TripMap> {
   @override
   void initState() {
     super.initState();
+    _motion = VehicleMotion(this);
+    navigationArrow().then((icon) {
+      if (mounted) setState(() => _arrow = icon);
+    });
+    _freshnessTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+      final stale =
+          _motion.timestamp != null &&
+          DateTime.now().difference(_motion.timestamp!) >
+              const Duration(seconds: 10);
+      if (mounted && stale != _gpsStale) setState(() => _gpsStale = stale);
+    });
     _checkConfiguration();
   }
 
@@ -71,40 +93,34 @@ class _TripMapState extends State<TripMap> {
       });
       return;
     }
+    _lastRouteAttempt = DateTime.now();
     final generation = ++_generation;
     setState(() {
       _loading = true;
       _error = null;
-      _route = [];
-      _metrics = null;
     });
     try {
-      final position = session.position!;
-      final data = await session.api.request(
-        'POST',
-        '/maps/route',
-        body: {
-          'origin': {
-            'latitude': position.latitude,
-            'longitude': position.longitude,
-          },
-          'destination': {
-            'latitude': target.latitude,
-            'longitude': target.longitude,
-          },
-          'mode': 'driving',
-          'avoidTolls': false,
-        },
+      final snapshot = await session.api.request(
+        'GET',
+        '/rides/driver/rides/${session.currentTrip!['id']}/map?includeRoute=true',
       ) as Map;
+      final data = snapshot['route'];
+      if (data is! Map) {
+        throw const ApiException(
+          'Road route unavailable. Retry when connected.',
+        );
+      }
       final points = decodeRoutePolyline(
         data['encodedPolyline']?.toString() ?? '',
       );
-      if (mounted && generation == _generation) {
+      if (mounted &&
+          generation == _generation &&
+          (snapshot['routeVersion'] as num? ?? 0) >= _routeVersion) {
         setState(() {
+          _routeVersion = (snapshot['routeVersion'] as num? ?? 0).toInt();
           _metrics = data;
           _route = points.map((p) => LatLng(p[0], p[1])).toList();
         });
-        _fit();
       }
     } catch (e) {
       if (mounted && generation == _generation) {
@@ -144,6 +160,8 @@ class _TripMapState extends State<TripMap> {
   @override
   void dispose() {
     _generation++;
+    _freshnessTimer?.cancel();
+    _motion.dispose();
     _controller?.dispose();
     super.dispose();
   }
@@ -167,9 +185,51 @@ class _TripMapState extends State<TripMap> {
         ? null
         : LatLng(position.latitude, position.longitude);
     final key =
-        '${trip?['id']}:${trip?['status']}:${current?.latitude.toStringAsFixed(3)}:${current?.longitude.toStringAsFixed(3)}:$stale';
+        "${trip?['id']}:${trip?['status'] == 'in_progress'}:${target?.latitude}:${target?.longitude}";
+    if (current != null &&
+        _motion.sample(
+          current,
+          position!.timestamp,
+          heading: position.heading,
+          speed: position.speed,
+          accuracy: position.accuracy,
+        )) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        if (_follow) {
+          _controller
+              ?.animateCamera(
+                CameraUpdate.newCameraPosition(
+                  CameraPosition(
+                    target: current,
+                    zoom: 17,
+                    tilt: 45,
+                    bearing: _motion.heading,
+                  ),
+                ),
+              )
+              .catchError((_) {});
+        }
+        // Route geometry is retained during normal movement. Require sustained deviation and cooldown.
+        if (_route.length > 1 && target != null && !_loading) {
+          final deviation = VehicleMotion.deviation(current, _route);
+          if (deviation < 40) _offRouteSince = null;
+          if (deviation > 80) _offRouteSince ??= DateTime.now();
+          if (_offRouteSince != null &&
+              DateTime.now().difference(_offRouteSince!) >
+                  const Duration(seconds: 8) &&
+              (_lastRouteAttempt == null ||
+                  DateTime.now().difference(_lastRouteAttempt!) >
+                      const Duration(seconds: 30))) {
+            _offRouteSince = null;
+            _load(session, target);
+          }
+        }
+      });
+    }
     if (key != _tripKey) {
       _tripKey = key;
+      _routeVersion = -1;
       // Invalidate a response for the previous trip or navigation stage.
       _generation++;
       _loading = false;
@@ -187,6 +247,30 @@ class _TripMapState extends State<TripMap> {
           });
         }
       });
+    }
+    if (_route.isEmpty &&
+        !_loading &&
+        target != null &&
+        current != null &&
+        !stale &&
+        (_lastRouteAttempt == null ||
+            DateTime.now().difference(_lastRouteAttempt!) >
+                const Duration(seconds: 30))) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _load(session, target);
+      });
+    }
+    final navigation = session.liveNavigation;
+    final segment = trip?['status'] == 'in_progress' ? 'destination' : 'pickup';
+    if (navigation?['rideId'] == trip?['id'] &&
+        navigation?['segment'] == segment &&
+        (navigation?['routeVersion'] as num? ?? -1) > _routeVersion) {
+      final route = navigation!['route'] as Map;
+      _routeVersion = (navigation['routeVersion'] as num).toInt();
+      _route = decodeRoutePolyline(route['encodedPolyline']?.toString() ?? '')
+          .map((p) => LatLng(p[0], p[1]))
+          .toList();
+      _metrics = route;
     }
     final content = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -227,69 +311,103 @@ class _TripMapState extends State<TripMap> {
             height: widget.compact ? 330 : 280,
             child: ClipRRect(
               borderRadius: BorderRadius.circular(12),
-              child: GoogleMap(
-                initialCameraPosition: CameraPosition(
-                  target: current ?? pickup ?? const LatLng(25.5941, 85.1376),
-                  zoom: 13,
+              child: Listener(
+                onPointerDown: (_) => _follow = false,
+                child: AnimatedBuilder(
+                  animation: _motion,
+                  builder: (context, _) => GoogleMap(
+                    initialCameraPosition: CameraPosition(
+                      target:
+                          current ?? pickup ?? const LatLng(25.5941, 85.1376),
+                      zoom: 13,
+                    ),
+                    onMapCreated: (controller) {
+                      _controller = controller;
+                      if (_route.length >= 2) {
+                        _fit();
+                      } else if (_follow) {
+                        // Replay GPS received before native map initialization.
+                        final fix = _motion.position ?? current;
+                        if (fix != null) {
+                          controller
+                              .animateCamera(
+                                CameraUpdate.newCameraPosition(
+                                  CameraPosition(
+                                    target: fix,
+                                    zoom: 17,
+                                    tilt: 45,
+                                    bearing: _motion.heading,
+                                  ),
+                                ),
+                              )
+                              .catchError((_) {});
+                        }
+                      }
+                    },
+                    myLocationEnabled: false,
+                    myLocationButtonEnabled: false,
+                    mapToolbarEnabled: false,
+                    zoomControlsEnabled: true,
+                    markers: {
+                      if (current != null)
+                        Marker(
+                          markerId: const MarkerId('driver'),
+                          position: _motion.position ?? current,
+                          rotation: _motion.heading,
+                          flat: true,
+                          anchor: const Offset(0.5, 0.5),
+                          infoWindow: InfoWindow(
+                            title: stale
+                                ? 'Last known GPS position (stale)'
+                                : 'GPS position',
+                            snippet: position!.timestamp.toIso8601String(),
+                          ),
+                          icon:
+                              _arrow ??
+                              BitmapDescriptor.defaultMarkerWithHue(
+                                stale
+                                    ? BitmapDescriptor.hueOrange
+                                    : BitmapDescriptor.hueGreen,
+                              ),
+                        ),
+                      if (pickup != null)
+                        Marker(
+                          markerId: const MarkerId('pickup'),
+                          position: pickup,
+                          infoWindow: const InfoWindow(title: 'Pickup'),
+                          icon: BitmapDescriptor.defaultMarkerWithHue(
+                            BitmapDescriptor.hueGreen,
+                          ),
+                        ),
+                      if (destination != null)
+                        Marker(
+                          markerId: const MarkerId('destination'),
+                          position: destination,
+                          infoWindow: const InfoWindow(title: 'Destination'),
+                          icon: BitmapDescriptor.defaultMarkerWithHue(
+                            BitmapDescriptor.hueRed,
+                          ),
+                        ),
+                    },
+                    polylines: {
+                      if (_route.isNotEmpty)
+                        Polyline(
+                          polylineId: const PolylineId('road'),
+                          points: _route,
+                          color: trip?['status'] == 'in_progress'
+                              ? Ops.actionPrimary
+                              : Ops.actionDark,
+                          width: 5,
+                        ),
+                    },
+                  ),
                 ),
-                onMapCreated: (controller) {
-                  _controller = controller;
-                  _fit();
-                },
-                myLocationEnabled: false,
-                myLocationButtonEnabled: false,
-                mapToolbarEnabled: false,
-                zoomControlsEnabled: true,
-                markers: {
-                  if (current != null)
-                    Marker(
-                      markerId: const MarkerId('driver'),
-                      position: current,
-                      infoWindow: InfoWindow(
-                        title: stale
-                            ? 'Last known GPS position (stale)'
-                            : 'GPS position',
-                        snippet: position!.timestamp.toIso8601String(),
-                      ),
-                      icon: BitmapDescriptor.defaultMarkerWithHue(
-                        stale
-                            ? BitmapDescriptor.hueOrange
-                            : BitmapDescriptor.hueGreen,
-                      ),
-                    ),
-                  if (pickup != null)
-                    Marker(
-                      markerId: const MarkerId('pickup'),
-                      position: pickup,
-                      infoWindow: const InfoWindow(title: 'Pickup'),
-                      icon: BitmapDescriptor.defaultMarkerWithHue(
-                        BitmapDescriptor.hueGreen,
-                      ),
-                    ),
-                  if (destination != null)
-                    Marker(
-                      markerId: const MarkerId('destination'),
-                      position: destination,
-                      infoWindow: const InfoWindow(title: 'Destination'),
-                      icon: BitmapDescriptor.defaultMarkerWithHue(
-                        BitmapDescriptor.hueRed,
-                      ),
-                    ),
-                },
-                polylines: {
-                  if (_route.isNotEmpty)
-                    Polyline(
-                      polylineId: const PolylineId('road'),
-                      points: _route,
-                      color: trip?['status'] == 'in_progress'
-                          ? Ops.actionPrimary
-                          : Ops.actionDark,
-                      width: 5,
-                    ),
-                },
               ),
             ),
           ),
+        if (_gpsStale)
+          const Text('GPS signal stale — waiting for a fresh location.'),
+        if (session.locationWarning != null) Text(session.locationWarning!),
         if (current == null)
           const Text(
             'Location unavailable. Enable GPS and allow location access.',
@@ -317,6 +435,7 @@ class _TripMapState extends State<TripMap> {
               onPressed: session.busy
                   ? null
                   : () async {
+                      _follow = true;
                       final ok = await session.locate();
                       if (ok && session.position != null) {
                         _controller?.animateCamera(
@@ -330,7 +449,7 @@ class _TripMapState extends State<TripMap> {
                       }
                     },
               icon: const Icon(Icons.my_location),
-              label: const Text('Locate me'),
+              label: const Text('Recenter / follow'),
             ),
             if (target != null)
               OutlinedButton.icon(

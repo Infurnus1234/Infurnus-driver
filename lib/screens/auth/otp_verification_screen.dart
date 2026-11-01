@@ -244,7 +244,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                   // Subtitle with masked contact
                   Center(
                     child: Text(
-                      active ? 'We sent a 6-digit code to $contact' : 'Start signup or login to request a verification code.',
+                      active ? 'Enter the 6-digit code for $contact.' : 'Start signup or login to request a verification code.',
                       textAlign: TextAlign.center,
                       style: const TextStyle(
                         fontSize: 14,
@@ -254,6 +254,17 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                     ),
                   ),
 
+                  if (signup) ...[
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Already added by your Fleet Owner? Verify your existing account through Log in using the phone or email they saved.',
+                      textAlign: TextAlign.center,
+                    ),
+                    TextButton(
+                      onPressed: busy ? null : () => context.go('/login'),
+                      child: const Text('Log in to existing account'),
+                    ),
+                  ],
                   if (!signup) ...[
                     const SizedBox(height: 12),
                     const Text(

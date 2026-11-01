@@ -21,6 +21,7 @@ void main() {
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
       final paths = <String>[];
+      final driverDocuments = <Map<String, dynamic>>[];
       final profile = {
         'id': 'fixture-profile',
         'userId': 'fixture-user',
@@ -73,7 +74,7 @@ void main() {
             case '/provider/approvals':
               data = [];
             case '/rides/driver/documents':
-              data = [];
+              data = driverDocuments;
             case '/driver-applications':
               data = [];
             case '/partners/me':
@@ -194,20 +195,31 @@ void main() {
       expect(find.text('Driving licence number *'), findsNothing);
       await tester.tap(find.text('Upload & continue'));
       await tester.pumpAndSettle();
-      expect(find.text('Choose one profile photo.'), findsOneWidget);
+      expect(find.text('Select one profile image.'), findsOneWidget);
       expect(find.text('Your profile photo'), findsOneWidget);
       profile['verificationStatus'] = 'rejected';
       profile['rejectionReason'] = 'Licence image is unreadable';
-      session.documents.add({
+      driverDocuments.add({
         'id': 'licence-doc',
         'documentType': 'driver_license',
-        'status': 'rejected',
+        'verificationStatus': 'rejected',
         'rejectionReason': 'Licence image is unreadable',
       });
       await session.refresh();
       appRouter.go('/verification-status');
       await tester.pumpAndSettle();
-      expect(find.text('Driver onboarding'), findsOneWidget);
+      expect(find.text('Verification summary'), findsOneWidget);
+      expect(find.textContaining('Licence image is unreadable'), findsWidgets);
+      expect(
+        session.profile?['rejectionReason'],
+        'Licence image is unreadable',
+      );
+      expect(
+        session.documents.any(
+          (d) => d['rejectionReason'] == 'Licence image is unreadable',
+        ),
+        isTrue,
+      );
       expect(session.dashboardAllowed, isFalse);
       expect(
         paths,
@@ -215,7 +227,6 @@ void main() {
           '/auth/signup',
           '/auth/signup/verify',
           '/rides/driver/profile',
-          '/provider/enrolment',
         ]),
       );
       session.documents.add({

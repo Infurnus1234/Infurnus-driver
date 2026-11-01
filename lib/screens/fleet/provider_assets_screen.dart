@@ -41,6 +41,8 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
   Timer? _timer;
   String _search = '';
   int _tab = 0;
+  int _driversVersion = 0;
+  final Set<String> _expandedVehicles = {};
   @override
   void initState() {
     super.initState();
@@ -86,6 +88,7 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
     Map<String, String> labels, {
     Map<String, dynamic>? initial,
     Set<String> requiredFields = const {},
+    Set<String> atLeastOneFields = const {},
     Set<String> numbers = const {},
     Set<String> integers = const {},
     Set<String> booleans = const {},
@@ -98,6 +101,7 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
     final form = GlobalKey<FormState>();
     final primary = {
       ...requiredFields,
+      ...atLeastOneFields,
       if (labels.containsKey('sector')) 'sector',
       if (labels.containsKey('category')) 'category',
     };
@@ -112,6 +116,23 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
         return 'Choose OWNED, LEASED, FINANCED or OTHER';
       }
       if (requiredFields.contains(key) && text.isEmpty) return 'Required';
+      if (atLeastOneFields.contains(key)) {
+        if (atLeastOneFields.every((k) => fields[k]!.text.trim().isEmpty)) {
+          return 'Phone number or email address is required';
+        }
+        if (key == 'email' &&
+            text.isNotEmpty &&
+            !RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(text)) {
+          return 'Enter a valid email address';
+        }
+        if (key == 'phone' &&
+            text.isNotEmpty &&
+            (!RegExp(r'^[+\d\s()-]+$').hasMatch(text) ||
+                !RegExp(r'^\+?[1-9]\d{7,14}$')
+                    .hasMatch(text.replaceAll(RegExp(r'[\s()-]'), '')))) {
+          return 'Enter a valid phone number with country code';
+        }
+      }
       if (booleans.contains(key) && !['true', 'false'].contains(text)) {
         return 'Choose true or false';
       }
@@ -736,6 +757,40 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
             ),
           if (assets.error != null)
             Text(assets.error!, style: const TextStyle(color: Colors.red)),
+          if (assets.fleetMode && assets.partner != null)
+            FilledButton.icon(
+              icon: const Icon(Icons.send_outlined),
+              label: const Text('Submit pending requests'),
+              onPressed: assets.busy
+                  ? null
+                  : () async {
+                      final submitted = await assets.submitPendingRequests();
+                      if (!context.mounted || !submitted) {
+                        return;
+                      }
+                      final result = assets.lastSubmission!;
+                      final requests = result['requests'] as List? ?? const [];
+                      final skipped = result['skipped'] as List? ?? const [];
+                      await showDialog<void>(
+                        context: context,
+                        builder: (dialogContext) => AlertDialog(
+                          title: const Text('Requests submitted'),
+                          content: SingleChildScrollView(
+                            child: Text(
+                              '${requests.length} pending requests submitted or already awaiting review. Each requires an independent Admin decision.'
+                              '${skipped.isEmpty ? '' : '\n\nNeeds attention:\n${skipped.map((row) => '${row['targetType']}: ${row['reason']}').join('\n')}'}',
+                            ),
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(dialogContext),
+                              child: const Text('Close'),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+            ),
           if (!assets.fleetMode)
             TextButton(
               onPressed: () => context.go(session.landingPath),
@@ -863,6 +918,16 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
               Card(
                 key: ValueKey('fleet-vehicle-${v['id']}'),
                 child: ExpansionTile(
+                  key: ValueKey('fleet-vehicle-details-${v['id']}'),
+                  initiallyExpanded: _expandedVehicles.contains(v['id']),
+                  onExpansionChanged: (expanded) {
+                    final id = v['id'] as String;
+                    if (expanded) {
+                      _expandedVehicles.add(id);
+                    } else {
+                      _expandedVehicles.remove(id);
+                    }
+                  },
                   leading: const CircleAvatar(
                     backgroundColor: Ops.surfaceOverlay,
                     child: Icon(
@@ -895,13 +960,13 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
                         ),
                         child: const Text('Vehicle revenue details'),
                       ),
-                    if (v['activeAssignmentCode'] != null)
+                    if (v['vehicleCode'] != null ||
+                        v['activeAssignmentCode'] != null)
                       ListTile(
-                        title: Text(
-                          'Vehicle assignment code - ${v['assignmentCodeStatus'] ?? 'single use'}',
-                        ),
+                        title: Text('Permanent vehicle code'),
                         subtitle: SelectableText(
-                          v['activeAssignmentCode'].toString(),
+                          (v['vehicleCode'] ?? v['activeAssignmentCode'])
+                              .toString(),
                         ),
                       ),
                     if (v['assignedDriver'] is Map)
@@ -963,6 +1028,25 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
                       ),
                     ],
                     if (assets.fleetMode) ...[
+                      if (session.api.hasDriverRole)
+                        TextButton(
+                          onPressed: assets.busy || session.busy
+                              ? null
+                              : () async {
+                                  final ok = await assets.run(() async {
+                                    await session.api.request(
+                                      'POST',
+                                      '/rides/driver/active-vehicle',
+                                      body: {'vehicleId': v['id']},
+                                    );
+                                  });
+                                  if (ok) {
+                                    await session.refresh();
+                                    await assets.refresh();
+                                  }
+                                },
+                          child: const Text('Select own approved vehicle'),
+                        ),
                       Wrap(
                         children: [
                           for (final state in [
@@ -1036,10 +1120,12 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
                                     context: context,
                                     builder: (context) => AlertDialog(
                                       title: const Text(
-                                        'Fleet assignment code',
+                                        'Permanent vehicle code',
                                       ),
                                       content: SelectableText(
-                                        '${code['code']}\nExpires: ${code['expiresAt']}',
+                                        code['permanent'] == true
+                                            ? '${code['code']}\nUse this same code to connect an eligible Driver to this vehicle. This vehicle code does not change or expire.'
+                                            : '${code['code']}\nExpires: ${code['expiresAt']}',
                                       ),
                                       actions: [
                                         TextButton(
@@ -1052,12 +1138,16 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
                                   );
                                 }
                               },
-                        child: const Text('Generate assignment code'),
+                        child: const Text('Show vehicle code'),
                       ),
                       TextButton(
                         onPressed: assets.busy
                             ? null
-                            : () => assets.unassign(v['id'] as String),
+                            : () async {
+                                if (await assets.unassign(v['id'] as String)) {
+                                  await session.refresh();
+                                }
+                              },
                         child: const Text('Unassign driver'),
                       ),
                     ],
@@ -1069,7 +1159,7 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
             Text('Drivers', style: Theme.of(context).textTheme.titleLarge),
             if (!assets.approvedPartner)
               const Text(
-                'Your business must be approved before creating or inviting Drivers. Complete the business details and request verification from the provider profile.',
+                'Save Driver profiles while business review is pending. Business, Driver and vehicle approvals are required before assignment and operations.',
               ),
             const SizedBox(height: 12),
             FilledButton.icon(
@@ -1078,15 +1168,13 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
               onPressed: assets.busy
                   ? null
                   : () async {
-                      if (!assets.approvedPartner) {
+                      if (assets.partner == null) {
                         final review = await showDialog<bool>(
                           context: context,
                           builder: (dialogContext) => AlertDialog(
-                            title: const Text('Business approval required'),
+                            title: const Text('Business profile required'),
                             content: Text(
-                              'Business status: ${statusLabel(assets.partner?['approvalStatus'])}. '
-                              'Complete your business details and submit them for review. '
-                              'Once approved, you can create Driver profiles here.',
+                              'Save your Fleet business details first so each Driver is linked to the correct Fleet. You can create pending Driver profiles before business approval.',
                             ),
                             actions: [
                               TextButton(
@@ -1097,9 +1185,7 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
                               FilledButton(
                                 onPressed: () =>
                                     Navigator.pop(dialogContext, true),
-                                child: const Text(
-                                  'Review business verification',
-                                ),
+                                child: const Text('Review business details'),
                               ),
                             ],
                           ),
@@ -1109,36 +1195,56 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
                         }
                         return;
                       }
+                      Map<String, dynamic>? result;
                       final input = await _form(
                         'Create Driver profile',
                         const {
                           'firstName': 'First name *',
                           'lastName': 'Last name *',
-                          'email': 'Driver email *',
-                          'phone': 'Phone with country code (optional)',
+                          'email': 'Driver email (or phone required)',
+                          'phone':
+                              'Phone with country code (or email required)',
                           'licenseNumber': 'Driving licence number *',
                           'licenseExpiry': 'Licence expiry (YYYY-MM-DD) *',
                         },
+                        atLeastOneFields: {'phone', 'email'},
                         requiredFields: {
                           'firstName',
                           'lastName',
-                          'email',
                           'licenseNumber',
                           'licenseExpiry',
                         },
+                        onSubmit: (input) => assets.run(() async {
+                          result = Map<String, dynamic>.from(
+                            await session.api.request(
+                              'POST',
+                              '/provider/managed-drivers',
+                              body: {
+                                ...input,
+                                if (input['email'] != null)
+                                  'email': (input['email'] as String)
+                                      .trim()
+                                      .toLowerCase(),
+                                if (input['phone'] != null)
+                                  'phone': (input['phone'] as String)
+                                      .replaceAll(RegExp(r'[\s()-]'), ''),
+                              },
+                            ) as Map,
+                          );
+                        }),
                       );
-                      if (input == null) return;
-                      Map<String, dynamic>? result;
-                      final ok = await assets.run(() async {
-                        result = Map<String, dynamic>.from(
-                          await session.api.request(
-                            'POST',
-                            '/provider/managed-drivers',
-                            body: input,
-                          ) as Map,
+                      if (input == null || result == null) return;
+                      if (context.mounted) {
+                        setState(() => _driversVersion++);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Driver profile saved. Complete onboarding for Admin review.',
+                            ),
+                          ),
                         );
-                      });
-                      if (ok && context.mounted) {
+                      }
+                      if (context.mounted) {
                         await Navigator.of(context).push(
                           MaterialPageRoute<void>(
                             builder: (_) => ManagedDriverScreen(
@@ -1151,11 +1257,13 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
                     },
             ),
             const SizedBox(height: 12),
-            if (assets.approvedPartner)
+            if (assets.partner != null)
               ApiPanel(
                 embedded: true,
                 api: session.api,
+                key: ValueKey(_driversVersion),
                 path: '/provider/managed-drivers',
+                refreshInterval: const Duration(seconds: 20),
                 builder: (context, data) => Column(
                   children: [
                     for (final row in data as List)
@@ -1181,9 +1289,11 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
                   ? null
                   : () async {
                       final input = await _form(
-                        'Add Driver',
-                        {'email': 'Registered Driver email'},
-                        requiredFields: {'email'},
+                        'Invite an existing Driver',
+                        {
+                          'contact': 'Registered Driver phone (with country code) or email',
+                        },
+                        requiredFields: {'contact'},
                       );
                       if (input == null) return;
                       Map<String, dynamic>? invite;
@@ -1192,7 +1302,13 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
                           await session.api.request(
                             'POST',
                             '/provider/fleet-drivers',
-                            body: input,
+                            body: {
+                              input['contact'].toString().contains('@')
+                                  ? 'email'
+                                  : 'phone': input['contact']
+                                  .toString()
+                                  .trim(),
+                            },
                           ) as Map,
                         );
                       });
@@ -1202,7 +1318,7 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
                           builder: (c) => AlertDialog(
                             title: const Text('Fleet invitation'),
                             content: SelectableText(
-                              'Invitation created. The Driver can accept from Account > Fleet invitations. Expires: ${invite!['expiresAt']}',
+                              'Invitation created. The Driver can accept from Profile > Fleet invitations. Expires: ${invite!['expiresAt']}',
                             ),
                             actions: [
                               TextButton(

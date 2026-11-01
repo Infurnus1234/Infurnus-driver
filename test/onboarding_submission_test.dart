@@ -154,10 +154,7 @@ void main() {
     );
     final session = DriverSession(api: api);
     addTearDown(session.dispose);
-    expect(
-      await session.login('driver@example.invalid', 'fixture-password'),
-      isTrue,
-    );
+    expect(await session.login('driver@example.invalid'), isTrue);
     expect(await session.verify('123456'), isTrue);
     expect(
       await session.saveProfile({

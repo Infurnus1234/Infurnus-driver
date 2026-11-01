@@ -1,4 +1,5 @@
 import '../screens/driver/vehicle_assignment_screen.dart';
+import '../screens/driver/fleet_invitations_screen.dart';
 import '../screens/auth/role_onboarding_screen.dart';
 import '../screens/fleet/fleet_reports_screen.dart';
 import '../screens/fleet/server_driver_detail_screen.dart';
@@ -54,6 +55,7 @@ final appRouter = GoRouter(
           !{
             '/role-onboarding',
             '/driver/assignment',
+            '/driver/fleet-invitations',
             '/onboarding/assets',
             '/provider-assets',
             '/profile',
@@ -100,7 +102,7 @@ final appRouter = GoRouter(
             session.api.providerMode != 'fleet_owner')) {
       return session.landingPath;
     }
-    if (path == '/driver/assignment' &&
+    if ({'/driver/assignment', '/driver/fleet-invitations'}.contains(path) &&
         session.api.hasDriverRole &&
         session.api.providerMode == 'driver') {
       return null;
@@ -139,6 +141,10 @@ final appRouter = GoRouter(
     return session.dashboardAllowed ? null : session.landingPath;
   },
   routes: [
+    GoRoute(
+      path: '/driver/fleet-invitations',
+      builder: (_, _) => const FleetInvitationsScreen(),
+    ),
     GoRoute(
       path: '/driver/active-trip',
       builder: (_, _) => const OperationsDashboard(),

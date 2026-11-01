@@ -10,61 +10,50 @@ import 'package:infurnus_driver/screens/auth/login_screen.dart';
 import 'package:infurnus_driver/services/api_service.dart';
 
 void main() {
-  testWidgets(
-    'Fleet credential rejection opens password guidance and blocks empty retry',
-    (tester) async {
-      final logins = <Map>[];
-      final api = ApiService(
-        client: MockClient((r) async {
-          if (r.method == 'POST' && r.url.path == '/auth/login') {
-            logins.add(jsonDecode(r.body) as Map);
-            return http.Response(
-              jsonEncode({
-                'success': false,
-                'error': {
-                  'code': 'INVALID_CREDENTIALS',
-                  'message': 'Invalid email/phone or password',
-                },
-              }),
-              401,
-            );
-          }
+  testWidgets('Rejected OTP login never exposes a password fallback', (
+    tester,
+  ) async {
+    final logins = <Map>[];
+    final api = ApiService(
+      client: MockClient((r) async {
+        if (r.method == 'POST' && r.url.path == '/auth/login') {
+          logins.add(jsonDecode(r.body) as Map);
           return http.Response(
             jsonEncode({
               'success': false,
-              'error': {'code': 'NOT_FOUND', 'message': 'Unavailable'},
+              'error': {
+                'code': 'INVALID_CREDENTIALS',
+                'message': 'Invalid email/phone or password',
+              },
             }),
-            404,
+            401,
           );
-        }),
-      );
-      final session = DriverSession(api: api);
-      addTearDown(session.dispose);
-      await tester.pumpWidget(
-        ChangeNotifierProvider.value(
-          value: session,
-          child: const MaterialApp(home: LoginScreen()),
-        ),
-      );
-      await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField).first, '9999999999');
-      await tester.ensureVisible(find.text('Continue'));
-      await tester.tap(find.text('Continue'));
-      await tester.pumpAndSettle();
-      expect(
-        find.textContaining('Fleet Owner accounts need an account password'),
-        findsOneWidget,
-      );
-      expect(
-        find.widgetWithText(TextField, 'Account password'),
-        findsOneWidget,
-      );
-      await tester.ensureVisible(find.text('Continue'));
-      await tester.tap(find.text('Continue'));
-      await tester.pumpAndSettle();
-      expect(logins, hasLength(1));
-      expect(find.text('Enter your Fleet account password.'), findsOneWidget);
-      expect(logins.single.containsKey('password'), isFalse);
-    },
-  );
+        }
+        return http.Response(
+          jsonEncode({
+            'success': false,
+            'error': {'code': 'NOT_FOUND', 'message': 'Unavailable'},
+          }),
+          404,
+        );
+      }),
+    );
+    final session = DriverSession(api: api);
+    addTearDown(session.dispose);
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: session,
+        child: const MaterialApp(home: LoginScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).first, '9999999999');
+    await tester.ensureVisible(find.text('Continue'));
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(TextField, 'Account password'), findsNothing);
+    expect(find.text('Use Fleet account password'), findsNothing);
+    expect(logins, hasLength(1));
+    expect(logins.single.containsKey('password'), isFalse);
+  });
 }

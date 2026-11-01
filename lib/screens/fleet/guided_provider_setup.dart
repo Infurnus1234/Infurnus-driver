@@ -10,6 +10,7 @@ import '../../providers/provider_assets.dart';
 import '../../models/onboarding_rules.dart';
 import '../../models/onboarding_journey.dart';
 import '../../models/provider_status.dart';
+import 'fleet_vehicle_category_dialog.dart';
 import '../auth/guided_document_capture.dart';
 
 /// Owned-provider prerequisites are kept separate from fleet assignment claims.
@@ -343,12 +344,26 @@ class _GuidedProviderSetupState extends State<GuidedProviderSetup> {
                                     _error = 'Complete make, model, registration and category.';
                                     return false;
                                   }
+                                  final premium = _sector == 'premium'
+                                      ? await selectFleetVehicleCategory(
+                                          context,
+                                          context.read<DriverSession>().api,
+                                          initial: {
+                                            'sector': _sector,
+                                            'category': _category.text.trim(),
+                                          },
+                                        )
+                                      : null;
+                                  if (_sector == 'premium' && premium == null) {
+                                    return false;
+                                  }
                                   final ok = await a.saveVehicle({
                                     'make': _make.text.trim(),
                                     'model': _model.text.trim(),
                                     'plateNumber': _plate.text.trim(),
                                     'sector': _sector,
                                     'category': _category.text.trim(),
+                                    ...?premium,
                                     'isCommercial': true,
                                   });
                                   if (ok) {

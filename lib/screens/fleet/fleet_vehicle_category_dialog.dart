@@ -21,7 +21,7 @@ class _VehicleCategoryDialog extends StatefulWidget {
 
 class _VehicleCategoryDialogState extends State<_VehicleCategoryDialog> {
   late Future<dynamic> _catalog;
-  String? _sector, _type, _error;
+  String? _sector, _type, _city, _error;
   String _search = '';
   bool _creating = false;
   @override
@@ -29,6 +29,7 @@ class _VehicleCategoryDialogState extends State<_VehicleCategoryDialog> {
     super.initState();
     _sector = widget.initial?['sector'] as String?;
     _type = widget.initial?['category'] as String?;
+    _city = widget.initial?['operatingCityId'] as String?;
     _catalog = widget.api.request('GET', '/provider/vehicle-catalog');
   }
 
@@ -93,6 +94,8 @@ class _VehicleCategoryDialogState extends State<_VehicleCategoryDialog> {
         }
         final data = snapshot.data as Map;
         final sectors = List<String>.from(data['sectors'] as List);
+        final cities = (data['operatingCities'] as List? ?? []).cast<Map>();
+        final selectedCity = cities.any((c) => c['id'] == _city) ? _city : null;
         final matches = (data['types'] as List)
             .cast<Map>()
             .where(
@@ -166,6 +169,29 @@ class _VehicleCategoryDialogState extends State<_VehicleCategoryDialog> {
                   const Text(
                     'No configured types are available for this category.',
                   ),
+                if (_sector == 'premium') ...[
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    key: ValueKey('operating-city:$_city'),
+                    initialValue: selectedCity,
+                    decoration: const InputDecoration(
+                      labelText: 'Premium operating city *',
+                    ),
+                    items: cities
+                        .map(
+                          (city) => DropdownMenuItem(
+                            value: city['id'] as String,
+                            child: Text(city['name'].toString()),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (v) => setState(() => _city = v),
+                  ),
+                  if (cities.isEmpty)
+                    const Text(
+                      'No approved Premium cities are configured. Retry configuration before saving.',
+                    ),
+                ],
                 if (_sector != null &&
                     _search.trim().isNotEmpty &&
                     !types.any(
@@ -186,11 +212,16 @@ class _VehicleCategoryDialogState extends State<_VehicleCategoryDialog> {
                 ),
                 const SizedBox(height: 20),
                 FilledButton(
-                  onPressed: _sector == null || selectedType == null
+                  onPressed:
+                      _sector == null ||
+                          selectedType == null ||
+                          (_sector == 'premium' && selectedCity == null)
                       ? null
                       : () => Navigator.pop(context, {
                           'sector': _sector!,
                           'category': selectedType,
+                          if (_sector == 'premium')
+                            'operatingCityId': selectedCity!,
                         }),
                   child: const Text('Continue'),
                 ),

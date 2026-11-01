@@ -233,12 +233,14 @@ class _RoleOnboardingScreenState extends State<RoleOnboardingScreen> {
               ),
             ] else if (step == 'driver') ...[
               const Text(
-                'Invite an existing Driver by email. They accept from Account > Fleet invitations. Fleet association and driving approval remain separate.',
+                'Invite an existing Driver by their registered phone number or email. They accept from Profile > Fleet invitations. Fleet association and driving approval remain separate.',
               ),
               TextField(
                 controller: _email,
-                keyboardType: TextInputType.emailAddress,
-                decoration: const InputDecoration(labelText: 'Driver email'),
+                keyboardType: TextInputType.text,
+                decoration: const InputDecoration(
+                  labelText: 'Driver phone (with country code) or email',
+                ),
               ),
               FilledButton(
                 onPressed: busy
@@ -247,7 +249,10 @@ class _RoleOnboardingScreenState extends State<RoleOnboardingScreen> {
                         final invite = await s.api.request(
                           'POST',
                           '/provider/fleet-drivers',
-                          body: {'email': _email.text.trim()},
+                          body: {
+                            _email.text.contains('@') ? 'email' : 'phone':
+                                _email.text.trim(),
+                          },
                         );
                         if (context.mounted) {
                           await showDialog<void>(
@@ -255,7 +260,7 @@ class _RoleOnboardingScreenState extends State<RoleOnboardingScreen> {
                             builder: (c) => AlertDialog(
                               title: const Text('Fleet invitation'),
                               content: SelectableText(
-                                'Invitation created. The Driver can accept from Account > Fleet invitations. Expires: ${invite['expiresAt']}',
+                                'Invitation created. The Driver can accept from Profile > Fleet invitations. Expires: ${invite['expiresAt']}',
                               ),
                               actions: [
                                 TextButton(

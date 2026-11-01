@@ -77,47 +77,44 @@ void main() {
     },
   );
 
-  test('password login requests production challenge and never authenticates early', () async {
-    final api = ApiService(
-      client: MockClient((request) async {
-        expect(request.url.origin, ApiService.baseUrl);
-        expect(request.url.path, '/auth/login');
-        expect(request.method, 'POST');
-        expect(jsonDecode(request.body), {
-          'phone': '+919876543210',
-          'password': 'test-password',
-        });
-        return success({'challengeId': 'challenge-fixture'});
-      }),
-    );
-    expect(
-      await api.login('+91 98765 43210', 'test-password'),
-      'challenge-fixture',
-    );
-    expect(api.accessToken, isNull);
-    api.dispose();
-  });
+  test(
+    'OTP login requests production challenge and never authenticates early',
+    () async {
+      final api = ApiService(
+        client: MockClient((request) async {
+          expect(request.url.origin, ApiService.baseUrl);
+          expect(request.url.path, '/auth/login');
+          expect(request.method, 'POST');
+          expect(jsonDecode(request.body), {
+            'phone': '+919876543210',
+            'driverFlow': true,
+          });
+          return success({'challengeId': 'challenge-fixture'});
+        }),
+      );
+      expect(await api.login('+91 98765 43210'), 'challenge-fixture');
+      expect(api.accessToken, isNull);
+      api.dispose();
+    },
+  );
 
-  test('password login normalizes 10-digit mobile number to +91', () async {
+  test('OTP login normalizes 10-digit mobile number to +91', () async {
     final api = ApiService(
       client: MockClient((request) async {
         expect(jsonDecode(request.body), {
           'phone': '+919876543210',
-          'password': 'test-password',
+          'driverFlow': true,
         });
         return success({'challengeId': 'challenge-10digit'});
       }),
     );
-    expect(await api.login('9876543210', 'test-password'), 'challenge-10digit');
+    expect(await api.login('9876543210'), 'challenge-10digit');
     api.dispose();
   });
 
-  test('password login rejects invalid phone number format', () async {
+  test('OTP login rejects invalid phone number format', () async {
     final api = ApiService(client: MockClient((_) async => success({})));
-    await expectLater(
-      api.login('123', 'test-password'),
-      throwsA(isA<ApiException>()),
-    );
+    await expectLater(api.login('123'), throwsA(isA<ApiException>()));
     api.dispose();
   });
 
@@ -126,7 +123,7 @@ void main() {
       client: MockClient((_) async => throw http.ClientException('offline')),
     );
     await expectLater(
-      api.login('driver@example.invalid', 'test-password'),
+      api.login('driver@example.invalid'),
       throwsA(isA<ApiException>()),
     );
     expect(api.accessToken, isNull);
@@ -210,7 +207,7 @@ void main() {
       ),
     );
     await expectLater(
-      api.login('driver@example.invalid', 'test-password'),
+      api.login('driver@example.invalid'),
       throwsA(isA<ApiException>()),
     );
     api.dispose();

@@ -343,6 +343,8 @@ class RideDetails extends StatelessWidget {
             ride['pinVerified'] == true &&
                     ['in_progress', 'completed'].contains(ride['status'])
                 ? ride['destinationAddress']?.toString() ?? 'Not provided'
+                : ride['sector'] == 'service'
+                ? 'Available after customer PIN verification'
                 : 'Available after passenger PIN verification',
             style: const TextStyle(
               color: Ops.textPrimary,
@@ -359,6 +361,8 @@ class RideDetails extends StatelessWidget {
                 Text(
                   fareInfo?['authority'] == 'final' || ride['finalFare'] != null
                       ? 'Final fare'
+                      : ride['sector'] == 'service'
+                      ? 'Fixed service fare'
                       : 'Estimated fare',
                   style: const TextStyle(color: Ops.textSecondary),
                 ),
@@ -370,6 +374,18 @@ class RideDetails extends StatelessWidget {
                   ),
                 ),
               ],
+            ),
+          ),
+        if (ride['sector'] == 'service' && ride['serviceDetails'] is Map)
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Service details'),
+            subtitle: Text(
+              [
+                for (final key in ['emergencyLevel', 'description', 'notes'])
+                  if ((ride['serviceDetails'] as Map)[key] != null)
+                    '${(ride['serviceDetails'] as Map)[key]}',
+              ].join(' · '),
             ),
           ),
         ExpansionTile(

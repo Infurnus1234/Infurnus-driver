@@ -1,3 +1,5 @@
+import '../../widgets/assigned_owner_details.dart';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -212,6 +214,7 @@ class _ManagedDriverScreenState extends State<ManagedDriverScreen> {
         path: '/provider/managed-drivers/${widget.userId}',
         builder: (context, value) {
           final data = value as Map, profile = data['profile'] as Map;
+          final assignedVehicle = profile['assignedVehicle'] as Map?;
           final rules = <String, DocumentRule>{
             for (final row in data['requirements'] as List)
               DocumentRule.fromJson(Map<String, dynamic>.from(row as Map))
@@ -242,10 +245,20 @@ class _ManagedDriverScreenState extends State<ManagedDriverScreen> {
               ),
               Text('Verification: ${profile['verificationStatus']}'),
               Text(
+                profile['phone'] == null ||
+                        profile['phone'].toString().trim().isEmpty
+                    ? 'No login phone saved. Use the saved email for OTP login.'
+                    : 'Driver login phone: ${profile['phone']}',
+              ),
+              if (profile['email'] != null &&
+                  profile['email'].toString().trim().isNotEmpty)
+                Text('Driver login email: ${profile['email']}'),
+              Text(
                 profile['assignedVehicle'] == null
                     ? 'Vehicle: Unassigned'
                     : 'Vehicle: ${profile['assignedVehicle']['plateNumber']}',
               ),
+              AssignedOwnerDetails(owner: assignedVehicle?['owner'] as Map?),
               OutlinedButton(
                 onPressed: _busy ? null : _assign,
                 child: const Text('Assign vehicle using code'),
@@ -258,7 +271,7 @@ class _ManagedDriverScreenState extends State<ManagedDriverScreen> {
                 child: const Text('Edit licence details'),
               ),
               const Text(
-                'The Driver signs in with their own OTP. Saved information is not approval to drive.',
+                'Ask the Driver to tap Get Started, enter the same phone number or email saved here, then tap Continue and Verify & Continue. Do not create another account. No OTP or invitation is sent when this profile is saved. Login does not approve the Driver, Fleet or vehicle for operations.',
               ),
               const SizedBox(height: 16),
               for (final rule in rules.values)
