@@ -73,6 +73,28 @@ class DriverNotificationService {
       FirebaseMessaging.onBackgroundMessage(
         driverFirebaseMessagingBackgroundHandler,
       );
+      // Delete v1 channel so old installs get the new sound on the v2 channel.
+      await _plugin
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >()
+          ?.deleteNotificationChannel('infurnus_driver_channel');
+      const AndroidNotificationChannel driverChannel =
+          AndroidNotificationChannel(
+            'infurnus_driver_channel_v2',
+            'Infurnus Driver Notifications',
+            description:
+                'Audible alerts for new ride requests and trip updates',
+            importance: Importance.max,
+            playSound: true,
+            sound: RawResourceAndroidNotificationSound('infurnus_alert'),
+            enableVibration: true,
+          );
+      await _plugin
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >()
+          ?.createNotificationChannel(driverChannel);
       await _plugin.initialize(
         const InitializationSettings(
           android: AndroidInitializationSettings('@mipmap/launcher_icon'),
@@ -224,12 +246,20 @@ class DriverNotificationService {
         body,
         const NotificationDetails(
           android: AndroidNotificationDetails(
-            'infurnus_driver_channel',
+            'infurnus_driver_channel_v2',
             'Infurnus Driver Notifications',
             importance: Importance.max,
             priority: Priority.high,
+            sound: RawResourceAndroidNotificationSound('infurnus_alert'),
+            playSound: true,
+            enableVibration: true,
           ),
-          iOS: DarwinNotificationDetails(),
+          iOS: DarwinNotificationDetails(
+            sound: 'infurnus_alert.wav',
+            presentSound: true,
+            presentAlert: true,
+            presentBadge: true,
+          ),
         ),
         payload: payload,
       );
