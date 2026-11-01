@@ -79,15 +79,17 @@ class DriverNotificationService {
             AndroidFlutterLocalNotificationsPlugin
           >()
           ?.deleteNotificationChannel('infurnus_driver_channel');
-      const AndroidNotificationChannel driverChannel = AndroidNotificationChannel(
-        'infurnus_driver_channel_v2',
-        'Infurnus Driver Notifications',
-        description: 'Audible alerts for new ride requests and trip updates',
-        importance: Importance.max,
-        playSound: true,
-        sound: RawResourceAndroidNotificationSound('infurnus_alert'),
-        enableVibration: true,
-      );
+      const AndroidNotificationChannel driverChannel =
+          AndroidNotificationChannel(
+            'infurnus_driver_channel_v2',
+            'Infurnus Driver Notifications',
+            description:
+                'Audible alerts for new ride requests and trip updates',
+            importance: Importance.max,
+            playSound: true,
+            sound: RawResourceAndroidNotificationSound('infurnus_alert'),
+            enableVibration: true,
+          );
       await _plugin
           .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin
