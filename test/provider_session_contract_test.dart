@@ -86,7 +86,7 @@ void main() {
           MockClient((r) async {
             if (r.url.path == '/rides/driver/location') {
               sent.add(jsonDecode(r.body)['timestamp'] as String);
-              if (sent.length == 1)
+              if (sent.length == 1) {
                 return http.Response(
                   jsonEncode({
                     'success': false,
@@ -97,6 +97,7 @@ void main() {
                   }),
                   409,
                 );
+              }
               if (sent.length == 3) {
                 return http.Response(
                   jsonEncode({

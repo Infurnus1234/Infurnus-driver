@@ -16,7 +16,7 @@ import 'package:infurnus_driver/widgets/trip_map.dart';
 import 'recording_maps.dart';
 
 class MapSession extends DriverSession {
-  MapSession(superApi) : super(api: superApi);
+  MapSession(ApiService superApi) : super(api: superApi);
   @override
   Future<bool> locate() async => true;
   void move(Position fix) {

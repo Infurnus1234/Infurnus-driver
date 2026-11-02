@@ -175,7 +175,7 @@ class _VehicleCategoryDialogState extends State<_VehicleCategoryDialog> {
                     key: ValueKey('operating-city:$_city'),
                     initialValue: selectedCity,
                     decoration: const InputDecoration(
-                      labelText: 'Premium operating city *',
+                      labelText: 'Supported Bihar city *',
                     ),
                     items: cities
                         .map(
