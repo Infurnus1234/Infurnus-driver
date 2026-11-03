@@ -13,6 +13,9 @@ import '../../widgets/driver_bottom_nav.dart';
 import '../../widgets/operations.dart';
 import '../../widgets/reference_components.dart';
 import '../../services/payout_request.dart';
+
+import 'package:infurnus_driver/widgets/assigned_vehicle_card.dart';
+
 import '../../services/api_service.dart';
 
 class LedgerScreen extends StatefulWidget {
@@ -166,7 +169,9 @@ class _LedgerScreenState extends State<LedgerScreen> {
                 FilledButton(
                   onPressed: _requesting ? null : _payout,
                   child: Text(
-                    _requesting ? 'Checking payout request…' : 'Request payout',
+                    _requesting
+                        ? 'Checking payout requestâ€¦'
+                        : 'Request payout',
                   ),
                 ),
                 if (entries.isEmpty)
@@ -247,7 +252,7 @@ class _LedgerScreenState extends State<LedgerScreen> {
                   child: ListTile(
                     title: Text(day['day'].toString().split('T').first),
                     subtitle: Text(
-                      'Gross ${inr(day['grossPaise'])} · Commission ${inr(day['commissionPaise'])}',
+                      'Gross ${inr(day['grossPaise'])} Â· Commission ${inr(day['commissionPaise'])}',
                     ),
                     trailing: Text(inr(day['netPaise'])),
                   ),
@@ -364,7 +369,7 @@ class TripsScreen extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                '${ride['pickupAddress'] ?? 'Pickup unavailable'} → ${ride['destinationAddress'] ?? 'Destination unavailable'}',
+                                '${ride['pickupAddress'] ?? 'Pickup unavailable'} â†’ ${ride['destinationAddress'] ?? 'Destination unavailable'}',
                                 style: const TextStyle(
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -598,7 +603,7 @@ class AccountScreen extends StatelessWidget {
               loading: session.busy,
               retry: session.refresh,
             ),
-          ),
+          ],
           const SizedBox(height: 12),
           SettingsTile(
             icon: Icons.document_scanner_outlined,
