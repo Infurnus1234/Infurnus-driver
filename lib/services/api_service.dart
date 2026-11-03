@@ -270,7 +270,6 @@ class ApiService {
           !invalidLinkIdentity) {
         clearSession();
       }
-      final isFallback = error is! Map || error['message'] == null;
       throw ApiException(
         _userFacingError(code, response.statusCode),
         response.statusCode,

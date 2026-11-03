@@ -104,17 +104,18 @@ class _AssignedVehicleCardState extends State<AssignedVehicleCard> {
                 style: TextStyle(fontWeight: FontWeight.w700),
               ),
               Text(
-                loading ? 'Loading assigned vehicle…' : error ?? 'Unassigned · Enter a vehicle code when you are ready to join.',
+                widget.loading ? 'Loading assigned vehicle…' : widget.error ?? 'Unassigned · Enter a vehicle code when you are ready to join.',
               ),
-              if (loading) const LinearProgressIndicator(),
-              if (error != null && !loading)
+              if (widget.loading) const LinearProgressIndicator(),
+              if (widget.error != null && !widget.loading)
                 TextButton.icon(
-                  onPressed: canManage ? retry : null,
+                  onPressed: widget.canManage ? widget.retry : null,
                   icon: const Icon(Icons.refresh),
                   label: const Text('Retry'),
                 ),
               TextButton(
-                onPressed: loading || error != null || !canManage
+                onPressed:
+                    widget.loading || widget.error != null || !widget.canManage
                     ? null
                     : () => context.push('/driver/assignment'),
                 child: const Text('Manage vehicle assignment'),

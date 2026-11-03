@@ -42,7 +42,6 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
   String _search = '';
   int _tab = 0;
   int _driversVersion = 0;
-  final Set<String> _expandedVehicles = {};
   @override
   void initState() {
     super.initState();

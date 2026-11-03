@@ -1,10 +1,17 @@
+import 'dart:async';
 import 'dart:developer' as developer;
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/driver_session.dart';
 import '../../widgets/operations.dart';
+
+String supportRequestId() => List.generate(
+  24,
+  (_) => Random.secure().nextInt(256).toRadixString(16).padLeft(2, '0'),
+).join();
 
 class SupportTicketsScreen extends StatefulWidget {
   const SupportTicketsScreen({super.key});

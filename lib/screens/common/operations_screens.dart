@@ -463,48 +463,6 @@ class PersonalInformationScreen extends StatelessWidget {
 class AccountScreen extends StatelessWidget {
   const AccountScreen({super.key});
 
-  Future<void> _confirmLogout(
-    BuildContext context,
-    DriverSession session,
-  ) async {
-    final shouldLogout = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(InfurnusTheme.r16),
-        ),
-        title: const Text(
-          'Log out',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        content: const Text(
-          'Are you sure you want to log out of your account?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: Text(
-              'Cancel',
-              style: TextStyle(color: InfurnusTheme.textMuted),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: InfurnusTheme.dangerRed,
-            ),
-            child: const Text('Log out'),
-          ),
-        ],
-      ),
-    );
-
-    if (shouldLogout == true && context.mounted) {
-      await session.logout();
-      if (context.mounted) context.go('/login');
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final session = context.watch<DriverSession>();
