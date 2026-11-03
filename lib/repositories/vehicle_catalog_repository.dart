@@ -3,144 +3,94 @@ import 'dart:async';
 import '../models/vehicle_catalog_model.dart';
 
 class VehicleCatalogRepository {
-  // Comprehensive Vehicle Catalog Database updated with Auto Rickshaw, E-Rickshaw, Passenger, Trip, Logistic, and Premium vehicles
+  // Official vehicle catalog synchronized with Customer App
   static const List<VehicleCatalogItem> _catalog = [
-    // Auto Rickshaw & 3-Wheeler / E-Rickshaw
+    // Passenger Rides
     VehicleCatalogItem(
-      id: 'CAT-AUTO-1',
-      brand: 'Bajaj',
-      modelName: 'Compact Auto (CNG)',
-      category: 'Auto Rickshaw',
-      fuelType: 'CNG',
-      payloadCapacity: '350 kg',
-    ),
-    VehicleCatalogItem(
-      id: 'CAT-AUTO-2',
-      brand: 'Mahindra',
-      modelName: 'Treo Electric Auto',
-      category: 'Auto Rickshaw',
-      fuelType: 'Electric',
-      payloadCapacity: '400 kg',
-    ),
-    VehicleCatalogItem(
-      id: 'CAT-AUTO-3',
-      brand: 'Piaggio',
-      modelName: 'Ape City (LPG/CNG)',
-      category: 'Auto Rickshaw',
-      fuelType: 'LPG/CNG',
-      payloadCapacity: '380 kg',
-    ),
-    VehicleCatalogItem(
-      id: 'CAT-AUTO-4',
-      brand: 'TVS',
-      modelName: 'King Deluxe',
-      category: 'Auto Rickshaw',
+      id: 'CAT-PASS-1',
+      brand: 'Maruti Suzuki',
+      modelName: 'WagonR (Mini Cab)',
+      category: 'Passenger',
       fuelType: 'Petrol/CNG',
       payloadCapacity: '350 kg',
     ),
     VehicleCatalogItem(
-      id: 'CAT-P1',
-      brand: 'Electric',
-      modelName: 'E-Rickshaw',
+      id: 'CAT-PASS-2',
+      brand: 'Toyota',
+      modelName: 'Etios (Sedan)',
       category: 'Passenger',
-      fuelType: 'Electric',
-      payloadCapacity: '400 kg',
+      fuelType: 'Diesel',
+      payloadCapacity: '450 kg',
+    ),
+    VehicleCatalogItem(
+      id: 'CAT-PASS-3',
+      brand: 'Toyota',
+      modelName: 'Fortuner (SUV)',
+      category: 'Passenger',
+      fuelType: 'Diesel',
+      payloadCapacity: '650 kg',
     ),
 
-    // Trip Vehicle
+    // Logistics
     VehicleCatalogItem(
-      id: 'CAT-T1',
-      brand: 'Force',
-      modelName: 'Force Traveller',
-      category: 'Trip Vehicle',
-      fuelType: 'Diesel',
-      payloadCapacity: '1500 kg',
-    ),
-    VehicleCatalogItem(
-      id: 'CAT-T2',
+      id: 'CAT-LOG-1',
       brand: 'Tata',
-      modelName: 'Winger',
-      category: 'Trip Vehicle',
-      fuelType: 'Diesel',
-      payloadCapacity: '1200 kg',
-    ),
-
-    // Logistic & Cargo
-    VehicleCatalogItem(
-      id: 'CAT-L1',
-      brand: 'Piaggio',
-      modelName: 'Piaggio Ape Cargo',
-      category: 'Logistic',
-      fuelType: 'CNG/Diesel',
-      payloadCapacity: '500 kg',
-    ),
-    VehicleCatalogItem(
-      id: 'CAT-L2',
-      brand: 'Tata',
-      modelName: 'Tata Ace EV',
-      category: 'Logistic',
-      fuelType: 'Electric',
-      payloadCapacity: '750 kg',
-    ),
-    VehicleCatalogItem(
-      id: 'CAT-L3',
-      brand: 'Tata',
-      modelName: '207',
-      category: 'Logistic',
+      modelName: '207 Heavy',
+      category: 'Logistics',
       fuelType: 'Diesel',
       payloadCapacity: '1100 kg',
     ),
     VehicleCatalogItem(
-      id: 'CAT-L4',
+      id: 'CAT-LOG-2',
+      brand: 'Piaggio',
+      modelName: '3-Wheeler (Goods)',
+      category: 'Logistics',
+      fuelType: 'CNG/Electric',
+      payloadCapacity: '500 kg',
+    ),
+    VehicleCatalogItem(
+      id: 'CAT-LOG-3',
       brand: 'Tata',
-      modelName: '407',
-      category: 'Logistic',
+      modelName: '407 Cargo',
+      category: 'Logistics',
       fuelType: 'Diesel',
       payloadCapacity: '2200 kg',
     ),
-
-    // Premium Vehicle
     VehicleCatalogItem(
-      id: 'CAT-PR1',
-      brand: 'Mahindra',
-      modelName: 'Scorpio N',
-      category: 'Premium Vehicle',
-      fuelType: 'Diesel/Petrol',
-      payloadCapacity: '600 kg',
-    ),
-
-    // Additional popular models
-    VehicleCatalogItem(
-      id: 'CAT-1',
-      brand: 'Maruti Suzuki',
-      modelName: 'Alto',
-      category: 'Hatchback',
-      fuelType: 'Petrol',
-      payloadCapacity: '350 kg',
+      id: 'CAT-LOG-4',
+      brand: 'Tata',
+      modelName: 'Mini Truck (Tata Ace)',
+      category: 'Logistics',
+      fuelType: 'Diesel/Electric',
+      payloadCapacity: '750 kg',
     ),
     VehicleCatalogItem(
-      id: 'CAT-2',
-      brand: 'Maruti Suzuki',
-      modelName: 'Alto K10',
-      category: 'Hatchback',
-      fuelType: 'Petrol/CNG',
-      payloadCapacity: '380 kg',
-    ),
-    VehicleCatalogItem(
-      id: 'CAT-4',
-      brand: 'Toyota',
-      modelName: 'Fortuner',
-      category: 'SUV',
+      id: 'CAT-LOG-5',
+      brand: 'Tata',
+      modelName: 'Tata 407',
+      category: 'Logistics',
       fuelType: 'Diesel',
-      payloadCapacity: '650 kg',
+      payloadCapacity: '2500 kg',
     ),
+
+    // Service Vehicles
     VehicleCatalogItem(
-      id: 'CAT-5',
-      brand: 'Ford',
-      modelName: 'EcoSport',
-      category: 'SUV',
-      fuelType: 'Petrol',
-      payloadCapacity: '450 kg',
+      id: 'CAT-SERV-1',
+      brand: 'Force',
+      modelName: 'Ambulance',
+      category: 'Service',
+      fuelType: 'Diesel',
+      payloadCapacity: '1000 kg',
+    ),
+
+    // Premium & Rentals
+    VehicleCatalogItem(
+      id: 'CAT-PREM-1',
+      brand: 'Mahindra',
+      modelName: 'Mahindra Thar',
+      category: 'Premium',
+      fuelType: 'Diesel/Petrol',
+      payloadCapacity: '500 kg',
     ),
   ];
 
@@ -155,7 +105,7 @@ class VehicleCatalogRepository {
     await Future.delayed(const Duration(milliseconds: 150));
 
     if (cleanQuery.isEmpty) {
-      return [];
+      return _catalog;
     }
 
     return _catalog.where((item) {

@@ -8,31 +8,31 @@ void main() {
   group('VehicleCatalogRepository Search Tests', () {
     final repo = VehicleCatalogRepository();
 
+    test('Empty search query returns full list', () async {
+      final results = await repo.searchVehicles('');
+      expect(results, isNotEmpty);
+    });
+
     test(
-      'Empty search query returns empty list (does not dump full list)',
+      'Searching new vehicle categories (3-Wheeler, 407 Cargo, Thar, Etios)',
       () async {
-        final results = await repo.searchVehicles('');
-        expect(results, isEmpty);
+        final goods = await repo.searchVehicles('3-Wheeler');
+        expect(goods.map((v) => v.modelName), contains('3-Wheeler (Goods)'));
+
+        final cargo = await repo.searchVehicles('407 Cargo');
+        expect(cargo.map((v) => v.modelName), contains('407 Cargo'));
+
+        final thar = await repo.searchVehicles('Thar');
+        expect(thar.map((v) => v.modelName), contains('Mahindra Thar'));
+
+        final etios = await repo.searchVehicles('Etios');
+        expect(etios.map((v) => v.modelName), contains('Etios (Sedan)'));
       },
     );
 
-    test('Searching new vehicle categories (E-Rickshaw, Force Traveller, 407, Scorpio N)', () async {
-      final erickshaw = await repo.searchVehicles('rickshaw');
-      expect(erickshaw.map((v) => v.modelName), contains('E-Rickshaw'));
-
-      final force = await repo.searchVehicles('force');
-      expect(force.map((v) => v.modelName), contains('Force Traveller'));
-
-      final truck407 = await repo.searchVehicles('407');
-      expect(truck407.map((v) => v.modelName), contains('407'));
-
-      final scorpio = await repo.searchVehicles('scorpio');
-      expect(scorpio.map((v) => v.modelName), contains('Scorpio N'));
-    });
-
     test('Search is case-insensitive', () async {
-      final upperResults = await repo.searchVehicles('SCORPIO');
-      final lowerResults = await repo.searchVehicles('scorpio');
+      final upperResults = await repo.searchVehicles('THAR');
+      final lowerResults = await repo.searchVehicles('thar');
 
       expect(upperResults.length, equals(lowerResults.length));
     });
@@ -53,11 +53,11 @@ void main() {
 
       expect(find.byType(TextField), findsOneWidget);
 
-      await tester.enterText(find.byType(TextField), 'scorpio');
+      await tester.enterText(find.byType(TextField), 'Thar');
       await tester.pump(const Duration(milliseconds: 300));
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('Scorpio N'), findsAtLeastNWidgets(1));
+      expect(find.textContaining('Mahindra Thar'), findsAtLeastNWidgets(1));
     });
   });
 }
