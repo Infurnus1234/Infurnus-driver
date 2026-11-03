@@ -450,9 +450,7 @@ class DriverSession extends ChangeNotifier {
       if (!_accountVerified && api.accessToken != null) {
         restorationNeedsRetry = true;
       }
-      error = e is ApiException
-          ? (e.message == 'Internal Server Error' ? 'We couldn\'t load this information. Please try again.' : e.message)
-          : 'We couldn\'t load this information. Please try again.';
+      error = userSafeErrorMessage(e);
       if (api.accessToken == null && _accountVerified) _clear();
       return false;
     } finally {
@@ -1206,9 +1204,7 @@ class DriverSession extends ChangeNotifier {
       // Keep authorization failures authoritative and surface local/GPS failures
       // on the authenticated trip screen with its existing retry control.
       if (e is ApiException && (e.status == 401 || e.status == 403)) rethrow;
-      error = e is ApiException
-          ? e.message
-          : 'Location unavailable. Check GPS and permissions, then retry.';
+      error = userSafeErrorMessage(e);
     }
   }
 
@@ -1252,9 +1248,7 @@ class DriverSession extends ChangeNotifier {
     try {
       await _sendLocation(p);
     } catch (e) {
-      error = e is ApiException
-          ? e.message
-          : 'Location update could not be delivered.';
+      error = userSafeErrorMessage(e);
       if (api.accessToken == null) _clear();
     } finally {
       _sendingLocation = false;

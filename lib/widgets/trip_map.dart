@@ -217,11 +217,7 @@ class _TripMapState extends State<TripMap> {
             ),
           ),
         if (_configured == null) const LinearProgressIndicator(),
-        if (_configured == false)
-          const OpsEmpty(
-            'Map is unavailable on this build. Location and trip updates remain available.',
-            icon: Icons.map_outlined,
-          ),
+        if (_configured == false) const SizedBox.shrink(),
         if (_configured == true)
           SizedBox(
             height: widget.compact ? 330 : 280,
