@@ -14,6 +14,8 @@ class InfurnusTheme {
 
   static const Color textDark = Color(0xFF0F172A);
   static const Color textMuted = Color(0xFF64748B);
+  static const Color borderSubtle = Color(0xFFE3E8F0);
+  static const Color iconBoxBg = Color(0xFFF1F5F9);
 
   static const Color successGreen = Color(0xFF047857);
   static const Color warningAmber = Color(0xFF92400E);
@@ -26,10 +28,51 @@ class InfurnusTheme {
   static const double helperSize = 14;
   static const double labelSize = 12;
 
-  // Aliases for White + Green palette
+  // Aliases for compatibility (Deprecated)
+  @Deprecated('Use InfurnusTheme.bgWhite instead')
   static const Color primaryDark = Colors.white;
-  static const Color primaryNavy = Color(0xFFECFDF5);
+  @Deprecated('Use InfurnusTheme.primaryGreen instead')
   static const Color accentOrange = Color(0xFF10B981);
+
+  // Spacing & Radius Constants
+  static const double s8 = 8.0;
+  static const double s12 = 12.0;
+  static const double s16 = 16.0;
+  static const double s20 = 20.0;
+  static const double s24 = 24.0;
+  static const double s32 = 32.0;
+
+  static const double r16 = 16.0;
+  static const double r12 = 12.0;
+  static const double r8 = 8.0;
+
+  @visibleForTesting
+  static bool isTesting = false;
+
+  static TextStyle interStyle({
+    TextStyle? textStyle,
+    double? fontSize,
+    FontWeight? fontWeight,
+    Color? color,
+    double? height,
+  }) {
+    if (isTesting) {
+      return (textStyle ?? const TextStyle()).copyWith(
+        fontFamily: 'Roboto',
+        fontSize: fontSize,
+        fontWeight: fontWeight,
+        color: color,
+        height: height,
+      );
+    }
+    return GoogleFonts.inter(
+      textStyle: textStyle,
+      fontSize: fontSize,
+      fontWeight: fontWeight,
+      color: color,
+      height: height,
+    );
+  }
 
   static ThemeData get lightTheme {
     final filledStyle =
@@ -90,22 +133,22 @@ class InfurnusTheme {
         error: dangerRed,
       ),
       appBarTheme: AppBarTheme(
-        backgroundColor: primaryGreen,
+        backgroundColor: bgWhite,
         elevation: 0,
-        centerTitle: true,
-        titleTextStyle: GoogleFonts.inter(
-          color: Colors.white,
-          fontSize: 18,
+        centerTitle: false,
+        titleTextStyle: interStyle(
+          color: textDark,
+          fontSize: 20,
           fontWeight: FontWeight.bold,
         ),
-        iconTheme: const IconThemeData(color: Colors.white),
+        iconTheme: const IconThemeData(color: textDark),
       ),
       cardTheme: CardThemeData(
         color: surfaceCard,
-        elevation: 1,
+        elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: Color(0xFFE2E8F0)),
+          borderRadius: BorderRadius.circular(r16),
+          side: const BorderSide(color: borderSubtle, width: 1),
         ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(style: filledStyle),
@@ -114,36 +157,41 @@ class InfurnusTheme {
         filled: true,
         fillColor: Colors.white,
         contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 16,
+          horizontal: s16,
+          vertical: s16,
         ),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+          borderRadius: BorderRadius.circular(r12),
+          borderSide: const BorderSide(color: borderSubtle),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+          borderRadius: BorderRadius.circular(r12),
+          borderSide: const BorderSide(color: borderSubtle),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(r12),
           borderSide: const BorderSide(color: primaryGreen, width: 2),
         ),
-        labelStyle: GoogleFonts.inter(color: textMuted),
-        hintStyle: GoogleFonts.inter(color: textMuted),
+        labelStyle: interStyle(color: textMuted),
+        hintStyle: interStyle(color: textMuted),
       ),
       textTheme: TextTheme(
-        headlineMedium: GoogleFonts.inter(
+        displayLarge: interStyle(
+          color: textDark,
+          fontSize: 30,
+          fontWeight: FontWeight.w700,
+        ),
+        headlineMedium: interStyle(
           color: textDark,
           fontSize: titleSize,
           fontWeight: FontWeight.bold,
         ),
-        titleLarge: GoogleFonts.inter(
+        titleLarge: interStyle(
           color: textDark,
           fontSize: sectionSize,
           fontWeight: FontWeight.bold,
         ),
-        titleMedium: GoogleFonts.inter(
+        titleMedium: interStyle(
           color: textDark,
           fontSize: 16,
           fontWeight: FontWeight.w600,

@@ -1,4 +1,5 @@
 import '../screens/driver/vehicle_assignment_screen.dart';
+import '../screens/driver/fleet_invitations_screen.dart';
 import '../screens/auth/role_onboarding_screen.dart';
 import '../screens/fleet/fleet_reports_screen.dart';
 import '../screens/fleet/server_driver_detail_screen.dart';
@@ -54,6 +55,7 @@ final appRouter = GoRouter(
           !{
             '/role-onboarding',
             '/driver/assignment',
+            '/driver/fleet-invitations',
             '/onboarding/assets',
             '/provider-assets',
             '/profile',
@@ -69,7 +71,7 @@ final appRouter = GoRouter(
       '/profile-photo',
       '/document-upload',
     }.contains(path)) {
-      return session.authenticated ? session.landingPath : '/role-selection';
+      return session.authenticated ? null : '/role-selection';
     }
     if (session.api.isTestOnboarding && session.authenticated) {
       return path == '/onboarding' || path == '/verification-status'
@@ -100,7 +102,7 @@ final appRouter = GoRouter(
             session.api.providerMode != 'fleet_owner')) {
       return session.landingPath;
     }
-    if (path == '/driver/assignment' &&
+    if ({'/driver/assignment', '/driver/fleet-invitations'}.contains(path) &&
         session.api.hasDriverRole &&
         session.api.providerMode == 'driver') {
       return null;
@@ -110,6 +112,7 @@ final appRouter = GoRouter(
     }
     if (session.api.isAdmin) return '/admin/dashboard';
     if ({
+      '/personal-details',
       '/support-tickets',
       '/safety',
       '/notifications',
@@ -138,6 +141,10 @@ final appRouter = GoRouter(
     return session.dashboardAllowed ? null : session.landingPath;
   },
   routes: [
+    GoRoute(
+      path: '/driver/fleet-invitations',
+      builder: (_, _) => const FleetInvitationsScreen(),
+    ),
     GoRoute(
       path: '/driver/active-trip',
       builder: (_, _) => const OperationsDashboard(),
@@ -200,6 +207,7 @@ final appRouter = GoRouter(
         data: InfurnusTheme.lightTheme,
         child: RegistrationScreen(
           initialRole: state.uri.queryParameters['role'],
+          signupVia: state.uri.queryParameters['via'],
         ),
       ),
     ),
@@ -208,7 +216,10 @@ final appRouter = GoRouter(
       path: '/role-selection',
       builder: (_, _) => const RoleSelectionScreen(),
     ),
-    GoRoute(path: '/personal-details', redirect: (_, _) => '/role-selection'),
+    GoRoute(
+      path: '/personal-details',
+      builder: (_, _) => const PersonalInformationScreen(),
+    ),
     GoRoute(path: '/profile-photo', redirect: (_, _) => '/role-selection'),
     GoRoute(path: '/document-upload', redirect: (_, _) => '/role-selection'),
     GoRoute(

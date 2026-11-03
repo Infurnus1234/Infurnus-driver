@@ -443,11 +443,21 @@ void main() {
           await tester.tap(find.text('Drivers').last);
           await tester.pumpAndSettle();
           final create = find.text('Create Driver profile');
+          final managedCallsBefore = calls
+              .where((path) => path == '/provider/managed-drivers')
+              .length;
           await tester.ensureVisible(create);
           await tester.tap(create);
           await tester.pumpAndSettle();
-          expect(find.text('Business approval required'), findsOneWidget);
-          expect(calls, isNot(contains('/provider/managed-drivers')));
+          expect(find.text('Business approval required'), findsNothing);
+          expect(
+            find.widgetWithText(TextFormField, 'First name *'),
+            findsOneWidget,
+          );
+          expect(
+            calls.where((path) => path == '/provider/managed-drivers').length,
+            managedCallsBefore,
+          );
         }
         await tester.pumpWidget(const SizedBox.shrink());
       },

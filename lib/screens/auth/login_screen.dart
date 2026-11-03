@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../providers/driver_session.dart';
 import '../../widgets/google_sign_in_button.dart';
@@ -16,8 +15,6 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _identifier = TextEditingController();
-  final _password = TextEditingController();
-  bool _passwordLogin = false;
   bool _rememberMe = true;
   bool _useEmail = false;
   bool _identifierAttempted = false;
@@ -52,7 +49,6 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   void dispose() {
     _identifier.dispose();
-    _password.dispose();
     super.dispose();
   }
 
@@ -110,35 +106,13 @@ class _LoginScreenState extends State<LoginScreen> {
 
     final fullIdentifier = rawInput;
 
-    if (_passwordLogin && _password.text.isEmpty) {
-      setState(
-        () => _clientValidationMessage = 'Enter your Fleet account password.',
-      );
-      return;
-    }
     session.api.rememberMe = _rememberMe;
-    var success = await session.login(
-      fullIdentifier,
-      _passwordLogin ? _password.text : '',
-    );
+    var success = await session.login(fullIdentifier);
     if (!mounted) return;
-    if (!success &&
-        session.errorCode == 'INVALID_CREDENTIALS' &&
-        !_passwordLogin) {
-      setState(() {
-        _passwordLogin = true;
-        _clientValidationMessage = 'Fleet Owner accounts need an account password, followed by OTP. Enter your password to continue, or switch back for Driver OTP login.';
-      });
-      return;
-    }
     if (!success && session.errorCode == 'ACCOUNT_ROLE_REQUIRED') {
       final role = await _chooseExistingRole();
       if (!mounted || role == null) return;
-      success = await session.login(
-        fullIdentifier,
-        _passwordLogin ? _password.text : '',
-        accountRole: role,
-      );
+      success = await session.login(fullIdentifier, null, role);
     }
     if (!mounted) return;
     if (success) {
@@ -229,7 +203,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       Center(
                         child: Text(
                           'Log in or sign up',
-                          style: GoogleFonts.inter(
+                          style: InfurnusTheme.interStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
                             color: InfurnusTheme.textDark,
@@ -270,7 +244,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                     const SizedBox(width: 6),
                                     Text(
                                       '+91',
-                                      style: GoogleFonts.inter(
+                                      style: InfurnusTheme.interStyle(
                                         fontSize: 15,
                                         fontWeight: FontWeight.w600,
                                         color: InfurnusTheme.textDark,
@@ -293,7 +267,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   autofillHints: const [
                                     AutofillHints.telephoneNumber,
                                   ],
-                                  style: GoogleFonts.inter(
+                                  style: InfurnusTheme.interStyle(
                                     fontSize: 15,
                                     fontWeight: FontWeight.w500,
                                   ),
@@ -337,27 +311,14 @@ class _LoginScreenState extends State<LoginScreen> {
                           }),
                         ),
 
-                      if (_passwordLogin) ...[
-                        const SizedBox(height: 12),
-                        TextField(
-                          controller: _password,
-                          obscureText: true,
-                          enabled: !session.busy,
-                          autofillHints: const [AutofillHints.password],
-                          decoration: InputDecoration(
-                            labelText: 'Account password',
-                            suffixIcon: IconButton(
-                              icon: const Icon(Icons.close, size: 18),
-                              onPressed: () => setState(() {
-                                _passwordLogin = false;
-                                _password.clear();
-                                _clientValidationMessage = null;
-                              }),
-                            ),
-                          ),
-                        ),
-                      ],
-                      const SizedBox(height: 14),
+                      const SizedBox(height: 12),
+
+                      const Text(
+                        'Use your registered phone or email to receive an OTP. Fleet-created Drivers can sign in directly.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 12),
+                      ),
+                      const SizedBox(height: 12),
                       // Remember my login checkbox
                       Row(
                         children: [
@@ -375,7 +336,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           Expanded(
                             child: Text(
                               'Remember my login for faster sign-in',
-                              style: GoogleFonts.inter(
+                              style: InfurnusTheme.interStyle(
                                 fontSize: 12,
                                 color: InfurnusTheme.textDark,
                               ),
@@ -392,7 +353,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   }),
                             child: Text(
                               _useEmail ? 'Use Phone' : 'Use Email',
-                              style: GoogleFonts.inter(
+                              style: InfurnusTheme.interStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.bold,
                                 color: InfurnusTheme.primaryGreen,
@@ -461,7 +422,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 children: [
                                   Text(
                                     'Continue',
-                                    style: GoogleFonts.inter(
+                                    style: InfurnusTheme.interStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.bold,
                                     ),
@@ -512,7 +473,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             : () => context.go('/role-selection'),
                         child: Text(
                           'Create an account with email or phone',
-                          style: GoogleFonts.inter(
+                          style: InfurnusTheme.interStyle(
                             fontWeight: FontWeight.bold,
                             color: InfurnusTheme.textDark,
                             fontSize: 13,
@@ -526,7 +487,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       Text(
                         'By continuing, you agree to our Terms of Service, Privacy Policy & Content Policy',
                         textAlign: TextAlign.center,
-                        style: GoogleFonts.inter(
+                        style: InfurnusTheme.interStyle(
                           fontSize: 10.5,
                           color: InfurnusTheme.textMuted,
                           height: 1.4,

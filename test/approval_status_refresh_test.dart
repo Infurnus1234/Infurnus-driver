@@ -92,6 +92,24 @@ void main() {
                     }),
                     200,
                   );
+                case '/provider/enrolment':
+                  return ok({
+                    'role': 'driver',
+                    'dashboardAccessible': status == 'APPROVED',
+                    'steps': ['profile_photo', 'licence', 'finish'],
+                    'progress': {},
+                  });
+                case '/rides/driver/current-trip':
+                  return http.Response(
+                    jsonEncode({
+                      'success': false,
+                      'error': {
+                        'code': 'NO_CURRENT_TRIP',
+                        'message': 'No trip',
+                      },
+                    }),
+                    404,
+                  );
                 case '/provider/document-requirements':
                 case '/rides/driver/documents':
                   return ok([]);

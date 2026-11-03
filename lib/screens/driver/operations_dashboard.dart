@@ -85,7 +85,14 @@ class OperationsDashboard extends StatelessWidget {
       bottomNavigationBar: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (trip != null && next != null)
+          if (trip != null && next != null) ...[
+            // Logistics: block start until upfront payment is PAID_VERIFIED
+            if (trip['sector'] == 'logistics' &&
+                next == 'in_progress' &&
+                trip['upfrontPaymentStatus'] != 'PAID_VERIFIED')
+              _LogisticsPaymentBanner(
+                status: trip['upfrontPaymentStatus']?.toString(),
+              ),
             SafeArea(
               top: false,
               bottom: false,
@@ -95,7 +102,12 @@ class OperationsDashboard extends StatelessWidget {
                   width: double.infinity,
                   child: FilledButton(
                     style: next == 'completed' ? null : Ops.darkButton,
-                    onPressed: session.busy
+                    onPressed:
+                        (session.busy ||
+                            (trip['sector'] == 'logistics' &&
+                                next == 'in_progress' &&
+                                trip['upfrontPaymentStatus'] !=
+                                    'PAID_VERIFIED'))
                         ? null
                         : () => _next(context, session, next),
                     child: Text(
@@ -105,6 +117,7 @@ class OperationsDashboard extends StatelessWidget {
                 ),
               ),
             ),
+          ],
           const DriverBottomNav(currentIndex: 0),
         ],
       ),
@@ -316,6 +329,8 @@ class RideDetails extends StatelessWidget {
             ride['pinVerified'] == true &&
                     ['in_progress', 'completed'].contains(ride['status'])
                 ? ride['destinationAddress']?.toString() ?? 'Not provided'
+                : ride['sector'] == 'service'
+                ? 'Available after customer PIN verification'
                 : 'Available after passenger PIN verification',
             style: const TextStyle(
               color: Ops.textPrimary,
@@ -333,6 +348,8 @@ class RideDetails extends StatelessWidget {
                 Text(
                   fareInfo?['authority'] == 'final' || ride['finalFare'] != null
                       ? 'Final fare'
+                      : ride['sector'] == 'service'
+                      ? 'Fixed service fare'
                       : 'Estimated fare',
                   style: const TextStyle(color: Ops.textSecondary),
                 ),
@@ -344,6 +361,18 @@ class RideDetails extends StatelessWidget {
                   ),
                 ),
               ],
+            ),
+          ),
+        if (ride['sector'] == 'service' && ride['serviceDetails'] is Map)
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Service details'),
+            subtitle: Text(
+              [
+                for (final key in ['emergencyLevel', 'description', 'notes'])
+                  if ((ride['serviceDetails'] as Map)[key] != null)
+                    '${(ride['serviceDetails'] as Map)[key]}',
+              ].join(' · '),
             ),
           ),
         ExpansionTile(
@@ -488,6 +517,59 @@ class ServerRideRequestsScreen extends StatelessWidget {
             for (final ride in session.rides)
               RideOfferCard(key: ValueKey(ride['id']), ride: ride),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Logistics payment banner shown to driver while waiting for customer payment
+// ─────────────────────────────────────────────────────────────────────────────
+class _LogisticsPaymentBanner extends StatelessWidget {
+  final String? status;
+  const _LogisticsPaymentBanner({this.status});
+
+  @override
+  Widget build(BuildContext context) {
+    final isFailed = status == 'FAILED';
+    final color = isFailed ? Colors.red.shade400 : Colors.amber.shade600;
+    final icon = isFailed
+        ? Icons.error_outline_rounded
+        : Icons.hourglass_top_rounded;
+    final msg = isFailed
+        ? 'Customer payment failed. Ask them to retry.'
+        : 'Waiting for customer\'s 40% upfront payment...';
+
+    return SafeArea(
+      top: false,
+      bottom: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: color.withValues(alpha: 0.5)),
+          ),
+          child: Row(
+            children: [
+              Icon(icon, color: color, size: 18),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  msg,
+                  style: TextStyle(
+                    color: color,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

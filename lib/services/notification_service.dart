@@ -15,6 +15,50 @@ Future<void> driverFirebaseMessagingBackgroundHandler(
   RemoteMessage message,
 ) async {
   await Firebase.initializeApp();
+  if (message.notification == null && message.data.isNotEmpty) {
+    try {
+      final title = message.data['title']?.toString() ?? 'Infurnus Driver';
+      final body =
+          message.data['body']?.toString() ??
+          message.data['message']?.toString() ??
+          '';
+      final localPlugin = FlutterLocalNotificationsPlugin();
+      const androidSettings = AndroidInitializationSettings(
+        '@mipmap/launcher_icon',
+      );
+      const initSettings = InitializationSettings(
+        android: androidSettings,
+        iOS: DarwinInitializationSettings(),
+      );
+      await localPlugin.initialize(initSettings);
+
+      await localPlugin.show(
+        (message.data['notificationId'] ?? message.hashCode.toString())
+                .hashCode &
+            0x7fffffff,
+        title,
+        body,
+        const NotificationDetails(
+          android: AndroidNotificationDetails(
+            'infurnus_driver_channel_v2',
+            'Infurnus Driver Notifications',
+            importance: Importance.max,
+            priority: Priority.max,
+            playSound: true,
+            sound: RawResourceAndroidNotificationSound('infurnus_alert'),
+            enableVibration: true,
+          ),
+          iOS: DarwinNotificationDetails(
+            sound: 'infurnus_alert.wav',
+            presentSound: true,
+            presentAlert: true,
+            presentBadge: true,
+          ),
+        ),
+        payload: jsonEncode(message.data),
+      );
+    } catch (_) {}
+  }
 }
 
 /// Payloads can choose an allowlisted destination, never an arbitrary route.
@@ -73,6 +117,26 @@ class DriverNotificationService {
       FirebaseMessaging.onBackgroundMessage(
         driverFirebaseMessagingBackgroundHandler,
       );
+      // Delete v1 channel so old installs get the new sound on the v2 channel.
+      final androidPlugin = _plugin
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >();
+      await androidPlugin?.deleteNotificationChannel('infurnus_driver_channel');
+      await androidPlugin?.deleteNotificationChannel('infurnus_channel');
+      await androidPlugin?.deleteNotificationChannel('infurnus_ride_requests');
+      const AndroidNotificationChannel driverChannel =
+          AndroidNotificationChannel(
+            'infurnus_driver_channel_v2',
+            'Infurnus Driver Notifications',
+            description:
+                'Audible alerts for new ride requests and trip updates',
+            importance: Importance.max,
+            playSound: true,
+            sound: RawResourceAndroidNotificationSound('infurnus_alert'),
+            enableVibration: true,
+          );
+      await androidPlugin?.createNotificationChannel(driverChannel);
       await _plugin.initialize(
         const InitializationSettings(
           android: AndroidInitializationSettings('@mipmap/launcher_icon'),
@@ -224,12 +288,20 @@ class DriverNotificationService {
         body,
         const NotificationDetails(
           android: AndroidNotificationDetails(
-            'infurnus_driver_channel',
+            'infurnus_driver_channel_v2',
             'Infurnus Driver Notifications',
             importance: Importance.max,
             priority: Priority.high,
+            sound: RawResourceAndroidNotificationSound('infurnus_alert'),
+            playSound: true,
+            enableVibration: true,
           ),
-          iOS: DarwinNotificationDetails(),
+          iOS: DarwinNotificationDetails(
+            sound: 'infurnus_alert.wav',
+            presentSound: true,
+            presentAlert: true,
+            presentBadge: true,
+          ),
         ),
         payload: payload,
       );

@@ -1,10 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../core/operations_theme.dart';
 import 'reference_components.dart';
 
-class AssignedVehicleCard extends StatelessWidget {
+class AssignedVehicleCard extends StatefulWidget {
   final Map<String, dynamic>? vehicle;
   final bool loading, canManage;
   final String? error;
@@ -17,9 +19,79 @@ class AssignedVehicleCard extends StatelessWidget {
     this.canManage = true,
     this.error,
   });
+
+  @override
+  State<AssignedVehicleCard> createState() => _AssignedVehicleCardState();
+}
+
+class _AssignedVehicleCardState extends State<AssignedVehicleCard> {
+  bool _timedOut = false;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _startTimer();
+  }
+
+  @override
+  void didUpdateWidget(AssignedVehicleCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.loading && !oldWidget.loading) {
+      _startTimer();
+    } else if (!widget.loading) {
+      _timer?.cancel();
+      if (_timedOut) setState(() => _timedOut = false);
+    }
+  }
+
+  void _startTimer() {
+    _timer?.cancel();
+    if (widget.loading) {
+      _timer = Timer(const Duration(seconds: 10), () {
+        if (mounted && widget.loading) {
+          setState(() => _timedOut = true);
+        }
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
-    final value = vehicle;
+    final value = widget.vehicle;
+    if (_timedOut && value == null) {
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text(
+                'Your vehicle',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 4),
+              const Text('Could not load assigned vehicle details in time.'),
+              const SizedBox(height: 8),
+              FilledButton.tonal(
+                onPressed: () {
+                  setState(() => _timedOut = false);
+                  _startTimer();
+                  widget.retry();
+                },
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
     if (value == null) {
       return Card(
         child: Padding(
@@ -87,14 +159,14 @@ class AssignedVehicleCard extends StatelessWidget {
                                     ),
                                   ),
                             errorBuilder: (_, _, _) =>
-                                _missing('Photo unavailable', retry),
+                                _missing('Photo unavailable', widget.retry),
                           )
                         : _missing(
                             value['photoStatus'] == 'unavailable'
                                 ? 'Photo unavailable'
                                 : 'No front photo uploaded',
                             value['photoStatus'] == 'unavailable'
-                                ? retry
+                                ? widget.retry
                                 : null,
                           ),
                   ),
@@ -151,9 +223,9 @@ class AssignedVehicleCard extends StatelessWidget {
                   Text(value['operationalStatus'].toString()),
               ],
             ),
-            if (canManage)
+            if (widget.canManage)
               TextButton(
-                onPressed: loading
+                onPressed: widget.loading
                     ? null
                     : () => context.push('/driver/assignment'),
                 child: const Text('Manage or change vehicle'),

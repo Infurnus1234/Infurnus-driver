@@ -12,11 +12,11 @@ class DocumentRule {
   const DocumentRule(
     this.code, {
     this.required = false,
-    this.onboardingDeferrable = false,
+    bool? onboardingDeferrable,
     this.requiresExpiry = false,
     this.minimumPages = 1,
     this.collectionAuthorized,
-  });
+  }) : onboardingDeferrable = onboardingDeferrable ?? (code == 'profile_photo');
   factory DocumentRule.fromJson(Map<String, dynamic> json) => DocumentRule(
     json['document_code'] as String,
     required: json['required'] as bool,
@@ -71,15 +71,6 @@ class OnboardingRules {
     }
     if (phone.isNotEmpty && !RegExp(r'^\+?[1-9]\d{7,14}$').hasMatch(phone)) {
       return 'Enter a valid phone number.';
-    }
-    final password = data['password'] as String? ?? '';
-    final needsPassword = data['role'] != 'driver';
-    if ((needsPassword || password.isNotEmpty) &&
-        (password.length < 8 || password.length > 128)) {
-      return 'Password must contain 8–128 characters.';
-    }
-    if (password != (data['confirmPassword'] as String? ?? '')) {
-      return 'Passwords do not match.';
     }
     final role = data['role'] ?? 'driver';
     if (!['driver', 'fleet_owner', 'driver_fleet_owner'].contains(role)) {

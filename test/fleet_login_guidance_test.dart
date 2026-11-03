@@ -10,31 +10,23 @@ import 'package:infurnus_driver/screens/auth/login_screen.dart';
 import 'package:infurnus_driver/services/api_service.dart';
 
 void main() {
-  testWidgets(
-    'Fleet credential rejection opens password guidance and blocks empty retry',
-    (tester) async {
-      final logins = <Map>[];
-      final api = ApiService(
-        client: MockClient((r) async {
-          if (r.method == 'POST' && r.url.path == '/auth/login') {
-            logins.add(jsonDecode(r.body) as Map);
-            return http.Response(
-              jsonEncode({
-                'success': false,
-                'error': {
-                  'code': 'INVALID_CREDENTIALS',
-                  'message': 'Invalid email/phone or password',
-                },
-              }),
-              401,
-            );
-          }
+  testWidgets('Rejected OTP login never exposes a password fallback', (
+    tester,
+  ) async {
+    final logins = <Map>[];
+    final api = ApiService(
+      client: MockClient((r) async {
+        if (r.method == 'POST' && r.url.path == '/auth/login') {
+          logins.add(jsonDecode(r.body) as Map);
           return http.Response(
             jsonEncode({
               'success': false,
-              'error': {'code': 'NOT_FOUND', 'message': 'Unavailable'},
+              'error': {
+                'code': 'INVALID_CREDENTIALS',
+                'message': 'Invalid email/phone or password',
+              },
             }),
-            404,
+            401,
           );
         }),
       );

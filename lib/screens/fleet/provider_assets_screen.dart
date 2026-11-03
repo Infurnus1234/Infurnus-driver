@@ -41,6 +41,8 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
   Timer? _timer;
   String _search = '';
   int _tab = 0;
+  int _driversVersion = 0;
+  final Set<String> _expandedVehicles = {};
   @override
   void initState() {
     super.initState();
@@ -86,6 +88,7 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
     Map<String, String> labels, {
     Map<String, dynamic>? initial,
     Set<String> requiredFields = const {},
+    Set<String> atLeastOneFields = const {},
     Set<String> numbers = const {},
     Set<String> integers = const {},
     Set<String> booleans = const {},
@@ -98,6 +101,7 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
     final form = GlobalKey<FormState>();
     final primary = {
       ...requiredFields,
+      ...atLeastOneFields,
       if (labels.containsKey('sector')) 'sector',
       if (labels.containsKey('category')) 'category',
     };
@@ -112,6 +116,23 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
         return 'Choose OWNED, LEASED, FINANCED or OTHER';
       }
       if (requiredFields.contains(key) && text.isEmpty) return 'Required';
+      if (atLeastOneFields.contains(key)) {
+        if (atLeastOneFields.every((k) => fields[k]!.text.trim().isEmpty)) {
+          return 'Phone number or email address is required';
+        }
+        if (key == 'email' &&
+            text.isNotEmpty &&
+            !RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(text)) {
+          return 'Enter a valid email address';
+        }
+        if (key == 'phone' &&
+            text.isNotEmpty &&
+            (!RegExp(r'^[+\d\s()-]+$').hasMatch(text) ||
+                !RegExp(r'^\+?[1-9]\d{7,14}$')
+                    .hasMatch(text.replaceAll(RegExp(r'[\s()-]'), '')))) {
+          return 'Enter a valid phone number with country code';
+        }
+      }
       if (booleans.contains(key) && !['true', 'false'].contains(text)) {
         return 'Choose true or false';
       }
@@ -1093,6 +1114,40 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
             ),
           if (assets.error != null)
             Text(assets.error!, style: const TextStyle(color: Colors.red)),
+          if (assets.fleetMode && assets.partner != null)
+            FilledButton.icon(
+              icon: const Icon(Icons.send_outlined),
+              label: const Text('Submit pending requests'),
+              onPressed: assets.busy
+                  ? null
+                  : () async {
+                      final submitted = await assets.submitPendingRequests();
+                      if (!context.mounted || !submitted) {
+                        return;
+                      }
+                      final result = assets.lastSubmission!;
+                      final requests = result['requests'] as List? ?? const [];
+                      final skipped = result['skipped'] as List? ?? const [];
+                      await showDialog<void>(
+                        context: context,
+                        builder: (dialogContext) => AlertDialog(
+                          title: const Text('Requests submitted'),
+                          content: SingleChildScrollView(
+                            child: Text(
+                              '${requests.length} pending requests submitted or already awaiting review. Each requires an independent Admin decision.'
+                              '${skipped.isEmpty ? '' : '\n\nNeeds attention:\n${skipped.map((row) => '${row['targetType']}: ${row['reason']}').join('\n')}'}',
+                            ),
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(dialogContext),
+                              child: const Text('Close'),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+            ),
           if (!assets.fleetMode)
             TextButton(
               onPressed: () => context.go(session.landingPath),
@@ -1238,15 +1293,13 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
               onPressed: assets.busy
                   ? null
                   : () async {
-                      if (!assets.approvedPartner) {
+                      if (assets.partner == null) {
                         final review = await showDialog<bool>(
                           context: context,
                           builder: (dialogContext) => AlertDialog(
-                            title: const Text('Business approval required'),
+                            title: const Text('Business profile required'),
                             content: Text(
-                              'Business status: ${statusLabel(assets.partner?['approvalStatus'])}. '
-                              'Complete your business details and submit them for review. '
-                              'Once approved, you can create Driver profiles here.',
+                              'Save your Fleet business details first so each Driver is linked to the correct Fleet. You can create pending Driver profiles before business approval.',
                             ),
                             actions: [
                               TextButton(
@@ -1257,9 +1310,7 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
                               FilledButton(
                                 onPressed: () =>
                                     Navigator.pop(dialogContext, true),
-                                child: const Text(
-                                  'Review business verification',
-                                ),
+                                child: const Text('Review business details'),
                               ),
                             ],
                           ),
@@ -1269,36 +1320,56 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
                         }
                         return;
                       }
+                      Map<String, dynamic>? result;
                       final input = await _form(
                         'Create Driver profile',
                         const {
                           'firstName': 'First name *',
                           'lastName': 'Last name *',
-                          'email': 'Driver email *',
-                          'phone': 'Phone with country code (optional)',
+                          'email': 'Driver email (or phone required)',
+                          'phone':
+                              'Phone with country code (or email required)',
                           'licenseNumber': 'Driving licence number *',
                           'licenseExpiry': 'Licence expiry (YYYY-MM-DD) *',
                         },
+                        atLeastOneFields: {'phone', 'email'},
                         requiredFields: {
                           'firstName',
                           'lastName',
-                          'email',
                           'licenseNumber',
                           'licenseExpiry',
                         },
+                        onSubmit: (input) => assets.run(() async {
+                          result = Map<String, dynamic>.from(
+                            await session.api.request(
+                              'POST',
+                              '/provider/managed-drivers',
+                              body: {
+                                ...input,
+                                if (input['email'] != null)
+                                  'email': (input['email'] as String)
+                                      .trim()
+                                      .toLowerCase(),
+                                if (input['phone'] != null)
+                                  'phone': (input['phone'] as String)
+                                      .replaceAll(RegExp(r'[\s()-]'), ''),
+                              },
+                            ) as Map,
+                          );
+                        }),
                       );
-                      if (input == null) return;
-                      Map<String, dynamic>? result;
-                      final ok = await assets.run(() async {
-                        result = Map<String, dynamic>.from(
-                          await session.api.request(
-                            'POST',
-                            '/provider/managed-drivers',
-                            body: input,
-                          ) as Map,
+                      if (input == null || result == null) return;
+                      if (context.mounted) {
+                        setState(() => _driversVersion++);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Driver profile saved. Complete onboarding for Admin review.',
+                            ),
+                          ),
                         );
-                      });
-                      if (ok && context.mounted) {
+                      }
+                      if (context.mounted) {
                         await Navigator.of(context).push(
                           MaterialPageRoute<void>(
                             builder: (_) => ManagedDriverScreen(
@@ -1311,11 +1382,13 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
                     },
             ),
             const SizedBox(height: 12),
-            if (assets.approvedPartner)
+            if (assets.partner != null)
               ApiPanel(
                 embedded: true,
                 api: session.api,
+                key: ValueKey(_driversVersion),
                 path: '/provider/managed-drivers',
+                refreshInterval: const Duration(seconds: 20),
                 builder: (context, data) => Column(
                   children: [
                     for (final row in data as List)

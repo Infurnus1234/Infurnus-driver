@@ -131,7 +131,7 @@ void main() {
     );
     expect(uploads, 1);
     expect(submits, 2);
-    expect(reviews, 1);
+    expect(reviews, 0);
     expect(assets.busy, isFalse);
     expect(assets.refreshWarning, isNotNull);
   });

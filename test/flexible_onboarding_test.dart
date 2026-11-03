@@ -17,6 +17,7 @@ import 'guided_onboarding_test.dart' show FixtureSession, host;
 class PendingSession extends DriverSession {
   PendingSession(ApiService api)
     : super(api: api, onboardingDraftStore: MemorySessionStore()) {
+    api.accessToken = 'fixture-token';
     api.role = 'driver';
     api.userId = 'fixture-user';
     onboardingLoaded = true;
@@ -26,6 +27,14 @@ class PendingSession extends DriverSession {
       'licenseExpiry': '2099-12-31',
       'verificationStatus': 'pending',
     };
+    documentRules = [
+      const DocumentRule(
+        'profile_photo',
+        required: true,
+        onboardingDeferrable: true,
+      ),
+      const DocumentRule('driver_license', required: true),
+    ];
     documents = [
       {
         'id': 'licence',
@@ -33,6 +42,7 @@ class PendingSession extends DriverSession {
         'verificationStatus': 'pending',
       },
     ];
+    clearLocalDeferrals();
   }
   @override
   bool get authenticated => true;
@@ -180,9 +190,12 @@ void main() {
     final s = PendingSession(
       ApiService(client: MockClient((r) async => http.Response('{}', 404))),
     );
+    s.documents.clear();
     addTearDown(s.dispose);
-    await tester.pumpWidget(host(s, const DriverOnboardingScreen()));
-    await tester.tap(find.text('Skip for now'));
+    await tester.pumpWidget(
+      host(s, const DriverOnboardingScreen(initialTask: 'profile_photo')),
+    );
+    await tester.tap(find.text('Skip for now').first);
     await tester.pumpAndSettle();
     expect(s.deferredSteps, contains('profile_photo'));
     expect(find.text('Your driving licence'), findsOneWidget);

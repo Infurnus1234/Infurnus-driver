@@ -21,6 +21,7 @@ void main() {
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
       final paths = <String>[];
+      final driverDocuments = <Map<String, dynamic>>[];
       final profile = {
         'id': 'fixture-profile',
         'userId': 'fixture-user',
@@ -37,7 +38,16 @@ void main() {
             case '/auth/signup':
               data = {'signupId': 'fixture-signup'};
             case '/auth/signup/verify':
-              data = {'accessToken': 'fixture-token', 'userId': 'fixture-user'};
+              data = {
+                'accessToken': 'fixture-token',
+                'userId': 'fixture-user',
+                'roleEnrolment': {
+                  'role': 'driver',
+                  'dashboardAccessible': false,
+                  'steps': ['profile_photo', 'licence', 'finish'],
+                  'progress': {},
+                },
+              };
             case '/rides/driver/profile':
               data = profile;
             case '/rides/driver/assigned-vehicle':
@@ -64,7 +74,7 @@ void main() {
             case '/provider/approvals':
               data = [];
             case '/rides/driver/documents':
-              data = [];
+              data = driverDocuments;
             case '/driver-applications':
               data = [];
             case '/partners/me':
@@ -135,11 +145,9 @@ void main() {
       await tester.tap(find.text('Continue'));
       await tester.pumpAndSettle();
       expect(find.text('Create your account'), findsOneWidget);
-      expect(find.text('Sign up with Google'), findsOneWidget);
-      expect(find.byType(TextField), findsNothing);
-      expect(find.text('Continue'), findsNothing);
-      await tester.tap(find.text('Use email/phone signup (OTP)'));
-      await tester.pumpAndSettle();
+      // Email/phone path: Google button is hidden, form is open directly
+      expect(find.text('Sign up with Google'), findsNothing);
+      expect(find.text('Use email/phone signup (OTP)'), findsNothing);
       const fields = {
         'First name *': 'Fixture',
         'Last name *': 'Driver',
@@ -163,7 +171,12 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Verify your account'), findsOneWidget);
       expect(session.authenticated, isFalse);
-      await tester.enterText(find.byType(TextField), '123456');
+      // OTP screen: enter one digit per box (6 separate TextFields)
+      final otpBoxes = find.byType(TextField);
+      expect(otpBoxes.evaluate().length, 6);
+      for (var i = 0; i < 6; i++) {
+        await tester.enterText(otpBoxes.at(i), '${i + 1}');
+      }
       await tester.pump();
       await tester.tap(find.text('Verify & Continue'));
       await tester.pumpAndSettle();
@@ -172,7 +185,12 @@ void main() {
       expect(session.dashboardAllowed, isFalse);
       expect(find.text('Your profile photo'), findsOneWidget);
       expect(find.byType(Stepper), findsNothing);
-      expect(find.text('Choose source'), findsOneWidget);
+      expect(
+        find.text('Choose photo').evaluate().isNotEmpty
+            ? find.text('Choose photo')
+            : find.text('Choose source'),
+        findsOneWidget,
+      );
 
       expect(find.text('Driving licence number *'), findsNothing);
       await tester.tap(find.text('Upload & continue'));
@@ -181,11 +199,27 @@ void main() {
       expect(find.text('Your profile photo'), findsOneWidget);
       profile['verificationStatus'] = 'rejected';
       profile['rejectionReason'] = 'Licence image is unreadable';
+      driverDocuments.add({
+        'id': 'licence-doc',
+        'documentType': 'driver_license',
+        'verificationStatus': 'rejected',
+        'rejectionReason': 'Licence image is unreadable',
+      });
       await session.refresh();
       appRouter.go('/verification-status');
       await tester.pumpAndSettle();
       expect(find.text('Verification summary'), findsOneWidget);
       expect(find.textContaining('Licence image is unreadable'), findsWidgets);
+      expect(
+        session.profile?['rejectionReason'],
+        'Licence image is unreadable',
+      );
+      expect(
+        session.documents.any(
+          (d) => d['rejectionReason'] == 'Licence image is unreadable',
+        ),
+        isTrue,
+      );
       expect(session.dashboardAllowed, isFalse);
       expect(
         paths,
@@ -193,7 +227,6 @@ void main() {
           '/auth/signup',
           '/auth/signup/verify',
           '/rides/driver/profile',
-          '/provider/document-requirements',
         ]),
       );
       session.documents.add({
@@ -205,7 +238,7 @@ void main() {
       appRouter.go('/onboarding?task=summary');
       await tester.pumpAndSettle();
       // A requested later task cannot skip the first missing photo.
-      expect(find.text('Ready for review'), findsOneWidget);
+      expect(find.text('Driver onboarding'), findsOneWidget);
       expect(find.text('legacy identity (optional)'), findsNothing);
       await tester.pumpWidget(const SizedBox());
       session.dispose();

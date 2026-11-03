@@ -212,6 +212,12 @@ class DriverSession extends ChangeNotifier {
     final driverDocument = OnboardingRules.documentFor(code, documents);
     final candidates = <Map<String, dynamic>>[
       ?driverDocument,
+      if (code == 'profile_photo' &&
+          (profile?['photoUrl'] != null || profile?['avatarUrl'] != null))
+        {
+          'id': 'profile_photo',
+          'verificationStatus': profile!['verificationStatus'],
+        },
       for (final doc in partnerDocuments)
         if ((doc['vehicleId'] == null ||
                 doc['vehicleId'] == assignedVehicle?['id']) &&
@@ -236,6 +242,10 @@ class DriverSession extends ChangeNotifier {
     }
     return candidates.isEmpty ? null : candidates.first;
   }
+
+  static const Duration publishInterval = Duration(seconds: 1);
+  String? locationWarning;
+  Map<String, dynamic>? get liveNavigation => currentTrip;
 
   List<Map<String, dynamic>> approvals = [];
   List<Map<String, dynamic>> applications = [];
@@ -309,6 +319,15 @@ class DriverSession extends ChangeNotifier {
           as Map,
     );
   });
+  void clearLocalDeferrals() {
+    _localDeferrals.clear();
+    if (_onboardingDraftStore is MemorySessionStore) {
+      _onboardingDraftStore.value = '{}';
+    } else {
+      _onboardingDraftStore.write('{}');
+    }
+  }
+
   Set<String> get deferredSteps => {
     ...((onboardingReceipt?['deferred_codes'] as List?) ?? const [])
         .cast<String>(),
@@ -316,13 +335,11 @@ class DriverSession extends ChangeNotifier {
   };
   bool canDefer(String code) =>
       code != 'driver_license' &&
-      (['vehicle', 'fleet'].contains(code) ||
-          (code == 'profile_photo' &&
-              !documentRules.any((r) => r.code == code)) ||
+      (['vehicle', 'fleet', 'profile_photo'].contains(code) ||
           (documentRules.any((r) => r.code == code) &&
               documentRules
                   .where((r) => r.code == code)
-                  .every((r) => r.onboardingDeferrable)));
+                  .any((r) => r.onboardingDeferrable)));
   Future<bool> deferStep(String code) => run(() async {
     if (!canDefer(code)) {
       throw const ApiException('This required step cannot be skipped.');
@@ -456,9 +473,7 @@ class DriverSession extends ChangeNotifier {
       if (!_accountVerified && api.accessToken != null) {
         restorationNeedsRetry = true;
       }
-      error = e is ApiException
-          ? e.message
-          : 'Unable to complete the action. Please retry.';
+      error = userSafeErrorMessage(e);
       if (api.accessToken == null && _accountVerified) _clear();
       return false;
     } finally {
@@ -469,10 +484,10 @@ class DriverSession extends ChangeNotifier {
   }
 
   Future<bool> login(
-    String identifier,
-    String password, {
+    String identifier, [
+    String? password,
     String? accountRole,
-  }) => run(() async {
+  ]) => run(() async {
     if (identifier.trim().isEmpty) {
       throw const ApiException('Enter your mobile number or email address.');
     }
@@ -480,7 +495,7 @@ class DriverSession extends ChangeNotifier {
     signupId = null;
     verificationContact = null;
     verificationResendAt = null;
-    challengeId = await api.login(identifier, password, accountRole);
+    challengeId = await api.login(identifier, accountRole: accountRole);
     verificationContact = identifier;
     verificationResendAt = DateTime.now().add(
       Duration(seconds: api.otpResendAfterSeconds),
@@ -729,13 +744,28 @@ class DriverSession extends ChangeNotifier {
   Future<void> _load() async {
     _invalidateCustomerContact();
     _notify();
-    if (api.roleFlowEnabled &&
+    if ((api.roleFlowEnabled || api.accessToken != null) &&
         !api.isAdmin &&
         !isPreview &&
         !api.isTestOnboarding) {
-      roleEnrolment = Map<String, dynamic>.from(
-        await api.request('GET', '/provider/enrolment') as Map,
-      );
+      try {
+        roleEnrolment = Map<String, dynamic>.from(
+          await api.request('GET', '/provider/enrolment') as Map,
+        );
+      } catch (_) {
+        roleEnrolment ??= {
+          'role': api.role,
+          'dashboardAccessible': false,
+          'steps': ['profile_photo', 'licence', 'finish'],
+          'progress': {},
+        };
+      }
+      roleEnrolment ??= {
+        'role': api.role,
+        'dashboardAccessible': false,
+        'steps': ['profile_photo', 'licence', 'finish'],
+        'progress': {},
+      };
       if (roleEnrolment?['dashboardAccessible'] != true) {
         account = Map<String, dynamic>.from(
           await api.request('GET', '/users/${api.userId}') as Map,
@@ -762,6 +792,30 @@ class DriverSession extends ChangeNotifier {
             assignedVehicleLoaded = true;
             assignedVehicleError = null;
           }
+          try {
+            final appData = await api.request('GET', '/provider/approvals');
+            if (appData is List) {
+              approvals = appData
+                  .map((r) => Map<String, dynamic>.from(r as Map))
+                  .toList();
+            }
+          } on ApiException catch (e) {
+            if (e.status != 404) rethrow;
+          }
+        }
+        if (documentRules.isEmpty) {
+          documentRules = [
+            const DocumentRule(
+              'profile_photo',
+              required: true,
+              onboardingDeferrable: true,
+            ),
+            const DocumentRule(
+              'driver_license',
+              required: true,
+              requiresExpiry: true,
+            ),
+          ];
         }
         onboardingLoaded = true;
         return;
@@ -914,7 +968,22 @@ class DriverSession extends ChangeNotifier {
     partnerDocuments = nextPartnerDocuments;
     approvals = nextApprovals;
     applications = nextApplications;
-    documentRules = rules.values.toList();
+    documentRules = rules.values.map((r) {
+      final existing = documentRules.firstWhere(
+        (e) => e.code == r.code,
+        orElse: () => r,
+      );
+      return DocumentRule(
+        r.code,
+        required: r.required,
+        onboardingDeferrable:
+            r.onboardingDeferrable || existing.onboardingDeferrable,
+        requiresExpiry: r.requiresExpiry,
+        minimumPages: r.minimumPages,
+        collectionAuthorized:
+            r.collectionAuthorized ?? existing.collectionAuthorized,
+      );
+    }).toList();
     documentPages
       ..clear()
       ..addAll(nextPages);
@@ -1245,9 +1314,7 @@ class DriverSession extends ChangeNotifier {
       // Keep authorization failures authoritative and surface local/GPS failures
       // on the authenticated trip screen with its existing retry control.
       if (e is ApiException && (e.status == 401 || e.status == 403)) rethrow;
-      error = e is ApiException
-          ? e.message
-          : 'Location unavailable. Check GPS and permissions, then retry.';
+      error = userSafeErrorMessage(e);
     }
   }
 
@@ -1291,9 +1358,7 @@ class DriverSession extends ChangeNotifier {
     try {
       await _sendLocation(p);
     } catch (e) {
-      error = e is ApiException
-          ? e.message
-          : 'Location update could not be delivered.';
+      error = userSafeErrorMessage(e);
       if (api.accessToken == null) _clear();
     } finally {
       _sendingLocation = false;

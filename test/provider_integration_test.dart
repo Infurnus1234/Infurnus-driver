@@ -280,6 +280,7 @@ void main() {
       contains('POST /partners/partner/documents/document/replace/pages'),
     );
     expect(paths.any((p) => p.contains('/rides/driver/documents')), false);
+    expect(paths, isNot(contains('POST /provider/approval-requests')));
     expect(assets.documents.single['status'], 'SUBMITTED');
     assets.dispose();
     api.dispose();

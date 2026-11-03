@@ -19,7 +19,7 @@ class FleetFixtureSession extends DriverSession {
 void main() {
   for (final approved in [false, true]) {
     testWidgets(
-      'Create Driver responds with ${approved ? 'form' : 'approval guidance'}',
+      'Create Driver form opens for saved ${approved ? 'approved' : 'pending'} Fleet',
       (tester) async {
         final posts = <String>[];
         final api =
@@ -62,19 +62,8 @@ void main() {
         await tester.ensureVisible(create);
         await tester.tap(create);
         await tester.pumpAndSettle();
-        if (approved) {
-          expect(find.text('First name *'), findsOneWidget);
-          expect(find.text('Business approval required'), findsNothing);
-        } else {
-          expect(find.text('Business approval required'), findsOneWidget);
-          expect(find.textContaining('Business status:'), findsOneWidget);
-          await tester.tap(find.text('Review business verification'));
-          await tester.pumpAndSettle();
-          expect(
-            find.text('Correct provider / business details'),
-            findsOneWidget,
-          );
-        }
+        expect(find.text('First name *'), findsOneWidget);
+        expect(find.text('Business approval required'), findsNothing);
         expect(posts, isEmpty);
         expect(tester.takeException(), isNull);
         await tester.pumpWidget(const SizedBox());

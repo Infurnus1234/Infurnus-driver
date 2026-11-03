@@ -20,6 +20,7 @@ class ProviderAssets extends ChangeNotifier {
   Map<String, dynamic>? earnings;
   bool busy = false, loaded = false, _disposed = false;
   String? error, refreshWarning;
+  Map<String, dynamic>? lastSubmission;
   String get vehiclePath =>
       api.hasFleetRole && api.providerMode == 'fleet_owner'
       ? '/fleet/vehicles'
@@ -42,9 +43,7 @@ class ProviderAssets extends ChangeNotifier {
       await action();
       return true;
     } catch (e) {
-      error = e is ApiException
-          ? e.message
-          : 'Unable to complete the action. Please retry.';
+      error = userSafeErrorMessage(e);
       return false;
     } finally {
       busy = false;
@@ -223,6 +222,16 @@ class ProviderAssets extends ChangeNotifier {
     );
     await load();
   });
+  Future<bool> submitPendingRequests() => run(() async {
+    lastSubmission = Map<String, dynamic>.from(
+      await api.request(
+        'POST',
+        '/provider/approval-requests',
+        body: {'requestType': 'fleet_submission'},
+      ) as Map,
+    );
+    await _reloadAfterSave();
+  });
   Map<String, dynamic>? documentFor(String code, {String? vehicleId}) {
     for (final d in documents) {
       if (d['vehicleId'] == vehicleId &&
@@ -291,15 +300,8 @@ class ProviderAssets extends ChangeNotifier {
       '/partners/${partner!['id']}/documents/${uploaded['id']}',
       body: {'status': 'SUBMITTED'},
     );
-    await api.request(
-      'POST',
-      '/provider/approval-requests',
-      body: {
-        'targetType': 'partner_document',
-        'targetId': uploaded['id'],
-        'requestType': 'document_reverification',
-      },
-    );
+    // SUBMITTED already queues the document transactionally in the backend.
+    // A second request under another review type creates a duplicate queue item.
     _uploadedDrafts.remove(draftKey);
     await _reloadAfterSave();
   });

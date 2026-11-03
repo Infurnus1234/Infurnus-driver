@@ -29,9 +29,18 @@ void main() {
   const enabled = bool.fromEnvironment('FULL_STACK_BACKEND_CONTRACT');
   const prefix = String.fromEnvironment('FULL_STACK_FIXTURE_PREFIX');
   test('real Driver client authenticates, resumes onboarding and paginates persisted support over HTTP', () async {
-    expect(ApiService.baseUrl, 'http://127.0.0.1:3110');
+    expect(
+      ApiService.baseUrl,
+      const String.fromEnvironment(
+        'DRIVER_TEST_API_BASE_URL',
+        defaultValue: 'http://127.0.0.1:3110',
+      ),
+    );
+    expect(Uri.parse(ApiService.baseUrl).host, '127.0.0.1');
     expect(prefix, startsWith('full-stack-'));
     for (final role in ['driver', 'fleet_owner', 'driver_fleet_owner']) {
+      final phone =
+          '+91${6000000000 + ((prefix + role).codeUnits.fold<int>(0, (a, b) => (a * 31 + b) % 3000000000))}';
       final store = MemorySessionStore();
       ApiService open() => ApiService(store: store, client: ContractHttp());
       var api = open();
@@ -39,13 +48,10 @@ void main() {
         'firstName': 'TEST_SAMPLE',
         'lastName': 'Contract',
         'email': '$prefix-$role@example.invalid',
+        'phone': phone,
         'role': role,
         if (role != 'fleet_owner') 'onboardingLicencePending': true,
-        if (role != 'driver') ...{
-          'businessName': 'TEST_SAMPLE Contract',
-          'password': 'Contract-only-pass-2026',
-          'confirmPassword': 'Contract-only-pass-2026',
-        },
+        if (role != 'driver') ...{'businessName': 'TEST_SAMPLE Contract'},
       });
       await api.verifySignup(
         signup,
@@ -124,11 +130,7 @@ void main() {
       }
       await api.logout();
       expect(store.value, isNull);
-      final challenge = await api.login(
-        '$prefix-$role@example.invalid',
-        role == 'driver' ? '' : 'Contract-only-pass-2026',
-        role,
-      );
+      final challenge = await api.login(phone, accountRole: role);
       await api.verifyLogin(challenge, '123456');
       expect(api.userId, userId);
       expect(api.role, role);

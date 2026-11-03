@@ -94,18 +94,35 @@ class ApiPanel extends StatefulWidget {
   final String path;
   final Widget Function(BuildContext, dynamic) builder;
   final bool embedded;
+  final Duration? refreshInterval;
   const ApiPanel({
     super.key,
     required this.api,
     required this.path,
     required this.builder,
     this.embedded = false,
+    this.refreshInterval,
   });
   @override
   State<ApiPanel> createState() => _ApiPanelState();
 }
 
-class _ApiPanelState extends State<ApiPanel> {
+class _ApiPanelState extends State<ApiPanel> with WidgetsBindingObserver {
+  Timer? _refresh;
+  bool _active = true;
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _active = state == AppLifecycleState.resumed;
+    if (_active && widget.refreshInterval != null && !_busy) _load();
+  }
+
+  @override
+  void dispose() {
+    _refresh?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
   dynamic _data;
   String? _error;
   bool _busy = false;
@@ -114,6 +131,17 @@ class _ApiPanelState extends State<ApiPanel> {
   void initState() {
     super.initState();
     _load();
+    WidgetsBinding.instance.addObserver(this);
+    if (widget.refreshInterval != null) {
+      _refresh = Timer.periodic(widget.refreshInterval!, (_) {
+        if (mounted &&
+            _active &&
+            !_busy &&
+            (ModalRoute.of(context)?.isCurrent ?? false)) {
+          _load();
+        }
+      });
+    }
   }
 
   @override

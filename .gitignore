@@ -68,3 +68,5 @@ app.*.map.json
 **/service-account*.json
 **/serviceAccount*.json
 **/firebase-adminsdk*.json
+
+test/failures/

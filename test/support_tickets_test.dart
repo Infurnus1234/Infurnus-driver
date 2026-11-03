@@ -60,7 +60,13 @@ void main() {
     expect(find.text('Local issue'), findsOneWidget);
     await tester.tap(find.byTooltip('Refresh'));
     await tester.pumpAndSettle();
-    expect(find.textContaining('TCK-TEST'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(ListTile),
+        matching: find.textContaining('TCK-TEST'),
+      ),
+      findsOneWidget,
+    );
   });
   testWidgets('provider errors are visible and preserve entered text', (
     tester,

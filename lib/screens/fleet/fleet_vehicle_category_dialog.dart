@@ -34,6 +34,7 @@ class _VehicleCategoryDialogState extends State<_VehicleCategoryDialog> {
     super.initState();
     _sector = widget.initial?['sector'] as String?;
     _type = widget.initial?['category'] as String?;
+    _city = widget.initial?['operatingCityId'] as String?;
     _catalog = widget.api.request('GET', '/provider/vehicle-catalog');
   }
 
@@ -193,6 +194,29 @@ class _VehicleCategoryDialogState extends State<_VehicleCategoryDialog> {
                   const Text(
                     'No configured types are available for this category.',
                   ),
+                if (_sector == 'premium') ...[
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    key: ValueKey('operating-city:$_city'),
+                    initialValue: selectedCity,
+                    decoration: const InputDecoration(
+                      labelText: 'Supported Bihar city *',
+                    ),
+                    items: cities
+                        .map(
+                          (city) => DropdownMenuItem(
+                            value: city['id'] as String,
+                            child: Text(city['name'].toString()),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (v) => setState(() => _city = v),
+                  ),
+                  if (cities.isEmpty)
+                    const Text(
+                      'No approved Premium cities are configured. Retry configuration before saving.',
+                    ),
+                ],
                 if (_sector != null &&
                     VehicleCategoryPolicy.isSelectableSector(_sector) &&
                     _sector != 'logistics' &&

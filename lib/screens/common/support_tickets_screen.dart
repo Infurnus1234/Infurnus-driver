@@ -12,7 +12,17 @@ class SupportTicketsScreen extends StatefulWidget {
   State<SupportTicketsScreen> createState() => _SupportTicketsScreenState();
 }
 
-class _SupportTicketsScreenState extends State<SupportTicketsScreen> {
+class _SupportTicketsScreenState extends State<SupportTicketsScreen>
+    with WidgetsBindingObserver {
+  Timer? _refresh;
+  String? _requestId, _submissionBody;
+  bool _active = true;
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _active = state == AppLifecycleState.resumed;
+    if (_active && !_busy) _load();
+  }
+
   Future<void> _detail(String id) async {
     final api = context.read<DriverSession>().api;
     await showModalBottomSheet<void>(
@@ -24,6 +34,7 @@ class _SupportTicketsScreenState extends State<SupportTicketsScreen> {
           child: ApiPanel(
             api: api,
             path: '/support/tickets/${Uri.encodeComponent(id)}',
+            refreshInterval: const Duration(seconds: 10),
             builder: (context, data) {
               final ticket = data as Map;
               return OpsPanel(
@@ -59,11 +70,22 @@ class _SupportTicketsScreenState extends State<SupportTicketsScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+    _refresh = Timer.periodic(const Duration(seconds: 10), (_) {
+      if (mounted &&
+          _active &&
+          !_busy &&
+          (ModalRoute.of(context)?.isCurrent ?? false)) {
+        _load();
+      }
+    });
   }
 
   @override
   void dispose() {
+    _refresh?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
     _subject.dispose();
     _message.dispose();
     super.dispose();
@@ -122,15 +144,30 @@ class _SupportTicketsScreenState extends State<SupportTicketsScreen> {
       _creating = true;
     });
     try {
-      await context.read<DriverSession>().api.request(
+      final bodyKey = '${_subject.text.trim()}\u0000${_message.text.trim()}';
+      if (_submissionBody != bodyKey) {
+        _submissionBody = bodyKey;
+        _requestId = supportRequestId();
+      }
+      final ticket = await context.read<DriverSession>().api.request(
         'POST',
         '/support/tickets',
         body: {
+          'requestId': _requestId,
           'category': 'App',
           'subject': _subject.text.trim(),
           'message': _message.text.trim(),
         },
       );
+      _requestId = null;
+      _submissionBody = null;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${ticket['ticketNumber']} · ${ticket['status']}'),
+          ),
+        );
+      }
       _subject.clear();
       _message.clear();
       if (mounted) await _load(page: 1);
