@@ -1,0 +1,3065 @@
+﻿INFURNUS DRIVER - SOURCE FILES FOR BUILD FIX
+
+===== FILE: lib/screens/auth/otp_verification_screen.dart =====
+
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
+import 'package:go_router/go_router.dart';
+
+import '../../core/theme.dart';
+import '../../providers/driver_session.dart';
+import '../../core/operations_theme.dart';
+
+/// A single OTP digit box.
+class _OtpBox extends StatelessWidget {
+  final TextEditingController controller;
+  final FocusNode focusNode;
+  final bool filled;
+  final bool hasError;
+
+  const _OtpBox({
+    required this.controller,
+    required this.focusNode,
+    required this.filled,
+    required this.hasError,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = hasError
+        ? Theme.of(context).colorScheme.error
+        : filled
+        ? Ops.actionPrimary
+        : const Color(0xFFCBD5E1);
+    final bgColor = hasError
+        ? Theme.of(context).colorScheme.error.withValues(alpha: 0.07)
+        : filled
+        ? const Color(0xFFF0FDF4)
+        : Colors.white;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 120),
+      width: 44,
+      height: 54,
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color, width: filled || hasError ? 2 : 1.2),
+      ),
+      child: TextField(
+        controller: controller,
+        focusNode: focusNode,
+        keyboardType: TextInputType.number,
+        textAlign: TextAlign.center,
+        maxLength: 1,
+        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+        autofillHints: const [AutofillHints.oneTimeCode],
+        style: const TextStyle(
+          fontSize: 20,
+          fontWeight: FontWeight.w700,
+          color: Ops.textPrimary,
+        ),
+        decoration: const InputDecoration(
+          counterText: '',
+          border: InputBorder.none,
+          enabledBorder: InputBorder.none,
+          focusedBorder: InputBorder.none,
+          contentPadding: EdgeInsets.zero,
+        ),
+      ),
+    );
+  }
+}
+
+class OtpVerificationScreen extends StatefulWidget {
+  const OtpVerificationScreen({super.key});
+  @override
+  State<OtpVerificationScreen> createState() => _OtpVerificationScreenState();
+}
+
+class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
+  static const _digitCount = 6;
+
+  final _controllers = List.generate(
+    _digitCount,
+    (_) => TextEditingController(),
+  );
+  final _focusNodes = List.generate(_digitCount, (_) => FocusNode());
+
+  Timer? _timer;
+  bool _submitting = false;
+  bool _hasError = false;
+
+  String get _otp => _controllers.map((c) => c.text).join();
+  bool get _complete => _otp.length == _digitCount;
+
+  String _friendlyVerificationError(DriverSession session) {
+    final contact = session.verificationContact ?? 'your account';
+    final details = '${session.errorCode ?? ''} ${session.error ?? ''}'
+        .toLowerCase();
+    if (details.contains('expired')) {
+      return 'That verification code expired for $contact. Request a new code.';
+    }
+    if (details.contains('invalid') ||
+        details.contains('incorrect') ||
+        details.contains('does not match')) {
+      return 'That code does not match the one sent to $contact. Check it and try again.';
+    }
+    return 'We could not verify the code for $contact. Check it and try again.';
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {});
+    });
+    // Listen to each box and advance focus automatically.
+    for (var i = 0; i < _digitCount; i++) {
+      final idx = i;
+      _controllers[idx].addListener(() => _onDigitChanged(idx));
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    for (final c in _controllers) {
+      c.dispose();
+    }
+    for (final f in _focusNodes) {
+      f.dispose();
+    }
+    super.dispose();
+  }
+
+  void _onDigitChanged(int idx) {
+    if (!mounted) return;
+    final text = _controllers[idx].text;
+    if (text.isEmpty && idx > 0) {
+      // User deleted the digit; move focus back to the previous box.
+      _focusNodes[idx - 1].requestFocus();
+    } else if (text.length == 1 && idx < _digitCount - 1) {
+      _focusNodes[idx + 1].requestFocus();
+    }
+    // If the user pasted a full 6-digit string into the first box, spread it.
+    if (text.length > 1 && idx == 0) {
+      final digits = text.replaceAll(RegExp(r'\D'), '');
+      for (var i = 0; i < _digitCount && i < digits.length; i++) {
+        _controllers[i].text = digits[i];
+        _controllers[i].selection = TextSelection.collapsed(offset: 1);
+      }
+      final last = (digits.length - 1).clamp(0, _digitCount - 1);
+      _focusNodes[last].requestFocus();
+    }
+    setState(() => _hasError = false);
+  }
+
+  Future<void> _verify(DriverSession session) async {
+    if (_submitting || session.busy || !_complete) return;
+    setState(() {
+      _submitting = true;
+      _hasError = false;
+    });
+    try {
+      final signup = session.signupId != null;
+      final ok = await session.verify(_otp);
+      if (mounted && ok && session.authenticated) {
+        context.go(signup ? '/onboarding' : session.landingPath);
+      } else if (mounted && !ok) {
+        setState(() => _hasError = true);
+        for (final c in _controllers) {
+          c.clear();
+        }
+        _focusNodes.first.requestFocus();
+      }
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final session = context.watch<DriverSession>();
+    final signup = session.signupId != null;
+    final active = signup || session.challengeId != null;
+    final busy = session.busy || _submitting;
+    final remaining =
+        (session.verificationResendAt?.difference(DateTime.now()).inSeconds ??
+                0)
+            .clamp(0, 86400);
+    final expires = signup ? session.api.signupOtpExpiresAt : null;
+    final expired = expires != null && !expires.isAfter(DateTime.now());
+    return SignupVerificationLayout(
+      title: 'Verify your account',
+      onBack: busy ? null : () => context.go(signup ? '/register' : '/login'),
+      children: [
+        Text(
+          'Enter your verification code',
+          style: Theme.of(context).textTheme.titleMedium
+              ?.copyWith(fontSize: 17),
+        ),
+        const SizedBox(height: 12),
+        Text(
+          active
+              ? 'Enter the 6-digit code for ${session.verificationContact ?? 'your registered contact'}.'
+              : 'Start signup or login to request a verification code.',
+          style: Theme.of(context).textTheme.bodyLarge,
+        ),
+        if (!signup) ...[
+          const SizedBox(height: 12),
+          const Text(
+            'Login codes are sent only to registered accounts. If you have not signed up in this environment, create an account first.',
+          ),
+          TextButton(
+            onPressed: busy ? null : () => context.go('/role-selection'),
+            child: const Text('Create an account'),
+          ),
+        ],
+        const SizedBox(height: 24),
+        TextField(
+          controller: _otp,
+          enabled: active && !busy && !expired,
+          keyboardType: TextInputType.number,
+          textInputAction: TextInputAction.done,
+          autofillHints: const [AutofillHints.oneTimeCode],
+          inputFormatters: [
+            FilteringTextInputFormatter.digitsOnly,
+            LengthLimitingTextInputFormatter(6),
+          ],
+          maxLength: 6,
+          decoration: const InputDecoration(
+            labelText: 'Verification code',
+            helperText: 'Enter all six digits',
+          ),
+          onChanged: (_) => setState(() {}),
+          onSubmitted: (_) => _verify(session),
+        ),
+        if (expired)
+          const Text('This code has expired. Go back to request a new one.'),
+        if (active && !expired)
+          Container(
+            margin: const EdgeInsets.only(top: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: InfurnusTheme.greenLight,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: InfurnusTheme.greenBorder),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.schedule, size: 18),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    remaining > 0
+                        ? 'Resend available in ${remaining}s'
+                        : 'You can request a new code.',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        if (session.error != null) ...[
+          const SizedBox(height: 12),
+          Semantics(
+            liveRegion: true,
+            child: Text(
+              _friendlyVerificationError(session),
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
+          ),
+        ],
+        const SizedBox(height: 24),
+        FilledButton(
+          onPressed:
+              active &&
+                  !busy &&
+                  !expired &&
+                  RegExp(r'^\d{6}$').hasMatch(_otp.text)
+              ? () => _verify(session)
+              : null,
+          child: busy
+              ? const SizedBox(
+                  height: 20,
+                  width: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Verify & Continue'),
+        ),
+        const SizedBox(height: 12),
+        TextButton(
+          style: TextButton.styleFrom(
+            minimumSize: const Size.fromHeight(48),
+            textStyle: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          onPressed: !active || busy || expired || remaining > 0
+              ? null
+              : () async {
+                  if (_submitting) return;
+                  setState(() => _submitting = true);
+                  try {
+                    final ok = await session.resend();
+                    if (ok && context.mounted) {
+                      _otp.clear();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Verification code request accepted.'),
+                        ),
+                      );
+                    }
+                  } finally {
+                    if (mounted) setState(() => _submitting = false);
+                  }
+                },
+          child: const Text('Resend verification code'),
+        ),
+        TextButton(
+          onPressed: busy
+              ? null
+              : () => context.go(signup ? '/register' : '/login'),
+        ),
+        title: Text(
+          signup ? 'Verify your account' : 'Verify your identity',
+          style: const TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w700,
+            color: Ops.textPrimary,
+          ),
+        ),
+      ),
+      body: SafeArea(
+        child: Align(
+          alignment: Alignment.topCenter,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 500),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Icon badge
+                  Center(
+                    child: Container(
+                      width: 64,
+                      height: 64,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF0FDF4),
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(
+                          color: const Color(0xFFBBF7D0),
+                          width: 1.5,
+                        ),
+                      ),
+                      child: const Icon(
+                        Icons.lock_outline_rounded,
+                        size: 30,
+                        color: Ops.actionPrimary,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Title
+                  const Center(
+                    child: Text(
+                      'Enter verification code',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                        color: Ops.textPrimary,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+
+                  // Subtitle with masked contact
+                  Center(
+                    child: Text(
+                      active ? 'Enter the 6-digit code for $contact.' : 'Start signup or login to request a verification code.',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: Ops.textSecondary,
+                        height: 1.5,
+                      ),
+                    ),
+                  ),
+
+                  if (signup) ...[
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Already added by your Fleet Owner? Verify your existing account through Log in using the phone or email they saved.',
+                      textAlign: TextAlign.center,
+                    ),
+                    TextButton(
+                      onPressed: busy ? null : () => context.go('/login'),
+                      child: const Text('Log in to existing account'),
+                    ),
+                  ],
+                  if (!signup) ...[
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Login codes are sent only to registered accounts. If you have not signed up in this environment, create an account first.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Ops.textSecondary,
+                        height: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Center(
+                      child: TextButton(
+                        onPressed: busy
+                            ? null
+                            : () => context.go('/role-selection'),
+                        child: const Text('Create an account'),
+                      ),
+                    ),
+                  ],
+
+                  const SizedBox(height: 32),
+
+                  // 6 OTP boxes
+                  Center(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          for (var i = 0; i < _digitCount; i++) ...[
+                            if (i > 0) const SizedBox(width: 8),
+                            _OtpBox(
+                              controller: _controllers[i],
+                              focusNode: _focusNodes[i],
+                              filled: _controllers[i].text.isNotEmpty,
+                              hasError: _hasError,
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  // Expired notice
+                  if (expired) ...[
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFEF2F2),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0xFFFCA5A5)),
+                      ),
+                      child: const Text(
+                        'This code has expired. Go back and start signup again.',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Color(0xFFDC2626),
+                        ),
+                      ),
+                    ),
+                  ],
+
+                  // Error from server
+                  if (session.error != null || _hasError) ...[
+                    const SizedBox(height: 16),
+                    Semantics(
+                      liveRegion: true,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 10,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFEF2F2),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0xFFFCA5A5)),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.error_outline,
+                              size: 16,
+                              color: Theme.of(context).colorScheme.error,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                session.error ??
+                                    'Incorrect code. Please try again.',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: Theme.of(context).colorScheme.error,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+
+                  const SizedBox(height: 28),
+
+                  // Verify button
+                  SizedBox(
+                    height: 52,
+                    child: FilledButton(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Ops.actionPrimary,
+                        disabledBackgroundColor: Ops.actionPrimary.withValues(
+                          alpha: 0.35,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      onPressed: active && !busy && !expired && _complete
+                          ? () => _verify(session)
+                          : null,
+                      child: busy
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Text(
+                              'Verify & Continue',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Resend row
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        remaining > 0
+                            ? 'Resend in ${remaining}s'
+                            : "Didn't receive a code?",
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Ops.textSecondary,
+                        ),
+                      ),
+                      if (remaining <= 0) ...[
+                        const SizedBox(width: 4),
+                        TextButton(
+                          style: TextButton.styleFrom(
+                            padding: EdgeInsets.zero,
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          onPressed: !active || busy || expired
+                              ? null
+                              : () async {
+                                  if (_submitting) return;
+                                  setState(() => _submitting = true);
+                                  try {
+                                    final ok = await session.resend();
+                                    if (ok && context.mounted) {
+                                      for (final c in _controllers) {
+                                        c.clear();
+                                      }
+                                      _focusNodes.first.requestFocus();
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                            const SnackBar(
+                                              content: Text(
+                                                'Verification code request accepted.',
+                                              ),
+                                            ),
+                                          );
+                                    }
+                                  } finally {
+                                    if (mounted) {
+                                      setState(() => _submitting = false);
+                                    }
+                                  }
+                                },
+                          child: const Text(
+                            'Resend',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: Ops.actionPrimary,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+
+                  // Change details link
+                  Center(
+                    child: TextButton(
+                      onPressed: busy
+                          ? null
+                          : () => context.go(signup ? '/register' : '/login'),
+                      child: Text(
+                        signup
+                            ? 'Change signup details'
+                            : 'Change login details',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Ops.textSecondary,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+===== FILE: lib/screens/auth/login_screen.dart =====
+
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:go_router/go_router.dart';
+
+import '../../providers/driver_session.dart';
+import '../../widgets/google_sign_in_button.dart';
+import '../../core/theme.dart';
+import 'role_selection_screen.dart';
+
+class LoginScreen extends StatefulWidget {
+  const LoginScreen({super.key});
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  final _identifier = TextEditingController();
+  bool _rememberMe = true;
+  bool _useEmail = false;
+  bool _identifierAttempted = false;
+  String? _clientValidationMessage;
+
+  bool get _identifierIsValid {
+    final input = _identifier.text.trim();
+    if (input.isEmpty) return false;
+    if (_useEmail || input.contains('@')) {
+      return RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(input);
+    }
+    return true;
+  }
+
+  String? get _emailValidationError {
+    if (!_useEmail || !_identifierAttempted) return null;
+    final input = _identifier.text.trim();
+    if (input.isEmpty) return 'Enter your email address.';
+    return RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(input)
+        ? null
+        : 'Enter a valid email address.';
+  }
+
+  String? _loginError(DriverSession session) {
+    if (session.error == null) return null;
+    if (session.errorCode == 'INVALID_CREDENTIALS') {
+      return 'Those sign-in details could not be verified. Check them and retry.';
+    }
+    return 'We couldn\'t sign you in. Check your connection and try again.';
+  }
+
+  @override
+  void dispose() {
+    _identifier.dispose();
+    super.dispose();
+  }
+
+  Future<String?> _chooseExistingRole() => showModalBottomSheet<String>(
+    context: context,
+    isScrollControlled: true,
+    builder: (sheetContext) => SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Choose the account to sign in to',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            ProviderRoleCards(
+              onChanged: (role) => Navigator.of(sheetContext).pop(role),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+
+  void _validateAndSubmit(DriverSession session) async {
+    setState(() {
+      _identifierAttempted = true;
+      _clientValidationMessage = null;
+    });
+    final rawInput = _identifier.text.trim();
+
+    if (rawInput.isEmpty) {
+      setState(() {
+        _clientValidationMessage = _useEmail
+            ? 'Please enter your email address.'
+            : 'Please enter your phone number.';
+      });
+      return;
+    }
+
+    if (_useEmail || rawInput.contains('@')) {
+      if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(rawInput)) return;
+    } else {
+      final digits = rawInput.replaceAll(RegExp(r'\D'), '');
+      if (digits.length < 10) {
+        setState(
+          () => _clientValidationMessage =
+              'Please enter a valid 10-digit mobile number.',
+        );
+        return;
+      }
+    }
+
+    final fullIdentifier = rawInput;
+
+    session.api.rememberMe = _rememberMe;
+    var success = await session.login(fullIdentifier);
+    if (!mounted) return;
+    if (!success && session.errorCode == 'ACCOUNT_ROLE_REQUIRED') {
+      final role = await _chooseExistingRole();
+      if (!mounted || role == null) return;
+      success = await session.login(fullIdentifier, null, role);
+    }
+    if (!mounted) return;
+    if (success) {
+      context.go('/otp');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final session = context.watch<DriverSession>();
+
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Stack(
+        children: [
+          // Top Poster Artwork Background (No extra logo widget)
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: MediaQuery.of(context).size.height * 0.42,
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: Image.asset(
+                    'assets/images/login_background.png',
+                    fit: BoxFit.cover,
+                    alignment: Alignment.topCenter,
+                  ),
+                ),
+                Positioned.fill(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          Colors.black.withValues(alpha: 0.15),
+                          Colors.black.withValues(alpha: 0.5),
+                        ],
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                      ),
+                    ),
+                  ),
+                ),
+                SafeArea(
+                  child: Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.arrow_back, color: Colors.white),
+                        onPressed: () {
+                          if (context.canPop()) {
+                            context.pop();
+                          } else {
+                            context.go('/welcome');
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Single Clean White Bottom Sheet
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black26,
+                    blurRadius: 16,
+                    offset: Offset(0, -4),
+                  ),
+                ],
+              ),
+              padding: const EdgeInsets.fromLTRB(24, 26, 24, 20),
+              child: SafeArea(
+                top: false,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Center(
+                        child: Text(
+                          'Log in or sign up',
+                          style: InfurnusTheme.interStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: InfurnusTheme.textDark,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+
+                      // Phone or Email Input Container
+                      if (!_useEmail)
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: const Color(0xFFCBD5E1),
+                              width: 1.2,
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 15,
+                                ),
+                                decoration: const BoxDecoration(
+                                  border: Border(
+                                    right: BorderSide(color: Color(0xFFE2E8F0)),
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Text(
+                                      'ðŸ‡®ðŸ‡³',
+                                      style: TextStyle(fontSize: 18),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      '+91',
+                                      style: InfurnusTheme.interStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w600,
+                                        color: InfurnusTheme.textDark,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    const Icon(
+                                      Icons.arrow_drop_down,
+                                      size: 18,
+                                      color: InfurnusTheme.textMuted,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Expanded(
+                                child: TextField(
+                                  controller: _identifier,
+                                  enabled: !session.busy,
+                                  keyboardType: TextInputType.phone,
+                                  autofillHints: const [
+                                    AutofillHints.telephoneNumber,
+                                  ],
+                                  style: InfurnusTheme.interStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  decoration: const InputDecoration(
+                                    hintText: 'Enter Phone Number',
+                                    hintStyle: TextStyle(
+                                      color: InfurnusTheme.textMuted,
+                                    ),
+                                    border: InputBorder.none,
+                                    enabledBorder: InputBorder.none,
+                                    focusedBorder: InputBorder.none,
+                                    contentPadding: EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 15,
+                                    ),
+                                  ),
+                                  onChanged: (_) => setState(() {
+                                    _clientValidationMessage = null;
+                                    _identifierAttempted = true;
+                                  }),
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      else
+                        TextField(
+                          controller: _identifier,
+                          enabled: !session.busy,
+                          keyboardType: TextInputType.emailAddress,
+                          autofillHints: const [AutofillHints.email],
+                          decoration: InputDecoration(
+                            labelText: 'Email Address',
+                            prefixIcon: const Icon(Icons.email_outlined),
+                            helperText: 'Enter a valid email to continue.',
+                            errorText: _emailValidationError,
+                          ),
+                          onChanged: (_) => setState(() {
+                            _clientValidationMessage = null;
+                            _identifierAttempted = true;
+                          }),
+                        ),
+
+                      const SizedBox(height: 12),
+
+                      const Text(
+                        'Use your registered phone or email to receive an OTP. Fleet-created Drivers can sign in directly.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 12),
+                      ),
+                      const SizedBox(height: 12),
+                      // Remember my login checkbox
+                      Row(
+                        children: [
+                          SizedBox(
+                            height: 24,
+                            width: 24,
+                            child: Checkbox(
+                              value: _rememberMe,
+                              activeColor: InfurnusTheme.primaryGreen,
+                              onChanged: (v) =>
+                                  setState(() => _rememberMe = v ?? true),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Remember my login for faster sign-in',
+                              style: InfurnusTheme.interStyle(
+                                fontSize: 12,
+                                color: InfurnusTheme.textDark,
+                              ),
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: session.busy
+                                ? null
+                                : () => setState(() {
+                                    _useEmail = !_useEmail;
+                                    _identifier.clear();
+                                    _identifierAttempted = false;
+                                    _clientValidationMessage = null;
+                                  }),
+                            child: Text(
+                              _useEmail ? 'Use Phone' : 'Use Email',
+                              style: InfurnusTheme.interStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: InfurnusTheme.primaryGreen,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      // Error display
+                      if (_clientValidationMessage != null ||
+                          _loginError(session) != null) ...[
+                        Container(
+                          margin: const EdgeInsets.symmetric(vertical: 8),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 10,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFEF2F2),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: const Color(0xFFFCA5A5)),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.error_outline,
+                                size: 18,
+                                color: InfurnusTheme.dangerRed,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  _clientValidationMessage ??
+                                      _loginError(session)!,
+                                  style: GoogleFonts.inter(
+                                    color: InfurnusTheme.dangerRed,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+
+                      const SizedBox(height: 12),
+
+                      // Primary Continue Button
+                      ElevatedButton(
+                        onPressed:
+                            session.busy || (_useEmail && !_identifierIsValid)
+                            ? null
+                            : () => _validateAndSubmit(session),
+                        child: session.busy
+                            ? const SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    'Continue',
+                                    style: InfurnusTheme.interStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  const Icon(Icons.arrow_forward, size: 18),
+                                ],
+                              ),
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      const SizedBox(height: 14),
+                      const Divider(color: Color(0xFFE2E8F0)),
+                      const SizedBox(height: 10),
+
+                      // Google Sign In & Create Account
+                      GoogleSignInButton(
+                        label: 'Continue with Google',
+                        enabled: !session.busy,
+                        onIdToken: (token) async {
+                          session.api.rememberMe = _rememberMe;
+                          var ok = await session.authenticateGoogle(
+                            token,
+                            signup: true,
+                          );
+                          if (mounted &&
+                              !ok &&
+                              session.errorCode == 'ACCOUNT_ROLE_REQUIRED') {
+                            final role = await _chooseExistingRole();
+                            if (!mounted || role == null) return;
+                            ok = await session.authenticateGoogle(
+                              token,
+                              signup: true,
+                              accountRole: role,
+                            );
+                          }
+                          if (context.mounted && ok && session.authenticated) {
+                            context.go(session.landingPath);
+                          }
+                        },
+                      ),
+
+                      const SizedBox(height: 8),
+                      TextButton(
+                        onPressed: session.busy
+                            ? null
+                            : () => context.go('/role-selection'),
+                        child: Text(
+                          'Create an account with email or phone',
+                          style: InfurnusTheme.interStyle(
+                            fontWeight: FontWeight.bold,
+                            color: InfurnusTheme.textDark,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 10),
+
+                      // Terms & Privacy footer
+                      Text(
+                        'By continuing, you agree to our Terms of Service, Privacy Policy & Content Policy',
+                        textAlign: TextAlign.center,
+                        style: InfurnusTheme.interStyle(
+                          fontSize: 10.5,
+                          color: InfurnusTheme.textMuted,
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          if (session.restorationNeedsRetry)
+            MaterialBanner(
+              content: const Text(
+                'Your saved session could not be restored. Retry when connected or sign in again.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: session.busy ? null : session.restore,
+                  child: const Text('Retry session'),
+                ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+===== FILE: lib/screens/common/operations_screens.dart =====
+
+import 'package:flutter/material.dart';
+
+import '../../widgets/account_details_card.dart';
+
+import 'package:geolocator/geolocator.dart';
+import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
+
+import '../../core/operations_theme.dart';
+import '../../core/theme.dart';
+import '../../providers/driver_session.dart';
+import '../../widgets/driver_bottom_nav.dart';
+import '../../widgets/operations.dart';
+import '../../widgets/reference_components.dart';
+import '../../services/payout_request.dart';
+import '../../services/api_service.dart';
+
+class LedgerScreen extends StatefulWidget {
+  final bool wallet;
+  const LedgerScreen({super.key, this.wallet = false});
+  @override
+  State<LedgerScreen> createState() => _LedgerScreenState();
+}
+
+class _LedgerScreenState extends State<LedgerScreen> {
+  String _period = 'daily';
+  bool _requesting = false;
+  int _revision = 0;
+  Future<void> _payout() async {
+    if (_requesting) return;
+    final session = context.read<DriverSession>();
+    final request = PayoutRequest(session.api);
+    final controller = TextEditingController();
+    setState(() => _requesting = true);
+    try {
+      final pending = await request.pending();
+      if (!mounted) return;
+      if (pending != null) {
+        controller.text = ((pending['amountPaise'] as num) / 100)
+            .toStringAsFixed(2);
+      }
+      final form = GlobalKey<FormState>();
+      final paise = await showDialog<int>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text(
+            pending == null ? 'Request payout' : 'Retry pending payout',
+          ),
+          content: Form(
+            key: form,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Requires a verified bank account and sufficient wallet balance. Request acceptance does not confirm bank settlement.',
+                ),
+                TextFormField(
+                  controller: controller,
+                  readOnly: pending != null,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  decoration: const InputDecoration(labelText: 'Amount (INR)'),
+                  validator: (text) {
+                    if (!RegExp(r'^\d+(\.\d{1,2})?$')
+                        .hasMatch(text?.trim() ?? '')) {
+                      return 'Enter a positive amount with up to 2 decimals';
+                    }
+                    final amount = double.tryParse(text!.trim());
+                    return amount == null || amount <= 0 || amount > 99999999.99
+                        ? 'Enter an amount within the supported limit'
+                        : null;
+                  },
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () {
+                if (form.currentState!.validate()) {
+                  Navigator.pop(
+                    context,
+                    (double.parse(controller.text.trim()) * 100).round(),
+                  );
+                }
+              },
+              child: const Text('Submit request'),
+            ),
+          ],
+        ),
+      );
+      if (paise == null || !mounted) return;
+      final result = await request.submit(paise);
+      if (mounted) {
+        setState(() => _revision++);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Payout request recorded: ${result is Map ? result['status'] ?? 'pending' : 'pending'}. Check payout history for its status.',
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              e is ApiException ? e.message : 'Payout could not be confirmed. Retry to reconcile the same request.',
+            ),
+          ),
+        );
+      }
+    } finally {
+      Future<void>.delayed(const Duration(seconds: 1), controller.dispose);
+      if (mounted) setState(() => _requesting = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final session = context.watch<DriverSession>();
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(widget.wallet ? 'Wallet & settlements' : 'Earnings'),
+      ),
+      bottomNavigationBar: session.api.providerMode == 'driver'
+          ? DriverBottomNav(currentIndex: widget.wallet ? 3 : 2)
+          : null,
+      body: ApiPanel(
+        key: ValueKey(_revision),
+        api: session.api,
+        path: widget.wallet ? '/provider/wallet' : '/provider/earnings',
+        builder: (context, data) {
+          final map = data as Map;
+          if (widget.wallet) {
+            final entries = map['entries'] as List? ?? [];
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                OpsPanel(
+                  title: 'Available balance',
+                  child: Text(inr(map['balancePaise']), style: Ops.metric),
+                ),
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 12),
+                  child: Text(
+                    'Wallet ledger amounts are in INR. A payout request is not proof of bank settlement.',
+                  ),
+                ),
+                OutlinedButton.icon(
+                  onPressed: () => context.push('/provider/payouts'),
+                  icon: const Icon(Icons.account_balance_outlined),
+                  label: const Text('Payout history'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: () => context.push('/provider/bank-account'),
+                  icon: const Icon(Icons.account_balance),
+                  label: const Text('Manage bank account'),
+                ),
+                FilledButton(
+                  onPressed: _requesting ? null : _payout,
+                  child: Text(
+                    _requesting ? 'Checking payout requestâ€¦' : 'Request payout',
+                  ),
+                ),
+                if (entries.isEmpty)
+                  const OpsEmpty('No wallet transactions yet.'),
+                for (final entry in entries)
+                  Card(
+                    child: ListTile(
+                      title: Text(
+                        entry['entry_type']?.toString() ?? 'Transaction',
+                      ),
+                      subtitle: Text(
+                        '${entry['created_at'] ?? ''}\n${entry['reference'] ?? ''}',
+                      ),
+                      isThreeLine: true,
+                      trailing: Text(inr(entry['amount_paise'])),
+                    ),
+                  ),
+              ],
+            );
+          }
+          final periods = (map['periods'] as List? ?? [])
+              .whereType<Map>()
+              .toList();
+          final selected = periods
+              .where((r) => r['period'] == _period)
+              .firstOrNull;
+          final days = (map['days'] as List? ?? []).whereType<Map>().toList();
+          final now = DateTime.now().toUtc();
+          final today = DateTime.utc(now.year, now.month, now.day);
+          final since = _period == 'daily'
+              ? today
+              : _period == 'weekly'
+              ? today.subtract(Duration(days: today.weekday - 1))
+              : DateTime.utc(now.year, now.month);
+          final filtered = days.where((d) {
+            final time = DateTime.tryParse(d['day']?.toString() ?? '');
+            return time != null && !time.toUtc().isBefore(since);
+          }).toList();
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              DropdownButtonFormField<String>(
+                initialValue: _period,
+                decoration: const InputDecoration(
+                  labelText: 'Settlement period (UTC)',
+                ),
+                items: const [
+                  DropdownMenuItem(value: 'daily', child: Text('Today')),
+                  DropdownMenuItem(value: 'weekly', child: Text('This week')),
+                  DropdownMenuItem(value: 'monthly', child: Text('This month')),
+                ],
+                onChanged: (v) => setState(() => _period = v ?? 'daily'),
+              ),
+              const SizedBox(height: 12),
+              OpsPanel(
+                title: 'Net ledger earnings',
+                child: Text(inr(selected?['netPaise']), style: Ops.metric),
+              ),
+              OpsPanel(
+                title: 'Settlement breakdown',
+                child: Column(
+                  children: [
+                    _amount('Gross earnings', selected?['grossPaise']),
+                    _amount('Commission', selected?['commissionPaise']),
+                    _amount('Adjustments', selected?['adjustmentPaise']),
+                  ],
+                ),
+              ),
+              if (filtered.isNotEmpty)
+                OpsPanel(
+                  title: 'Daily settlement net',
+                  child: SettlementBars(rows: filtered.toList()),
+                ),
+              if (filtered.isEmpty)
+                const OpsEmpty('No ledger activity in this period.'),
+              for (final day in filtered)
+                Card(
+                  child: ListTile(
+                    title: Text(day['day'].toString().split('T').first),
+                    subtitle: Text(
+                      'Gross ${inr(day['grossPaise'])} Â· Commission ${inr(day['commissionPaise'])}',
+                    ),
+                    trailing: Text(inr(day['netPaise'])),
+                  ),
+                ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _amount(String label, dynamic value) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 8),
+    child: Wrap(
+      alignment: WrapAlignment.spaceBetween,
+      spacing: 24,
+      children: [Text(label), Text(inr(value))],
+    ),
+  );
+}
+
+class PayoutHistoryScreen extends StatelessWidget {
+  const PayoutHistoryScreen({super.key});
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('Payout history')),
+    body: ApiPanel(
+      api: context.read<DriverSession>().api,
+      path: '/provider/payouts',
+      builder: (context, data) => Column(
+        children: [
+          const OpsEmpty(
+            'Payout status reflects the platform record. Confirm bank receipt independently.',
+            icon: Icons.account_balance_outlined,
+          ),
+          if ((data as List).isEmpty) const OpsEmpty('No payout requests.'),
+          for (final row in data)
+            Card(
+              child: ListTile(
+                title: Text(inr(row['amountPaise'] ?? row['amount_paise'])),
+                subtitle: Text(
+                  '${row['createdAt'] ?? row['created_at'] ?? ''}',
+                ),
+                trailing: Text('${row['status'] ?? 'Unknown'}'),
+              ),
+            ),
+        ],
+      ),
+    ),
+  );
+}
+
+class TripsScreen extends StatelessWidget {
+  const TripsScreen({super.key});
+  @override
+  Widget build(BuildContext context) {
+    final session = context.watch<DriverSession>();
+    final trips = (session.history?['rides'] as List? ?? [])
+        .whereType<Map>()
+        .toList();
+    return DefaultTabController(
+      length: 3,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('My Trips'),
+          bottom: const TabBar(
+            indicatorPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+            tabs: [
+              Tab(text: 'All'),
+              Tab(text: 'Completed'),
+              Tab(text: 'Cancelled'),
+            ],
+          ),
+        ),
+        bottomNavigationBar: const DriverBottomNav(currentIndex: 1),
+        body: TabBarView(
+          children: [null, 'completed', 'cancelled'].map((status) {
+            final rows = trips
+                .where((r) => status == null || r['status'] == status)
+                .toList();
+            return RefreshIndicator(
+              onRefresh: () async {
+                await session.refresh();
+              },
+              child: ListView(
+                padding: const EdgeInsets.all(Ops.padding),
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: [
+                  if (session.busy)
+                    const Padding(
+                      padding: EdgeInsets.all(16),
+                      child: LinearProgressIndicator(),
+                    )
+                  else if (session.error != null || session.history == null)
+                    OpsError(
+                      'We couldn\'t load your trips. Please try again.',
+                      retry: session.refresh,
+                    )
+                  else if (rows.isEmpty)
+                    const OpsEmpty('No trips in this view.'),
+                  if (!session.busy &&
+                      session.error == null &&
+                      session.history != null &&
+                      rows.isNotEmpty)
+                    Text('Showing ${trips.length} most recent server records.'),
+                  if (!session.busy &&
+                      session.error == null &&
+                      session.history != null)
+                    for (final ride in rows)
+                      Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(14),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '${ride['pickupAddress'] ?? 'Pickup unavailable'} â†’ ${ride['destinationAddress'] ?? 'Destination unavailable'}',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                '${ride['createdAt'] ?? ''}',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Ops.textSecondary,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    ride['finalFare'] == null
+                                        ? 'Fare unavailable'
+                                        : inrRupees(ride['finalFare']),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  StatusPill(
+                                    ride['status']?.toString() ?? 'Unknown',
+                                  ),
+                                ],
+                              ),
+                              ExpansionTile(
+                                dense: true,
+                                tilePadding: EdgeInsets.zero,
+                                title: const Text(
+                                  'Trip reference',
+                                  style: TextStyle(fontSize: 11),
+                                ),
+                                children: [
+                                  SelectableText('Ride ${ride['id']}'),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                  if (!session.busy &&
+                      session.error == null &&
+                      trips.length >= session.historyLimit &&
+                      session.historyLimit < 100)
+                    OutlinedButton(
+                      onPressed: session.busy ? null : session.loadMoreHistory,
+                      child: const Text('Load more trips'),
+                    ),
+                  if (!session.busy &&
+                      session.error == null &&
+                      trips.length >= 100)
+                    const Text(
+                      'The history API supports up to 100 recent trips.',
+                    ),
+                ],
+              ),
+            );
+          }).toList(),
+        ),
+      ),
+    );
+  }
+}
+
+class PersonalInformationScreen extends StatelessWidget {
+  const PersonalInformationScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: InfurnusTheme.bgWhite,
+      appBar: AppBar(
+        title: const Text('Personal information'),
+        elevation: 0,
+        backgroundColor: InfurnusTheme.bgWhite,
+        foregroundColor: InfurnusTheme.textDark,
+      ),
+      body: const SingleChildScrollView(
+        padding: EdgeInsets.all(16),
+        child: AccountDetailsCard(),
+      ),
+    );
+  }
+}
+
+class AccountScreen extends StatelessWidget {
+  const AccountScreen({super.key});
+
+  Future<void> _confirmLogout(
+    BuildContext context,
+    DriverSession session,
+  ) async {
+    final shouldLogout = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(InfurnusTheme.r16),
+        ),
+        title: const Text(
+          'Log out',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        content: const Text(
+          'Are you sure you want to log out of your account?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: InfurnusTheme.textMuted),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: InfurnusTheme.dangerRed,
+            ),
+            child: const Text('Log out'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldLogout == true && context.mounted) {
+      await session.logout();
+      if (context.mounted) context.go('/login');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final session = context.watch<DriverSession>();
+    final name =
+        '${session.providerAccount?['firstName'] ?? session.account?['firstName'] ?? session.profile?['firstName'] ?? ''} ${session.providerAccount?['lastName'] ?? session.account?['lastName'] ?? session.profile?['lastName'] ?? ''}'
+            .trim();
+    final displayName = name.isEmpty ? 'Driver Account' : name;
+    final verificationStatus =
+        (session.profile?['verificationStatus'] ??
+                session.providerAccount?['verificationStatus'] ??
+                'Pending')
+            .toString()
+            .replaceAll('_', ' ');
+    final upperStatus = verificationStatus.toUpperCase();
+    final statusColor = (upperStatus == 'VERIFIED' || upperStatus == 'APPROVED')
+        ? InfurnusTheme.primaryGreen
+        : (upperStatus == 'REJECTED')
+        ? InfurnusTheme.dangerRed
+        : InfurnusTheme.warningAmber;
+
+    return Scaffold(
+      backgroundColor: InfurnusTheme.bgWhite,
+      appBar: AppBar(
+        title: const Text('Profile & Settings'),
+        elevation: 0,
+        backgroundColor: InfurnusTheme.bgWhite,
+        foregroundColor: InfurnusTheme.textDark,
+      ),
+      bottomNavigationBar: session.api.providerMode == 'driver'
+          ? const DriverBottomNav(currentIndex: 4)
+          : null,
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
+        children: [
+          // Profile Header Card
+          AppCard(
+            onTap: () => context.push('/personal-details'),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 28,
+                  backgroundColor: InfurnusTheme.iconBoxBg,
+                  child: Text(
+                    displayName.isNotEmpty ? displayName[0].toUpperCase() : 'D',
+                    style: const TextStyle(
+                      color: InfurnusTheme.textDark,
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        displayName,
+                        style: const TextStyle(
+                          color: InfurnusTheme.textDark,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Status: $verificationStatus',
+                        style: TextStyle(
+                          color: statusColor,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(
+                  Icons.chevron_right,
+                  color: InfurnusTheme.textMuted,
+                  size: 20,
+                ),
+              ],
+            ),
+          ),
+          const Padding(
+            padding: EdgeInsets.only(top: 12, bottom: 4),
+            child: Text(
+              'Account',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+            ),
+          ),
+          const AccountDetailsCard(),
+          if (session.api.providerMode == 'driver') ...[
+            AssignedVehicleCard(
+              vehicle: session.assignedVehicle,
+              loading: session.busy,
+              retry: session.refresh,
+            ),
+          ),
+          const SizedBox(height: 12),
+          SettingsTile(
+            icon: Icons.document_scanner_outlined,
+            title: 'Application summary & documents',
+            subtitle: 'View verification status and upload documents',
+            onTap: () => context.push('/verification-status'),
+          ),
+          if (session.api.hasDriverRole &&
+              session.api.providerMode == 'driver') ...[
+            const SizedBox(height: 12),
+            SettingsTile(
+              icon: Icons.group_add_outlined,
+              title: 'Fleet invitations',
+              subtitle: 'Review Fleet profile-management invitations',
+              onTap: () => context.push('/driver/fleet-invitations'),
+            ),
+          ],
+          const SizedBox(height: 12),
+          SettingsTile(
+            icon: Icons.notifications_outlined,
+            title: 'Notifications',
+            subtitle: 'View your alerts and updates',
+            onTap: () => context.push('/notifications'),
+          ),
+          if (session.api.providerMode == 'driver')
+            _link(
+              context,
+              Icons.fact_check_outlined,
+              'Driver onboarding & verification',
+              '/verification-status',
+            ),
+          const Padding(
+            padding: EdgeInsets.only(top: 12, bottom: 4),
+            child: Text(
+              'Preferences & support',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+            ),
+          ),
+          _link(
+            context,
+            Icons.notifications_outlined,
+            'Notifications',
+            '/notifications',
+          ),
+          const SizedBox(height: 12),
+          SettingsTile(
+            icon: Icons.security_outlined,
+            title: 'Safety & device settings',
+            subtitle: 'Permissions, SOS and device options',
+            onTap: () => context.push('/safety'),
+          ),
+          const SizedBox(height: 12),
+          SettingsTile(
+            icon: Icons.help_outline,
+            title: 'Help center',
+            subtitle: 'Get support and FAQs',
+            onTap: () => context.push('/support-tickets'),
+          ),
+          _link(
+            context,
+            Icons.support_agent,
+            'Help & support',
+            '/support-tickets',
+          ),
+          const Divider(height: 24),
+          const Padding(
+            padding: EdgeInsets.only(bottom: 4),
+            child: Text(
+              'Account actions',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+            ),
+          ),
+          ListTile(
+            minTileHeight: 56,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+            leading: const Icon(Icons.logout, color: Ops.error),
+            title: const Text('Log out'),
+            onTap: session.busy
+                ? null
+                : () async {
+                    if (!await confirmOperation(
+                      context,
+                      'Log out?',
+                      'Your current session will end.',
+                    )) {
+                      return;
+                    }
+                    await session.logout();
+                    if (context.mounted) context.go('/login');
+                  },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _link(
+    BuildContext context,
+    IconData icon,
+    String title,
+    String path,
+  ) => ListTile(
+    minTileHeight: 56,
+    contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+    leading: SizedBox(width: 24, child: Icon(icon)),
+    title: Text(title),
+    trailing: const Icon(Icons.chevron_right),
+    onTap: () => context.push(path),
+  );
+}
+
+class SafetySettingsScreen extends StatelessWidget {
+  const SafetySettingsScreen({super.key});
+  @override
+  Widget build(BuildContext context) {
+    final session = context.watch<DriverSession>();
+    return Scaffold(
+      appBar: AppBar(title: const Text('Safety & device settings')),
+      body: ListView(
+        padding: const EdgeInsets.all(Ops.padding),
+        children: [
+          const OpsPanel(
+            title: 'Emergency assistance',
+            child: Text(
+              'INFURNUS has no verified emergency dispatch integration. In an emergency, use your phone to contact local emergency services. Support tickets are not monitored as emergency calls.',
+            ),
+          ),
+          OpsPanel(
+            title: 'Saved emergency contact',
+            child: Text(
+              session.profile?['emergencyContactPhone']?.toString() ??
+                  'No emergency contact returned by the server.',
+            ),
+          ),
+          if (session.currentTrip != null)
+            OpsPanel(
+              title: 'Current trip',
+              child: Text(
+                'Ride ${session.currentTrip!['id']}\n${session.currentTrip!['pickupAddress'] ?? ''}\n${session.currentTrip!['destinationAddress'] ?? ''}',
+              ),
+            ),
+          OutlinedButton.icon(
+            onPressed: () => Geolocator.openAppSettings(),
+            icon: const Icon(Icons.settings_outlined),
+            label: const Text('App permissions & notifications'),
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: () => Geolocator.openLocationSettings(),
+            icon: const Icon(Icons.location_on_outlined),
+            label: const Text('Location settings'),
+          ),
+          const SizedBox(height: 12),
+          FilledButton.icon(
+            onPressed: () => context.push('/support-tickets'),
+            icon: const Icon(Icons.support_agent),
+            label: const Text('Report an issue'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class NotificationInboxScreen extends StatelessWidget {
+  const NotificationInboxScreen({super.key});
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('Notifications')),
+    body: ListView(
+      padding: const EdgeInsets.all(Ops.padding),
+      children: [
+        const OpsPanel(
+          title: 'Notification history unavailable',
+          child: Text(
+            'The connected backend exposes device registration but no notification inbox or read-state API. Push alerts depend on device permission and configured delivery services.',
+          ),
+        ),
+        OutlinedButton(
+          onPressed: () => context.push('/safety'),
+          child: const Text('Open notification settings'),
+        ),
+      ],
+    ),
+  );
+}
+
+===== FILE: lib/screens/common/support_tickets_screen.dart =====
+
+import 'dart:developer' as developer;
+
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../../providers/driver_session.dart';
+import '../../widgets/operations.dart';
+
+class SupportTicketsScreen extends StatefulWidget {
+  const SupportTicketsScreen({super.key});
+  @override
+  State<SupportTicketsScreen> createState() => _SupportTicketsScreenState();
+}
+
+class _SupportTicketsScreenState extends State<SupportTicketsScreen>
+    with WidgetsBindingObserver {
+  Timer? _refresh;
+  String? _requestId, _submissionBody;
+  bool _active = true;
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _active = state == AppLifecycleState.resumed;
+    if (_active && !_busy) _load();
+  }
+
+  Future<void> _detail(String id) async {
+    final api = context.read<DriverSession>().api;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => SafeArea(
+        child: SizedBox(
+          height: MediaQuery.sizeOf(context).height * 0.8,
+          child: ApiPanel(
+            api: api,
+            path: '/support/tickets/${Uri.encodeComponent(id)}',
+            refreshInterval: const Duration(seconds: 10),
+            builder: (context, data) {
+              final ticket = data as Map;
+              return OpsPanel(
+                title: ticket['subject']?.toString() ?? 'Support ticket',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SelectableText('${ticket['ticketNumber'] ?? ''}'),
+                    Text('Status: ${ticket['status'] ?? 'Unknown'}'),
+                    Text('Category: ${ticket['category'] ?? 'Unknown'}'),
+                    Text('Created: ${ticket['createdAt'] ?? 'Unknown'}'),
+                    Text('Updated: ${ticket['updatedAt'] ?? 'Unknown'}'),
+                    const SizedBox(height: 16),
+                    SelectableText(ticket['message']?.toString() ?? ''),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  final _subject = TextEditingController(), _message = TextEditingController();
+  final _form = GlobalKey<FormState>();
+  List<Map<String, dynamic>> _tickets = [];
+  bool _busy = false, _loaded = false, _creating = false;
+  String? _error, _formError;
+  int _page = 1;
+  bool _hasNext = false;
+  int? _failedPage;
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+    _refresh = Timer.periodic(const Duration(seconds: 10), (_) {
+      if (mounted &&
+          _active &&
+          !_busy &&
+          (ModalRoute.of(context)?.isCurrent ?? false)) {
+        _load();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _refresh?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    _subject.dispose();
+    _message.dispose();
+    super.dispose();
+  }
+
+  Future<void> _load({int? page}) async {
+    if (!mounted) return;
+    final targetPage = page ?? _page;
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      final data = await context.read<DriverSession>().api.request(
+        'GET',
+        '/support/tickets?page=$targetPage&pageSize=25&includePagination=true',
+      );
+      if (mounted) {
+        setState(() {
+          _tickets = (data['items'] as List)
+              .map((e) => Map<String, dynamic>.from(e as Map))
+              .toList();
+          _page = targetPage;
+          _hasNext = data['pagination']['hasNext'] as bool;
+          _failedPage = null;
+        });
+      }
+    } catch (e, stack) {
+      developer.log(
+        'Support ticket list load failed',
+        name: 'SupportTicketsScreen',
+        error: e,
+        stackTrace: stack,
+      );
+      if (mounted) {
+        setState(() {
+          _error = 'We couldn\'t load your support tickets. Please retry.';
+          _failedPage = targetPage;
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _loaded = true;
+        });
+      }
+    }
+  }
+
+  Future<void> _create() async {
+    if (!_form.currentState!.validate() || _busy) return;
+    setState(() {
+      _busy = true;
+      _formError = null;
+      _creating = true;
+    });
+    try {
+      final bodyKey = '${_subject.text.trim()}\u0000${_message.text.trim()}';
+      if (_submissionBody != bodyKey) {
+        _submissionBody = bodyKey;
+        _requestId = supportRequestId();
+      }
+      final ticket = await context.read<DriverSession>().api.request(
+        'POST',
+        '/support/tickets',
+        body: {
+          'requestId': _requestId,
+          'category': 'App',
+          'subject': _subject.text.trim(),
+          'message': _message.text.trim(),
+        },
+      );
+      _requestId = null;
+      _submissionBody = null;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${ticket['ticketNumber']} Â· ${ticket['status']}'),
+          ),
+        );
+      }
+      _subject.clear();
+      _message.clear();
+      if (mounted) await _load(page: 1);
+    } catch (e, stack) {
+      developer.log(
+        'Support ticket creation failed',
+        name: 'SupportTicketsScreen',
+        error: e,
+        stackTrace: stack,
+      );
+      if (mounted) {
+        setState(
+          () => _formError = 'We couldn\'t create your ticket. Please retry.',
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _creating = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(
+      title: const Text('Support tickets'),
+      actions: [
+        IconButton(
+          tooltip: 'Refresh',
+          onPressed: _busy ? null : _load,
+          icon: const Icon(Icons.refresh),
+        ),
+      ],
+    ),
+    body: ListView(
+      padding: const EdgeInsets.all(20),
+      children: [
+        Form(
+          key: _form,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              TextFormField(
+                controller: _subject,
+                maxLength: 200,
+                decoration: const InputDecoration(
+                  labelText: 'Subject *',
+                  helperText: 'Required Â· 3â€“200 characters',
+                ),
+                validator: (v) => (v?.trim().length ?? 0) < 3
+                    ? 'Enter at least 3 characters'
+                    : null,
+              ),
+              TextFormField(
+                controller: _message,
+                maxLength: 5000,
+                maxLines: 4,
+                decoration: const InputDecoration(
+                  labelText: 'Describe the issue *',
+                  helperText: 'Required Â· 5â€“5,000 characters',
+                ),
+                validator: (v) => (v?.trim().length ?? 0) < 5
+                    ? 'Enter at least 5 characters'
+                    : null,
+              ),
+              ElevatedButton(
+                onPressed: _busy ? null : _create,
+                child: Text(_creating ? 'Creating ticketâ€¦' : 'Create ticket'),
+              ),
+            ],
+          ),
+        ),
+        if (_formError != null)
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  _formError!,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+              ),
+              TextButton(
+                onPressed: _busy ? null : _create,
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        if (_busy || !_loaded)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 20),
+            child: LinearProgressIndicator(),
+          )
+        else if (_error != null)
+          OpsError(_error!, retry: () => _load(page: _failedPage))
+        else if (_tickets.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 20),
+            child: Text('No support tickets yet.'),
+          ),
+        const SizedBox(height: 20),
+        if (!_busy && _error == null && _tickets.isNotEmpty)
+          ..._tickets.map(
+            (t) => Card(
+              child: ListTile(
+                onTap: () => _detail(t['id'] as String),
+                title: Text(t['subject'].toString()),
+                subtitle: Text(
+                  'ID ${t['ticketNumber']} Â· ${t['status']}\nLatest update: ${t['updatedAt'] ?? t['createdAt'] ?? 'Unknown'}\n${t['message']}',
+                ),
+                isThreeLine: true,
+              ),
+            ),
+          ),
+        if (!_busy && _tickets.isNotEmpty)
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              TextButton(
+                onPressed: _busy || _error != null || _page == 1
+                    ? null
+                    : () {
+                        _load(page: _page - 1);
+                      },
+                child: const Text('Previous'),
+              ),
+              Text('Page $_page'),
+              TextButton(
+                onPressed: _busy || _error != null || !_hasNext
+                    ? null
+                    : () {
+                        _load(page: _page + 1);
+                      },
+                child: const Text('Next'),
+              ),
+            ],
+          ),
+      ],
+    ),
+  );
+}
+
+===== FILE: lib/widgets/operations.dart =====
+
+import 'dart:developer' as developer;
+
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+
+import '../core/operations_theme.dart';
+import '../services/api_service.dart';
+
+String inr(dynamic paise) {
+  final amount = num.tryParse(paise?.toString() ?? '');
+  return amount == null
+      ? 'Unavailable'
+      : NumberFormat.currency(
+          locale: 'en_IN',
+          symbol: 'â‚¹',
+          decimalDigits: 2,
+        ).format(amount / 100);
+}
+
+String inrRupees(dynamic rupees) {
+  final value = num.tryParse(rupees?.toString() ?? '');
+  return value == null || !value.isFinite ? 'Unavailable' : inr(value * 100);
+}
+
+class OpsPanel extends StatelessWidget {
+  final String title;
+  final Widget child;
+  const OpsPanel({super.key, required this.title, required this.child});
+  @override
+  Widget build(BuildContext context) => Card(
+    child: Padding(
+      padding: const EdgeInsets.all(Ops.padding),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(title, style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: Ops.gap),
+          child,
+        ],
+      ),
+    ),
+  );
+}
+
+class OpsEmpty extends StatelessWidget {
+  final String message;
+  final IconData icon;
+  const OpsEmpty(this.message, {super.key, this.icon = Icons.inbox_outlined});
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.all(24),
+    child: Column(
+      children: [
+        Icon(icon, size: 32, color: Ops.textMuted),
+        const SizedBox(height: 12),
+        Text(
+          message,
+          textAlign: TextAlign.center,
+          style: const TextStyle(color: Ops.textSecondary),
+        ),
+      ],
+    ),
+  );
+}
+
+class OpsError extends StatelessWidget {
+  final String message;
+  final VoidCallback retry;
+  const OpsError(this.message, {super.key, required this.retry});
+  @override
+  Widget build(BuildContext context) => Semantics(
+    liveRegion: true,
+    child: OpsPanel(
+      title: 'Unable to load',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(message, style: const TextStyle(color: Ops.error)),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: retry,
+            icon: const Icon(Icons.refresh),
+            label: const Text('Retry'),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+/// Retains data during refresh, exposes errors, and never substitutes sample data.
+class ApiPanel extends StatefulWidget {
+  final ApiService api;
+  final String path;
+  final Widget Function(BuildContext, dynamic) builder;
+  final bool embedded;
+  final Duration? refreshInterval;
+  const ApiPanel({
+    super.key,
+    required this.api,
+    required this.path,
+    required this.builder,
+    this.embedded = false,
+    this.refreshInterval,
+  });
+  @override
+  State<ApiPanel> createState() => _ApiPanelState();
+}
+
+class _ApiPanelState extends State<ApiPanel> with WidgetsBindingObserver {
+  Timer? _refresh;
+  bool _active = true;
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _active = state == AppLifecycleState.resumed;
+    if (_active && widget.refreshInterval != null && !_busy) _load();
+  }
+
+  @override
+  void dispose() {
+    _refresh?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  dynamic _data;
+  String? _error;
+  bool _busy = false;
+  int _generation = 0;
+  @override
+  void initState() {
+    super.initState();
+    _load();
+    WidgetsBinding.instance.addObserver(this);
+    if (widget.refreshInterval != null) {
+      _refresh = Timer.periodic(widget.refreshInterval!, (_) {
+        if (mounted &&
+            _active &&
+            !_busy &&
+            (ModalRoute.of(context)?.isCurrent ?? false)) {
+          _load();
+        }
+      });
+    }
+  }
+
+  @override
+  void didUpdateWidget(ApiPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.path != widget.path || oldWidget.api != widget.api) {
+      _data = null;
+      _load();
+    }
+  }
+
+  Future<void> _load() async {
+    final generation = ++_generation;
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      final data = await widget.api.request('GET', widget.path);
+      if (mounted && generation == _generation) setState(() => _data = data);
+    } catch (e, stack) {
+      developer.log(
+        'API panel request failed: ${widget.path}',
+        name: 'ApiPanel',
+        error: e,
+        stackTrace: stack,
+      );
+      if (mounted && generation == _generation) {
+        setState(
+          () => _error = 'We couldn\'t load this information. Please retry.',
+        );
+      }
+    } finally {
+      if (mounted && generation == _generation) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => RefreshIndicator(
+    onRefresh: _load,
+    child: ListView(
+      shrinkWrap: widget.embedded,
+      padding: widget.embedded
+          ? EdgeInsets.zero
+          : const EdgeInsets.all(Ops.padding),
+      physics: widget.embedded
+          ? const NeverScrollableScrollPhysics()
+          : const AlwaysScrollableScrollPhysics(),
+      children: [
+        if (_busy)
+          const LinearProgressIndicator(semanticsLabel: 'Loading server data'),
+        if (!_busy && _error != null) OpsError(_error!, retry: _load),
+        if (!_busy && _error == null && _data != null)
+          widget.builder(context, _data),
+      ],
+    ),
+  );
+}
+
+Future<bool> confirmOperation(
+  BuildContext context,
+  String title,
+  String message,
+) async =>
+    await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Confirm'),
+          ),
+        ],
+      ),
+    ) ??
+    false;
+
+===== FILE: lib/widgets/assigned_vehicle_card.dart =====
+
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+
+import '../core/operations_theme.dart';
+import 'reference_components.dart';
+
+class AssignedVehicleCard extends StatefulWidget {
+  final Map<String, dynamic>? vehicle;
+  final bool loading, canManage;
+  final String? error;
+  final VoidCallback retry;
+  const AssignedVehicleCard({
+    super.key,
+    required this.vehicle,
+    required this.loading,
+    required this.retry,
+    this.canManage = true,
+    this.error,
+  });
+
+  @override
+  State<AssignedVehicleCard> createState() => _AssignedVehicleCardState();
+}
+
+class _AssignedVehicleCardState extends State<AssignedVehicleCard> {
+  bool _timedOut = false;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _startTimer();
+  }
+
+  @override
+  void didUpdateWidget(AssignedVehicleCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.loading && !oldWidget.loading) {
+      _startTimer();
+    } else if (!widget.loading) {
+      _timer?.cancel();
+      if (_timedOut) setState(() => _timedOut = false);
+    }
+  }
+
+  void _startTimer() {
+    _timer?.cancel();
+    if (widget.loading) {
+      _timer = Timer(const Duration(seconds: 10), () {
+        if (mounted && widget.loading) {
+          setState(() => _timedOut = true);
+        }
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final value = widget.vehicle;
+    if (_timedOut && value == null) {
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text(
+                'Your vehicle',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 4),
+              const Text('Could not load assigned vehicle details in time.'),
+              const SizedBox(height: 8),
+              FilledButton.tonal(
+                onPressed: () {
+                  setState(() => _timedOut = false);
+                  _startTimer();
+                  widget.retry();
+                },
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    if (value == null) {
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text(
+                'Your vehicle',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+              Text(
+                loading ? 'Loading assigned vehicleâ€¦' : error ?? 'Unassigned Â· Enter a vehicle code when you are ready to join.',
+              ),
+              if (loading) const LinearProgressIndicator(),
+              if (error != null && !loading)
+                TextButton.icon(
+                  onPressed: canManage ? retry : null,
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Retry'),
+                ),
+              TextButton(
+                onPressed: loading || error != null || !canManage
+                    ? null
+                    : () => context.push('/driver/assignment'),
+                child: const Text('Manage vehicle assignment'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    final photo = value['photoUrl']?.toString();
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
+              'Your assigned vehicle',
+              style: TextStyle(fontSize: 12, color: Ops.textSecondary),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  width: 84,
+                  height: 72,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: photo != null && photo.isNotEmpty
+                        ? Image.network(
+                            photo,
+                            fit: BoxFit.contain,
+                            semanticLabel: 'Assigned vehicle front photograph',
+                            loadingBuilder: (_, child, progress) =>
+                                progress == null
+                                ? child
+                                : const Center(
+                                    child: SizedBox.square(
+                                      dimension: 24,
+                                      child: CircularProgressIndicator(),
+                                    ),
+                                  ),
+                            errorBuilder: (_, _, _) =>
+                                _missing('Photo unavailable', widget.retry),
+                          )
+                        : _missing(
+                            value['photoStatus'] == 'unavailable'
+                                ? 'Photo unavailable'
+                                : 'No front photo uploaded',
+                            value['photoStatus'] == 'unavailable'
+                                ? widget.retry
+                                : null,
+                          ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        value['plateNumber']?.toString() ??
+                            'Registration unavailable',
+                        style: const TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      Text(
+                        [value['make'], value['model']]
+                            .where((v) => v != null && v.toString().isNotEmpty)
+                            .join(' '),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        value['category']?.toString().replaceAll('_', ' ') ??
+                            'Category unavailable',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Ops.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                StatusPill(
+                  value['verificationStatus']?.toString() ?? 'Unknown',
+                ),
+                Text(
+                  value['isActive'] == true
+                      ? 'Active'
+                      : value['isActive'] == false
+                      ? 'Inactive'
+                      : 'Assigned',
+                ),
+                if (value['operationalStatus'] != null)
+                  Text(value['operationalStatus'].toString()),
+              ],
+            ),
+            if (widget.canManage)
+              TextButton(
+                onPressed: widget.loading
+                    ? null
+                    : () => context.push('/driver/assignment'),
+                child: const Text('Manage or change vehicle'),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _missing(String message, VoidCallback? retry) => Container(
+    color: Ops.backgroundSecondary,
+    child: Center(
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.directions_car_outlined,
+              size: 16,
+              color: Ops.textSecondary,
+            ),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 10),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            if (retry != null)
+              TextButton(
+                style: TextButton.styleFrom(
+                  padding: EdgeInsets.zero,
+                  minimumSize: const Size(0, 24),
+                ),
+                onPressed: retry,
+                child: const Text(
+                  'Retry photo',
+                  style: TextStyle(fontSize: 11),
+                ),
+              ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+===== FILE: lib/screens/fleet/fleet_vehicle_category_dialog.dart =====
+
+import 'dart:developer' as developer;
+
+import 'package:flutter/material.dart';
+
+import '../../models/vehicle_category_policy.dart';
+import '../../services/api_service.dart';
+
+Future<Map<String, String>?> selectFleetVehicleCategory(
+  BuildContext context,
+  ApiService api, {
+  Map<String, dynamic>? initial,
+}) => showDialog<Map<String, String>>(
+  context: context,
+  builder: (_) => _VehicleCategoryDialog(api: api, initial: initial),
+);
+
+class _VehicleCategoryDialog extends StatefulWidget {
+  final ApiService api;
+  final Map<String, dynamic>? initial;
+  const _VehicleCategoryDialog({required this.api, this.initial});
+
+  @override
+  State<_VehicleCategoryDialog> createState() => _VehicleCategoryDialogState();
+}
+
+class _VehicleCategoryDialogState extends State<_VehicleCategoryDialog> {
+  final _customName = TextEditingController();
+  late Future<dynamic> _catalog;
+  String? _sector, _type, _error;
+  bool _creating = false, _addingCustomType = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _sector = widget.initial?['sector'] as String?;
+    _type = widget.initial?['category'] as String?;
+    _city = widget.initial?['operatingCityId'] as String?;
+    _catalog = widget.api.request('GET', '/provider/vehicle-catalog');
+  }
+
+  @override
+  void dispose() {
+    _customName.dispose();
+    super.dispose();
+  }
+
+  Future<void> _create() async {
+    if (_sector == null ||
+        !VehicleCategoryPolicy.isSelectableSector(_sector) ||
+        _sector == 'logistics' ||
+        _customName.text.trim().isEmpty) {
+      return;
+    }
+    setState(() {
+      _creating = true;
+      _error = null;
+    });
+    try {
+      final created = await widget.api.request(
+        'POST',
+        '/provider/vehicle-catalog/custom',
+        body: {'sector': _sector, 'name': _customName.text.trim()},
+      ) as Map;
+      if (!mounted) return;
+      setState(() {
+        _type = created['code'] as String;
+        _customName.clear();
+        _addingCustomType = false;
+        _catalog = widget.api.request('GET', '/provider/vehicle-catalog');
+      });
+    } catch (e) {
+      developer.log(
+        'Custom vehicle type creation failed',
+        name: 'VehicleCategoryDialog',
+        error: e,
+      );
+      if (mounted) {
+        setState(() => _error = 'Could not create this type. Please retry.');
+      }
+    } finally {
+      if (mounted) setState(() => _creating = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: const Text('Vehicle category and type'),
+    content: FutureBuilder<dynamic>(
+      future: _catalog,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const SizedBox(
+            height: 80,
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
+        if (snapshot.hasError) {
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Vehicle configuration could not be loaded.'),
+              TextButton(
+                onPressed: () => setState(
+                  () => _catalog = widget.api.request(
+                    'GET',
+                    '/provider/vehicle-catalog',
+                  ),
+                ),
+                child: const Text('Retry'),
+              ),
+            ],
+          );
+        }
+
+        final data = snapshot.data as Map;
+        final sectors = List<String>.from(data['sectors'] as List)
+            .where(VehicleCategoryPolicy.isSelectableSector)
+            .toList();
+        final matches = (data['types'] as List)
+            .cast<Map>()
+            .where(
+              (type) =>
+                  (type['sector'] == _sector &&
+                      VehicleCategoryPolicy.allowsType(
+                        _sector,
+                        type['name']?.toString(),
+                      )) ||
+                  (_sector == 'rental' &&
+                      type['sector'] == 'premium' &&
+                      VehicleCategoryPolicy.allowsType(
+                        _sector,
+                        type['name']?.toString(),
+                      )),
+            )
+            .toList();
+        final types = <String, Map>{
+          for (final type in matches) type['code'] as String: type,
+        }.values.toList();
+        final selectedType = types.any((type) => type['code'] == _type)
+            ? _type
+            : null;
+
+        return SizedBox(
+          width: 420,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DropdownButtonFormField<String>(
+                  initialValue:
+                      sectors.any(
+                        (sector) =>
+                            sector.toLowerCase() == _sector?.toLowerCase(),
+                      )
+                      ? _sector
+                      : null,
+                  decoration: const InputDecoration(
+                    labelText: 'Vehicle category',
+                  ),
+                  items: sectors
+                      .map(
+                        (sector) => DropdownMenuItem(
+                          value: sector,
+                          child: Text(sector),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) => setState(() {
+                    _sector = value;
+                    _type = null;
+                    _addingCustomType = false;
+                    _customName.clear();
+                  }),
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  key: ValueKey('$_sector:$_type'),
+                  initialValue: selectedType,
+                  isExpanded: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Configured vehicle type',
+                  ),
+                  items: types
+                      .map(
+                        (type) => DropdownMenuItem(
+                          value: type['code'] as String,
+                          child: Text(type['name'].toString()),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) => setState(() => _type = value),
+                ),
+                if (_sector != null && types.isEmpty)
+                  const Text(
+                    'No configured types are available for this category.',
+                  ),
+                if (_sector == 'premium') ...[
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    key: ValueKey('operating-city:$_city'),
+                    initialValue: selectedCity,
+                    decoration: const InputDecoration(
+                      labelText: 'Supported Bihar city *',
+                    ),
+                    items: cities
+                        .map(
+                          (city) => DropdownMenuItem(
+                            value: city['id'] as String,
+                            child: Text(city['name'].toString()),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (v) => setState(() => _city = v),
+                  ),
+                  if (cities.isEmpty)
+                    const Text(
+                      'No approved Premium cities are configured. Retry configuration before saving.',
+                    ),
+                ],
+                if (_sector != null &&
+                    VehicleCategoryPolicy.isSelectableSector(_sector) &&
+                    _sector != 'logistics' &&
+                    !_addingCustomType)
+                  TextButton.icon(
+                    onPressed: _creating
+                        ? null
+                        : () => setState(() => _addingCustomType = true),
+                    icon: const Icon(Icons.add),
+                    label: const Text('Add custom vehicle type'),
+                  ),
+                if (_addingCustomType) ...[
+                  TextField(
+                    controller: _customName,
+                    maxLength: 100,
+                    decoration: const InputDecoration(
+                      labelText: 'Custom vehicle type name',
+                    ),
+                    onChanged: (_) => setState(() {}),
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: _creating
+                            ? null
+                            : () => setState(() {
+                                _addingCustomType = false;
+                                _customName.clear();
+                              }),
+                        child: const Text('Cancel'),
+                      ),
+                      FilledButton(
+                        onPressed: _creating || _customName.text.trim().isEmpty
+                            ? null
+                            : _create,
+                        child: const Text('Create type'),
+                      ),
+                    ],
+                  ),
+                ],
+                if (_error != null) Text(_error!),
+                if (_sector != null && _sector != 'logistics')
+                  const Text(
+                    'Custom types are saved for your fleet. Registration does not enable pricing or dispatch.',
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    ),
+    actionsAlignment: MainAxisAlignment.spaceBetween,
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.pop(context),
+        child: const Text('Cancel'),
+      ),
+      FilledButton(
+        onPressed: _sector == null || _type == null
+            ? null
+            : () => Navigator.pop(context, {
+                'sector': _sector!,
+                'category': _type!,
+              }),
+        child: const Text('Continue'),
+      ),
+    ],
+  );
+}

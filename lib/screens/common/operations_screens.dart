@@ -352,15 +352,25 @@ class TripsScreen extends StatelessWidget {
                       retry: session.refresh,
                     )
                   else if (rows.isEmpty)
-                    const OpsEmpty('No trips in this view.'),
+                    const OpsEmpty(
+                      'No trips in this view.',
+                      subtitle: 'Showing 0 most recent server records.',
+                    )
+                  else
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Text(
+                        'Showing ${rows.length} most recent server records.',
+                        style: const TextStyle(
+                          color: Ops.textSecondary,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
                   if (!session.busy &&
                       session.error == null &&
                       session.history != null &&
                       rows.isNotEmpty)
-                    Text('Showing ${trips.length} most recent server records.'),
-                  if (!session.busy &&
-                      session.error == null &&
-                      session.history != null)
                     for (final ride in rows)
                       Card(
                         child: Padding(
@@ -586,13 +596,6 @@ class AccountScreen extends StatelessWidget {
             subtitle: 'View your alerts and updates',
             onTap: () => context.push('/notifications'),
           ),
-          if (session.api.providerMode == 'driver')
-            _link(
-              context,
-              Icons.fact_check_outlined,
-              'Driver onboarding & verification',
-              '/verification-status',
-            ),
           const Padding(
             padding: EdgeInsets.only(top: 12, bottom: 4),
             child: Text(
@@ -600,13 +603,6 @@ class AccountScreen extends StatelessWidget {
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
             ),
           ),
-          _link(
-            context,
-            Icons.notifications_outlined,
-            'Notifications',
-            '/notifications',
-          ),
-          const SizedBox(height: 12),
           SettingsTile(
             icon: Icons.security_outlined,
             title: 'Safety & device settings',
@@ -619,12 +615,6 @@ class AccountScreen extends StatelessWidget {
             title: 'Help center',
             subtitle: 'Get support and FAQs',
             onTap: () => context.push('/support-tickets'),
-          ),
-          _link(
-            context,
-            Icons.support_agent,
-            'Help & support',
-            '/support-tickets',
           ),
           const Divider(height: 24),
           const Padding(
@@ -657,20 +647,6 @@ class AccountScreen extends StatelessWidget {
       ),
     );
   }
-
-  Widget _link(
-    BuildContext context,
-    IconData icon,
-    String title,
-    String path,
-  ) => ListTile(
-    minTileHeight: 56,
-    contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-    leading: SizedBox(width: 24, child: Icon(icon)),
-    title: Text(title),
-    trailing: const Icon(Icons.chevron_right),
-    onTap: () => context.push(path),
-  );
 }
 
 class SafetySettingsScreen extends StatelessWidget {

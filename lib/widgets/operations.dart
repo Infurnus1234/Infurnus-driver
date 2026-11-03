@@ -45,21 +45,43 @@ class OpsPanel extends StatelessWidget {
 
 class OpsEmpty extends StatelessWidget {
   final String message;
+  final String? subtitle;
   final IconData icon;
-  const OpsEmpty(this.message, {super.key, this.icon = Icons.inbox_outlined});
+  const OpsEmpty(
+    this.message, {
+    super.key,
+    this.subtitle,
+    this.icon = Icons.inbox_outlined,
+  });
   @override
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.all(24),
-    child: Column(
-      children: [
-        Icon(icon, size: 32, color: Ops.textMuted),
-        const SizedBox(height: 12),
-        Text(
-          message,
-          textAlign: TextAlign.center,
-          style: const TextStyle(color: Ops.textSecondary),
-        ),
-      ],
+    child: Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Icon(icon, size: 36, color: Ops.textMuted),
+          const SizedBox(height: 12),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: Ops.textPrimary,
+              fontWeight: FontWeight.w600,
+              fontSize: 14,
+            ),
+          ),
+          if (subtitle != null) ...[
+            const SizedBox(height: 6),
+            Text(
+              subtitle!,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Ops.textSecondary, fontSize: 12),
+            ),
+          ],
+        ],
+      ),
     ),
   );
 }

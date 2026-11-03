@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'fleet_revenue_screen.dart';
 import 'fleet_vehicle_category_dialog.dart';
 import '../../widgets/calendar_field.dart';
@@ -459,12 +461,14 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
     }
   }
 
-  Widget _review(String type, String id, String requestType) => TextButton(
-    onPressed: _assets!.busy
-        ? null
-        : () => _assets!.requestReview(type, id, requestType),
-    child: const Text('Request verification'),
-  );
+  Widget _review(String type, String id, String requestType) =>
+      OutlinedButton.icon(
+        onPressed: _assets!.busy
+            ? null
+            : () => _assets!.requestReview(type, id, requestType),
+        icon: const Icon(Icons.verified_outlined, size: 18),
+        label: const Text('Request verification'),
+      );
   Future<void> _upload(DocumentRule rule, {String? vehicleId}) =>
       showDialog<void>(
         context: context,
@@ -591,6 +595,11 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
       'profile_photo': 'Profile Photo',
       'address_proof': 'Address Proof',
       'other': 'Other',
+      'vehicle_rc': 'Vehicle RC',
+      'vehicle_puc': 'Vehicle PUC',
+      'vehicle_insurance': 'Vehicle Insurance',
+      'vehicle_permit': 'Vehicle Permit',
+      'vehicle_fitness': 'Vehicle Fitness',
     };
     if (identityLabels.containsKey(rule.code)) {
       return identityLabels[rule.code]!;
@@ -617,6 +626,9 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
     };
     for (final code in [
       'vehicle_front_photo',
+      'vehicle_rear_photo',
+      'vehicle_left_photo',
+      'vehicle_right_photo',
       'vehicle_rc',
       'vehicle_insurance',
       'vehicle_permit',
@@ -641,64 +653,128 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
         .toList();
     await showDialog<void>(
       context: context,
-      builder: (_) => AlertDialog(
-        title: Text('Documents: ${vehicle['plateNumber']}'),
-        content: SizedBox(
-          width: 560,
-          child: SingleChildScrollView(
+      builder: (dialogContext) {
+        final mediaQuery = MediaQuery.of(dialogContext);
+        final maxHeight = mediaQuery.size.height * 0.85;
+        final maxWidth = min(560.0, mediaQuery.size.width * 0.94);
+        return Dialog(
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 24,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(Ops.radius),
+          ),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: maxWidth,
+              maxHeight: maxHeight,
+            ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    'Vehicle Photos',
-                    style: TextStyle(fontWeight: FontWeight.w700),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 12, 12),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Documents: ${vehicle['plateNumber']}',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        tooltip: 'Close',
+                        onPressed: () => Navigator.pop(dialogContext),
+                      ),
+                    ],
                   ),
                 ),
-                const Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    'One image each · JPEG, PNG or WebP · 10 MiB per photo',
+                const Divider(height: 1),
+                Flexible(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const Text(
+                          'Vehicle Photos',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        const Text(
+                          'Front, Rear, Left, and Right photos · JPEG, PNG or WebP · 10 MiB per photo',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Ops.textSecondary,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        for (final rule in photoRules)
+                          _document(
+                            rule,
+                            vehicleId: vehicle['id'] as String,
+                            compact: true,
+                          ),
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 12),
+                          child: Divider(height: 1),
+                        ),
+                        const Text(
+                          'Vehicle Documents',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        const Text(
+                          'RC, Insurance, Permit, Fitness, PUC · JPEG, PNG, WebP or PDF · 15 MiB per file, 30 MiB total',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Ops.textSecondary,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        for (final rule in documentRules)
+                          _document(
+                            rule,
+                            vehicleId: vehicle['id'] as String,
+                            compact: true,
+                          ),
+                      ],
+                    ),
                   ),
                 ),
-                for (final rule in photoRules)
-                  _document(
-                    rule,
-                    vehicleId: vehicle['id'] as String,
-                    compact: true,
+                const Divider(height: 1),
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 10,
                   ),
-                const Divider(),
-                const Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    'Vehicle Documents',
-                    style: TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                ),
-                const Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    'File/page count follows policy · JPEG, PNG, WebP or PDF · 15 MiB per file, 30 MiB total',
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      FilledButton(
+                        onPressed: () => Navigator.pop(dialogContext),
+                        child: const Text('Close'),
+                      ),
+                    ],
                   ),
                 ),
-                for (final rule in documentRules)
-                  _document(
-                    rule,
-                    vehicleId: vehicle['id'] as String,
-                    compact: true,
-                  ),
               ],
             ),
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -966,6 +1042,33 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
     );
   }
 
+  Future<void> _submitPendingRequests() async {
+    final assets = _assets!;
+    final submitted = await assets.submitPendingRequests();
+    if (!mounted || !submitted) return;
+    final result = assets.lastSubmission!;
+    final requests = result['requests'] as List? ?? const [];
+    final skipped = result['skipped'] as List? ?? const [];
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Requests submitted'),
+        content: SingleChildScrollView(
+          child: Text(
+            '${requests.length} pending requests submitted or already awaiting review. Each requires an independent Admin decision.'
+            '${skipped.isEmpty ? '' : '\n\nNeeds attention:\n${skipped.map((row) => '${row['targetType']}: ${row['reason']}').join('\n')}'}',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final session = context.watch<DriverSession>(), assets = _assets!;
@@ -1099,8 +1202,21 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
           if (assets.busy) const LinearProgressIndicator(),
           if (assets.fleetMode && _tab == 0) ...[
             const ModeSelector(),
-            const SizedBox(height: 8),
-            FleetOverview(assets: assets),
+            const SizedBox(height: 12),
+            FleetOverview(
+              assets: assets,
+              onSubmitPending: assets.partner != null
+                  ? _submitPendingRequests
+                  : null,
+              onAddVehicle: () => setState(() {
+                _tab = 1;
+                _search = '';
+              }),
+              onAddDriver: () => setState(() {
+                _tab = 2;
+                _search = '';
+              }),
+            ),
           ],
           if (!assets.fleetMode || _tab == 1 || _tab == 2)
             TextField(
@@ -1113,40 +1229,6 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
             ),
           if (assets.error != null)
             Text(assets.error!, style: const TextStyle(color: Colors.red)),
-          if (assets.fleetMode && assets.partner != null)
-            FilledButton.icon(
-              icon: const Icon(Icons.send_outlined),
-              label: const Text('Submit pending requests'),
-              onPressed: assets.busy
-                  ? null
-                  : () async {
-                      final submitted = await assets.submitPendingRequests();
-                      if (!context.mounted || !submitted) {
-                        return;
-                      }
-                      final result = assets.lastSubmission!;
-                      final requests = result['requests'] as List? ?? const [];
-                      final skipped = result['skipped'] as List? ?? const [];
-                      await showDialog<void>(
-                        context: context,
-                        builder: (dialogContext) => AlertDialog(
-                          title: const Text('Requests submitted'),
-                          content: SingleChildScrollView(
-                            child: Text(
-                              '${requests.length} pending requests submitted or already awaiting review. Each requires an independent Admin decision.'
-                              '${skipped.isEmpty ? '' : '\n\nNeeds attention:\n${skipped.map((row) => '${row['targetType']}: ${row['reason']}').join('\n')}'}',
-                            ),
-                          ),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(dialogContext),
-                              child: const Text('Close'),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-            ),
           if (!assets.fleetMode)
             TextButton(
               onPressed: () => context.go(session.landingPath),
@@ -1156,23 +1238,207 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
               _tab == 4 &&
               !widget.identityOnly &&
               !widget.bankProofOnly) ...[
-            ListTile(
-              leading: const Icon(Icons.verified_user_outlined),
-              title: const Text('Identity & Verification'),
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) =>
-                      const ProviderAssetsScreen(identityOnly: true),
+            Card(
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(Ops.radius),
+                side: const BorderSide(color: Ops.borderSubtle),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Provider profile',
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        StatusPill(
+                          statusLabel(assets.partner?['approvalStatus']),
+                        ),
+                      ],
+                    ),
+                    if (assets.partner != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        assets.partner!['businessName']?.toString() ??
+                            'Provider Business',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      SelectableText(
+                        'Partner reference: ${assets.partner!['id']}',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Ops.textSecondary,
+                        ),
+                      ),
+                      if (rejectionReason(assets.partner!) != null) ...[
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Ops.error.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            rejectionReason(assets.partner!)!,
+                            style: const TextStyle(
+                              color: Ops.error,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        OutlinedButton.icon(
+                          onPressed: assets.busy ? null : _business,
+                          icon: const Icon(Icons.business_outlined, size: 18),
+                          label: Text(
+                            assets.partner == null
+                                ? 'Create provider / business profile'
+                                : 'Correct provider / business details',
+                          ),
+                        ),
+                        if (assets.partner != null)
+                          _review(
+                            'partner',
+                            assets.partner!['id'] as String,
+                            'fleet_verification',
+                          ),
+                      ],
+                    ),
+                    if (assets.partner == null) ...[
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Complete your business details first, then upload the documents required by the active policy. Backend review is required before approval.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Ops.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
             ),
-            ListTile(
-              leading: const Icon(Icons.account_balance_outlined),
-              title: const Text('Bank Details & Payouts'),
-              onTap: () => context.push('/provider/bank-account'),
+            const SizedBox(height: 12),
+            Card(
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(Ops.radius),
+                side: const BorderSide(color: Ops.borderSubtle),
+              ),
+              child: Column(
+                children: [
+                  ListTile(
+                    leading: const Icon(
+                      Icons.verified_user_outlined,
+                      size: 22,
+                      color: Ops.success,
+                    ),
+                    title: const Text(
+                      'Identity & Verification',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    subtitle: const Text(
+                      'Manage PAN, driving license, and provider verification documents',
+                      style: TextStyle(fontSize: 12),
+                    ),
+                    trailing: const Icon(Icons.chevron_right, size: 20),
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) =>
+                            const ProviderAssetsScreen(identityOnly: true),
+                      ),
+                    ),
+                  ),
+                  const Divider(height: 1, indent: 16, endIndent: 16),
+                  ListTile(
+                    leading: const Icon(
+                      Icons.account_balance_outlined,
+                      size: 22,
+                      color: Ops.textPrimary,
+                    ),
+                    title: const Text(
+                      'Bank Details & Payouts',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    subtitle: const Text(
+                      'Account details and payout ledger',
+                      style: TextStyle(fontSize: 12),
+                    ),
+                    trailing: const Icon(Icons.chevron_right, size: 20),
+                    onTap: () => context.push('/provider/bank-account'),
+                  ),
+                  const Divider(height: 1, indent: 16, endIndent: 16),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: ModeSelector(),
+                  ),
+                  const Divider(height: 1, indent: 16, endIndent: 16),
+                  ListTile(
+                    leading: const Icon(
+                      Icons.bar_chart,
+                      size: 22,
+                      color: Ops.textPrimary,
+                    ),
+                    title: const Text(
+                      'Revenue & reports',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    trailing: const Icon(Icons.chevron_right, size: 20),
+                    onTap: () => context.push('/fleet/reports'),
+                  ),
+                  const Divider(height: 1, indent: 16, endIndent: 16),
+                  ListTile(
+                    leading: const Icon(
+                      Icons.person_outline,
+                      size: 22,
+                      color: Ops.textPrimary,
+                    ),
+                    title: const Text(
+                      'Profile & settings',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    trailing: const Icon(Icons.chevron_right, size: 20),
+                    onTap: () => context.push('/profile'),
+                  ),
+                  const Divider(height: 1, indent: 16, endIndent: 16),
+                  ListTile(
+                    leading: const Icon(
+                      Icons.support_agent,
+                      size: 22,
+                      color: Ops.textPrimary,
+                    ),
+                    title: const Text(
+                      'Support',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    trailing: const Icon(Icons.chevron_right, size: 20),
+                    onTap: () => context.push('/support-tickets'),
+                  ),
+                ],
+              ),
             ),
           ],
-          if (!assets.fleetMode || _tab == 4) ...[
+          if (!assets.fleetMode) ...[
             if (widget.identityOnly)
               const Text(
                 'Verified means independent administrator documentary review, not government verification. Aadhaar collection requires the authorized masked-copy policy.',
@@ -1205,6 +1471,8 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
                 assets.partner!['id'] as String,
                 'fleet_verification',
               ),
+          ],
+          if (widget.identityOnly || widget.bankProofOnly)
             ExpansionTile(
               initiallyExpanded: widget.identityOnly || widget.bankProofOnly,
               title: Text(
@@ -1240,7 +1508,6 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
                         _document(r, compact: true),
                     ],
             ),
-          ],
           if (!assets.fleetMode || _tab == 1) ...[
             const Divider(),
             Text('Vehicles', style: Theme.of(context).textTheme.titleLarge),
@@ -1421,7 +1688,13 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
               title: const Text('Fleet driver memberships'),
               children: [
                 if (assets.drivers.isEmpty)
-                  const ListTile(title: Text('No driver memberships')),
+                  const Padding(
+                    padding: EdgeInsets.all(16),
+                    child: OpsEmpty(
+                      'No driver memberships found.',
+                      icon: Icons.people_outline,
+                    ),
+                  ),
                 for (final d in assets.drivers.where(_matches))
                   Card(
                     child: ListTile(
@@ -1496,7 +1769,13 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
               title: const Text('Location records'),
               children: [
                 if (assets.tracking.isEmpty)
-                  const ListTile(title: Text('No location records')),
+                  const Padding(
+                    padding: EdgeInsets.all(16),
+                    child: OpsEmpty(
+                      'No location records reported.',
+                      icon: Icons.location_off_outlined,
+                    ),
+                  ),
                 for (final d in assets.tracking)
                   ListTile(
                     title: Text(d['plateNumber']?.toString() ?? 'Driver'),
@@ -1510,24 +1789,6 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
           if ((!assets.fleetMode || _tab == 4) &&
               !widget.identityOnly &&
               !widget.bankProofOnly) ...[
-            if (assets.fleetMode) ...[
-              const ModeSelector(),
-              ListTile(
-                leading: const Icon(Icons.bar_chart),
-                title: const Text('Revenue & reports'),
-                onTap: () => context.push('/fleet/reports'),
-              ),
-              ListTile(
-                leading: const Icon(Icons.person_outline),
-                title: const Text('Profile & settings'),
-                onTap: () => context.push('/profile'),
-              ),
-              ListTile(
-                leading: const Icon(Icons.support_agent),
-                title: const Text('Support'),
-                onTap: () => context.push('/support-tickets'),
-              ),
-            ],
             ExpansionTile(
               title: const Text('Verification requests'),
               children: [

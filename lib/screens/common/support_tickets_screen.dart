@@ -3,10 +3,18 @@ import 'dart:developer' as developer;
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../providers/driver_session.dart';
+import '../../core/operations_theme.dart';
 import '../../widgets/operations.dart';
+
+const String kSupportEmail = String.fromEnvironment(
+  'SUPPORT_EMAIL',
+  defaultValue: 'support@infurnus.com',
+);
 
 String supportRequestId() => List.generate(
   24,
@@ -215,6 +223,81 @@ class _SupportTicketsScreenState extends State<SupportTicketsScreen>
     body: ListView(
       padding: const EdgeInsets.all(20),
       children: [
+        Card(
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: const BorderSide(color: Ops.borderSubtle),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+            child: ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Ops.surfaceOverlay,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.email_outlined,
+                  color: Ops.success,
+                  size: 22,
+                ),
+              ),
+              title: const Text(
+                'Email Support',
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+              ),
+              subtitle: const Text(
+                '$kSupportEmail · Reach our team directly',
+                style: TextStyle(color: Ops.textSecondary, fontSize: 12),
+              ),
+              trailing: const Icon(
+                Icons.open_in_new,
+                size: 18,
+                color: Ops.textSecondary,
+              ),
+              onTap: () async {
+                final uri = Uri(
+                  scheme: 'mailto',
+                  path: kSupportEmail,
+                  queryParameters: {'subject': 'Infurnus Driver App Support'},
+                );
+                try {
+                  final launched = await launchUrl(uri);
+                  if (!launched) {
+                    await Clipboard.setData(
+                      const ClipboardData(text: kSupportEmail),
+                    );
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Could not open email client. Email address copied to clipboard.',
+                          ),
+                        ),
+                      );
+                    }
+                  }
+                } catch (_) {
+                  await Clipboard.setData(
+                    const ClipboardData(text: kSupportEmail),
+                  );
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Could not open email client. Email address copied to clipboard.',
+                        ),
+                      ),
+                    );
+                  }
+                }
+              },
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
         Form(
           key: _form,
           child: Column(

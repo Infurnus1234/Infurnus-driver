@@ -11,7 +11,18 @@ import 'operations.dart';
 
 class FleetOverview extends StatelessWidget {
   final ProviderAssets assets;
-  const FleetOverview({super.key, required this.assets});
+  final VoidCallback? onSubmitPending;
+  final VoidCallback? onAddVehicle;
+  final VoidCallback? onAddDriver;
+
+  const FleetOverview({
+    super.key,
+    required this.assets,
+    this.onSubmitPending,
+    this.onAddVehicle,
+    this.onAddDriver,
+  });
+
   @override
   Widget build(BuildContext context) {
     final activeVehicles = assets.vehicles
@@ -26,85 +37,279 @@ class FleetOverview extends StatelessWidget {
               'ACTIVE',
         )
         .length;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text('Fleet Overview', style: Theme.of(context).textTheme.titleLarge),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.baseline,
+          textBaseline: TextBaseline.alphabetic,
+          children: [
+            Text(
+              'Fleet Overview',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            Text(
+              'Realtime Fleet Stats',
+              style: TextStyle(
+                color: Ops.textSecondary,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
         const SizedBox(height: 12),
         LayoutBuilder(
-          builder: (context, box) => Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: [
-              for (final metric in [
-                (
-                  Icons.directions_car_outlined,
-                  'Total Vehicles',
-                  assets.vehicles.length,
-                ),
-                (
-                  Icons.local_shipping_outlined,
-                  'Active Vehicles',
-                  activeVehicles,
-                ),
-                (Icons.people_outline, 'Total Drivers', assets.drivers.length),
-                (Icons.badge_outlined, 'Active Drivers', activeDrivers),
-              ])
-                SizedBox(
-                  width: box.maxWidth < 280
-                      ? box.maxWidth
-                      : (box.maxWidth - 10) / 2,
-                  child: Card(
-                    margin: EdgeInsets.zero,
-                    child: Padding(
-                      padding: const EdgeInsets.all(14),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Ops.surfaceOverlay,
-                              borderRadius: BorderRadius.circular(8),
+          builder: (context, box) {
+            final cardWidth = box.maxWidth < 280
+                ? box.maxWidth
+                : (box.maxWidth - 10) / 2;
+            return Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                for (final metric in [
+                  (
+                    Icons.directions_car_outlined,
+                    'Total Vehicles',
+                    assets.vehicles.length,
+                  ),
+                  (
+                    Icons.local_shipping_outlined,
+                    'Active Vehicles',
+                    activeVehicles,
+                  ),
+                  (
+                    Icons.people_outline,
+                    'Total Drivers',
+                    assets.drivers.length,
+                  ),
+                  (Icons.badge_outlined, 'Active Drivers', activeDrivers),
+                ])
+                  SizedBox(
+                    width: cardWidth,
+                    child: Card(
+                      margin: EdgeInsets.zero,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(Ops.radius),
+                        side: const BorderSide(color: Ops.borderSubtle),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(14),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Ops.surfaceOverlay,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Icon(
+                                metric.$1,
+                                size: 22,
+                                color: Ops.success,
+                              ),
                             ),
-                            child: Icon(
-                              metric.$1,
-                              size: 20,
-                              color: Ops.success,
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  '${metric.$3}',
-                                  style: const TextStyle(
-                                    fontSize: 22,
-                                    fontWeight: FontWeight.w700,
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    '${metric.$3}',
+                                    style: const TextStyle(
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.w700,
+                                    ),
                                   ),
-                                ),
-                                Text(
-                                  metric.$2,
-                                  style: const TextStyle(
-                                    fontSize: 11,
-                                    color: Ops.textSecondary,
+                                  Text(
+                                    metric.$2,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      color: Ops.textSecondary,
+                                    ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                ),
-            ],
+              ],
+            );
+          },
+        ),
+        const SizedBox(height: 16),
+        // Quick Operations Panel
+        OpsPanel(
+          title: 'Quick actions',
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final isNarrow = constraints.maxWidth < 360;
+              final buttonWidth = isNarrow
+                  ? constraints.maxWidth
+                  : (constraints.maxWidth - 8) / 2;
+              return Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  SizedBox(
+                    width: buttonWidth,
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                      ),
+                      onPressed:
+                          onAddVehicle ??
+                          () => context.push('/fleet/add-vehicle'),
+                      icon: const Icon(Icons.add_circle_outline, size: 18),
+                      label: const Text(
+                        'Add Vehicle',
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ),
+                  SizedBox(
+                    width: buttonWidth,
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                      ),
+                      onPressed:
+                          onAddDriver ?? () => context.push('/fleet/drivers'),
+                      icon: const Icon(
+                        Icons.person_add_alt_1_outlined,
+                        size: 18,
+                      ),
+                      label: const Text(
+                        'Add Driver',
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ),
+                  SizedBox(
+                    width: buttonWidth,
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                      ),
+                      onPressed: () => context.push('/fleet/tracking'),
+                      icon: const Icon(Icons.map_outlined, size: 18),
+                      label: const Text(
+                        'Fleet Tracking',
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ),
+                  SizedBox(
+                    width: buttonWidth,
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                      ),
+                      onPressed: () => context.push('/fleet/reports'),
+                      icon: const Icon(Icons.bar_chart_outlined, size: 18),
+                      label: const Text(
+                        'Revenue & reports',
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
+        // Pending Review Action Card
+        if (onSubmitPending != null) ...[
+          Card(
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(Ops.radius),
+              side: const BorderSide(color: Ops.borderSubtle),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Ops.surfaceOverlay,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(
+                          Icons.pending_actions_outlined,
+                          size: 20,
+                          color: Ops.warning,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Pending Requests Review',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 14,
+                              ),
+                            ),
+                            Text(
+                              'Submit updated vehicle and driver evidence for Admin decision',
+                              style: TextStyle(
+                                color: Ops.textSecondary,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Ops.actionPrimary,
+                    ),
+                    icon: const Icon(Icons.send_outlined, size: 18),
+                    label: const Text('Submit Pending Requests'),
+                    onPressed: assets.busy ? null : onSubmitPending,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
         FleetRevenueSummary(api: assets.api),
-        if ((assets.earnings?['days'] as List? ?? []).isNotEmpty)
+        if ((assets.earnings?['days'] as List? ?? []).isNotEmpty) ...[
+          const SizedBox(height: 16),
           OpsPanel(
             title: 'Daily settlement net',
             child: SettlementBars(
@@ -113,11 +318,7 @@ class FleetOverview extends StatelessWidget {
                   .toList(),
             ),
           ),
-        OutlinedButton.icon(
-          onPressed: () => context.push('/fleet/reports'),
-          icon: const Icon(Icons.bar_chart),
-          label: const Text('Revenue & reports'),
-        ),
+        ],
       ],
     );
   }
@@ -252,7 +453,7 @@ class _FleetLocationMapState extends State<FleetLocationMap> {
         .where((r) => r['driverProfileId'] == _selectedId)
         .firstOrNull;
     return OpsPanel(
-      title: 'Fleet locations · last reported',
+      title: 'Fleet locations — last reported',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -268,7 +469,15 @@ class _FleetLocationMapState extends State<FleetLocationMap> {
             ],
           ),
           if (_configured == null) const LinearProgressIndicator(),
-          if (_configured == false) const SizedBox.shrink(),
+          if (_configured == false)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: OpsEmpty(
+                'Live map is unavailable.',
+                subtitle: 'Location records remain available below.',
+                icon: Icons.map_outlined,
+              ),
+            ),
           if (_configured == true && points.isNotEmpty)
             SizedBox(
               height: 260,
@@ -318,7 +527,11 @@ class _FleetLocationMapState extends State<FleetLocationMap> {
                 },
               ),
             ),
-          if (points.isEmpty) const OpsEmpty('No coordinates in this view.'),
+          if (points.isEmpty)
+            const OpsEmpty(
+              'No coordinates are available for this view.',
+              icon: Icons.location_off_outlined,
+            ),
           if (selected?['trip'] is Map)
             ListTile(
               title: Text('Trip: ${selected!['trip']['status']}'),
@@ -333,9 +546,10 @@ class _FleetLocationMapState extends State<FleetLocationMap> {
                 '${selected['availability']} · ${selected['recordedAt'] ?? 'Time unknown'}',
               ),
             ),
+          const SizedBox(height: 8),
           const Text(
-            'Green: recently reported · Amber: stale or unknown. Locations refresh with fleet data; this is not continuous streaming.',
-            style: TextStyle(color: Ops.textSecondary),
+            'Green indicates recently reported locations; amber indicates stale or unknown locations. Locations refresh with fleet data; this is not continuous streaming.',
+            style: TextStyle(color: Ops.textSecondary, fontSize: 12),
           ),
         ],
       ),

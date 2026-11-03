@@ -1,0 +1,208 @@
+﻿===== OTP SCREEN LINES 175-235 =====
+ 175:       if (mounted) setState(() => _submitting = false);
+ 176:     }
+ 177:   }
+ 178: 
+ 179:   @override
+ 180:   Widget build(BuildContext context) {
+ 181:     final session = context.watch<DriverSession>();
+ 182:     final signup = session.signupId != null;
+ 183:     final active = signup || session.challengeId != null;
+ 184:     final busy = session.busy || _submitting;
+ 185:     final remaining =
+ 186:         (session.verificationResendAt?.difference(DateTime.now()).inSeconds ??
+ 187:                 0)
+ 188:             .clamp(0, 86400);
+ 189:     final expires = signup ? session.api.signupOtpExpiresAt : null;
+ 190:     final expired = expires != null && !expires.isAfter(DateTime.now());
+ 191:     return SignupVerificationLayout(
+ 192:       title: 'Verify your account',
+ 193:       onBack: busy ? null : () => context.go(signup ? '/register' : '/login'),
+ 194:       children: [
+ 195:         Text(
+ 196:           'Enter your verification code',
+ 197:           style: Theme.of(context).textTheme.titleMedium
+ 198:               ?.copyWith(fontSize: 17),
+ 199:         ),
+ 200:         const SizedBox(height: 12),
+ 201:         Text(
+ 202:           active
+ 203:               ? 'Enter the 6-digit code for ${session.verificationContact ?? 'your registered contact'}.'
+ 204:               : 'Start signup or login to request a verification code.',
+ 205:           style: Theme.of(context).textTheme.bodyLarge,
+ 206:         ),
+ 207:         if (!signup) ...[
+ 208:           const SizedBox(height: 12),
+ 209:           const Text(
+ 210:             'Login codes are sent only to registered accounts. If you have not signed up in this environment, create an account first.',
+ 211:           ),
+ 212:           TextButton(
+ 213:             onPressed: busy ? null : () => context.go('/role-selection'),
+ 214:             child: const Text('Create an account'),
+ 215:           ),
+ 216:         ],
+ 217:         const SizedBox(height: 24),
+ 218:         TextField(
+ 219:           controller: _otp,
+ 220:           enabled: active && !busy && !expired,
+ 221:           keyboardType: TextInputType.number,
+ 222:           textInputAction: TextInputAction.done,
+ 223:           autofillHints: const [AutofillHints.oneTimeCode],
+ 224:           inputFormatters: [
+ 225:             FilteringTextInputFormatter.digitsOnly,
+ 226:             LengthLimitingTextInputFormatter(6),
+ 227:           ],
+ 228:           maxLength: 6,
+ 229:           decoration: const InputDecoration(
+ 230:             labelText: 'Verification code',
+ 231:             helperText: 'Enter all six digits',
+ 232:           ),
+ 233:           onChanged: (_) => setState(() {}),
+ 234:           onSubmitted: (_) => _verify(session),
+ 235:         ),
+
+===== OTP SCREEN LINES 260-395 =====
+ 260:             ),
+ 261:           ),
+ 262:         if (session.error != null) ...[
+ 263:           const SizedBox(height: 12),
+ 264:           Semantics(
+ 265:             liveRegion: true,
+ 266:             child: Text(
+ 267:               _friendlyVerificationError(session),
+ 268:               style: TextStyle(color: Theme.of(context).colorScheme.error),
+ 269:             ),
+ 270:           ),
+ 271:         ],
+ 272:         const SizedBox(height: 24),
+ 273:         FilledButton(
+ 274:           onPressed:
+ 275:               active &&
+ 276:                   !busy &&
+ 277:                   !expired &&
+ 278:                   RegExp(r'^\d{6}$').hasMatch(_otp.text)
+ 279:               ? () => _verify(session)
+ 280:               : null,
+ 281:           child: busy
+ 282:               ? const SizedBox(
+ 283:                   height: 20,
+ 284:                   width: 20,
+ 285:                   child: CircularProgressIndicator(strokeWidth: 2),
+ 286:                 )
+ 287:               : const Text('Verify & Continue'),
+ 288:         ),
+ 289:         const SizedBox(height: 12),
+ 290:         TextButton(
+ 291:           style: TextButton.styleFrom(
+ 292:             minimumSize: const Size.fromHeight(48),
+ 293:             textStyle: const TextStyle(
+ 294:               fontSize: 15,
+ 295:               fontWeight: FontWeight.w600,
+ 296:             ),
+ 297:           ),
+ 298:           onPressed: !active || busy || expired || remaining > 0
+ 299:               ? null
+ 300:               : () async {
+ 301:                   if (_submitting) return;
+ 302:                   setState(() => _submitting = true);
+ 303:                   try {
+ 304:                     final ok = await session.resend();
+ 305:                     if (ok && context.mounted) {
+ 306:                       _otp.clear();
+ 307:                       ScaffoldMessenger.of(context).showSnackBar(
+ 308:                         const SnackBar(
+ 309:                           content: Text('Verification code request accepted.'),
+ 310:                         ),
+ 311:                       );
+ 312:                     }
+ 313:                   } finally {
+ 314:                     if (mounted) setState(() => _submitting = false);
+ 315:                   }
+ 316:                 },
+ 317:           child: const Text('Resend verification code'),
+ 318:         ),
+ 319:         TextButton(
+ 320:           onPressed: busy
+ 321:               ? null
+ 322:               : () => context.go(signup ? '/register' : '/login'),
+ 323:         ),
+ 324:         title: Text(
+ 325:           signup ? 'Verify your account' : 'Verify your identity',
+ 326:           style: const TextStyle(
+ 327:             fontSize: 17,
+ 328:             fontWeight: FontWeight.w700,
+ 329:             color: Ops.textPrimary,
+ 330:           ),
+ 331:         ),
+ 332:       ),
+ 333:       body: SafeArea(
+ 334:         child: Align(
+ 335:           alignment: Alignment.topCenter,
+ 336:           child: ConstrainedBox(
+ 337:             constraints: const BoxConstraints(maxWidth: 500),
+ 338:             child: SingleChildScrollView(
+ 339:               padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
+ 340:               child: Column(
+ 341:                 crossAxisAlignment: CrossAxisAlignment.stretch,
+ 342:                 children: [
+ 343:                   // Icon badge
+ 344:                   Center(
+ 345:                     child: Container(
+ 346:                       width: 64,
+ 347:                       height: 64,
+ 348:                       decoration: BoxDecoration(
+ 349:                         color: const Color(0xFFF0FDF4),
+ 350:                         borderRadius: BorderRadius.circular(18),
+ 351:                         border: Border.all(
+ 352:                           color: const Color(0xFFBBF7D0),
+ 353:                           width: 1.5,
+ 354:                         ),
+ 355:                       ),
+ 356:                       child: const Icon(
+ 357:                         Icons.lock_outline_rounded,
+ 358:                         size: 30,
+ 359:                         color: Ops.actionPrimary,
+ 360:                       ),
+ 361:                     ),
+ 362:                   ),
+ 363:                   const SizedBox(height: 24),
+ 364: 
+ 365:                   // Title
+ 366:                   const Center(
+ 367:                     child: Text(
+ 368:                       'Enter verification code',
+ 369:                       style: TextStyle(
+ 370:                         fontSize: 22,
+ 371:                         fontWeight: FontWeight.w800,
+ 372:                         color: Ops.textPrimary,
+ 373:                       ),
+ 374:                     ),
+ 375:                   ),
+ 376:                   const SizedBox(height: 8),
+ 377: 
+ 378:                   // Subtitle with masked contact
+ 379:                   Center(
+ 380:                     child: Text(
+ 381:                       active ? 'Enter the 6-digit code for $contact.' : 'Start signup or login to request a verification code.',
+ 382:                       textAlign: TextAlign.center,
+ 383:                       style: const TextStyle(
+ 384:                         fontSize: 14,
+ 385:                         color: Ops.textSecondary,
+ 386:                         height: 1.5,
+ 387:                       ),
+ 388:                     ),
+ 389:                   ),
+ 390: 
+ 391:                   if (signup) ...[
+ 392:                     const SizedBox(height: 12),
+ 393:                     const Text(
+ 394:                       'Already added by your Fleet Owner? Verify your existing account through Log in using the phone or email they saved.',
+ 395:                       textAlign: TextAlign.center,
+
+===== RELATED WIDGETS =====
+C:\Users\abhis\Infurnus-driver-1\lib\screens\auth\otp_verification_screen.dart:72: class OtpVerificationScreen extends StatefulWidget {
+C:\Users\abhis\Infurnus-driver-1\lib\screens\auth\otp_verification_screen.dart:91: String get _otp => _controllers.map((c) => c.text).join();
+C:\Users\abhis\Infurnus-driver-1\lib\screens\auth\otp_verification_screen.dart:191: return SignupVerificationLayout(
+C:\Users\abhis\Infurnus-driver-1\lib\screens\auth\registration_screen.dart:86: return SignupVerificationLayout(
+C:\Users\abhis\Infurnus-driver-1\lib\widgets\signup_verification_layout.dart:4: class SignupVerificationLayout extends StatelessWidget {
+C:\Users\abhis\Infurnus-driver-1\lib\widgets\signup_verification_layout.dart:5: const SignupVerificationLayout({
