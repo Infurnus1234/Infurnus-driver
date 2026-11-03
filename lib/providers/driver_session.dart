@@ -238,6 +238,10 @@ class DriverSession extends ChangeNotifier {
     return candidates.isEmpty ? null : candidates.first;
   }
 
+  static const Duration publishInterval = Duration(seconds: 1);
+  String? locationWarning;
+  Map<String, dynamic>? get liveNavigation => currentTrip;
+
   List<Map<String, dynamic>> approvals = [];
   List<Map<String, dynamic>> applications = [];
   List<DocumentRule> documentRules = [];
@@ -461,10 +465,10 @@ class DriverSession extends ChangeNotifier {
   }
 
   Future<bool> login(
-    String identifier,
-    String password, {
+    String identifier, [
+    String? password,
     String? accountRole,
-  }) => run(() async {
+  ]) => run(() async {
     if (identifier.trim().isEmpty) {
       throw const ApiException('Enter your mobile number or email address.');
     }
@@ -472,7 +476,7 @@ class DriverSession extends ChangeNotifier {
     signupId = null;
     verificationContact = null;
     verificationResendAt = null;
-    challengeId = await api.login(identifier, password, accountRole);
+    challengeId = await api.login(identifier, accountRole: accountRole);
     verificationContact = identifier;
     verificationResendAt = DateTime.now().add(
       Duration(seconds: api.otpResendAfterSeconds),

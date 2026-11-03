@@ -88,7 +88,7 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!success && session.errorCode == 'ACCOUNT_ROLE_REQUIRED') {
       final role = await _chooseExistingRole();
       if (!mounted || role == null) return;
-      success = await session.login(fullIdentifier, accountRole: role);
+      success = await session.login(fullIdentifier, null, role);
     }
     if (!mounted) return;
     if (success) {
