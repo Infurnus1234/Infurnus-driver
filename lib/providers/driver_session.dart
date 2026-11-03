@@ -451,8 +451,8 @@ class DriverSession extends ChangeNotifier {
         restorationNeedsRetry = true;
       }
       error = e is ApiException
-          ? e.message
-          : 'Unable to complete the action. Please retry.';
+          ? (e.message == 'Internal Server Error' ? 'We couldn\'t load this information. Please try again.' : e.message)
+          : 'We couldn\'t load this information. Please try again.';
       if (api.accessToken == null && _accountVerified) _clear();
       return false;
     } finally {
