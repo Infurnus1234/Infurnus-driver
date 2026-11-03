@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../models/onboarding_rules.dart';
+import '../models/vehicle_category_policy.dart';
 import '../models/provider_status.dart';
 import '../services/api_service.dart';
 
@@ -186,19 +187,26 @@ class ProviderAssets extends ChangeNotifier {
     }
     await _reloadAfterSave();
   });
-  Future<bool> saveVehicle(Map<String, dynamic> input, {String? id}) =>
-      run(() async {
-        final saved = await api.request(
-          id == null ? 'POST' : 'PUT',
-          id == null ? vehiclePath : '$vehiclePath/${Uri.encodeComponent(id)}',
-          body: input,
+  Future<bool> saveVehicle(Map<String, dynamic> input, {String? id}) => run(
+    () async {
+      final sector = input['sector']?.toString();
+      if (sector != null && !VehicleCategoryPolicy.isSelectableSector(sector)) {
+        throw const ApiException(
+          'Passenger vehicles are not available in this vehicle workflow.',
         );
-        if (saved is Map && saved['id'] is String) {
-          final row = Map<String, dynamic>.from(saved);
-          vehicles = [...vehicles.where((v) => v['id'] != row['id']), row];
-        }
-        await _reloadAfterSave();
-      });
+      }
+      final saved = await api.request(
+        id == null ? 'POST' : 'PUT',
+        id == null ? vehiclePath : '$vehiclePath/${Uri.encodeComponent(id)}',
+        body: input,
+      );
+      if (saved is Map && saved['id'] is String) {
+        final row = Map<String, dynamic>.from(saved);
+        vehicles = [...vehicles.where((v) => v['id'] != row['id']), row];
+      }
+      await _reloadAfterSave();
+    },
+  );
   Future<bool> requestReview(
     String targetType,
     String targetId,

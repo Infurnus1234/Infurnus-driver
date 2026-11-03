@@ -78,6 +78,28 @@ void main() {
       expect(find.text('Provider setup'), findsNothing);
       expect(find.text('Driver Mode'), findsNothing);
       expect(requests.every((r) => r.startsWith('GET ')), true);
+      await tester.tap(find.text('Drivers').last);
+      await tester.pumpAndSettle();
+      expect(find.text('Submit pending requests'), findsNothing);
+      expect(find.text('Invite an existing Driver'), findsNothing);
+      expect(find.text('Fleet driver memberships'), findsOneWidget);
+      await tester.tap(find.text('More').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Identity & Verification').last);
+      await tester.pumpAndSettle();
+      for (final document in [
+        'PAN',
+        'Driving Licence',
+        'Profile Photo',
+        'Address Proof',
+        'Other',
+      ]) {
+        expect(find.text(document), findsOneWidget);
+      }
+      expect(
+        find.textContaining('10 MiB per image or 15 MiB per other file'),
+        findsOneWidget,
+      );
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
       s.dispose();

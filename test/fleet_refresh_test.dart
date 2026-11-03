@@ -19,7 +19,7 @@ class RefreshFixtureSession extends DriverSession {
 
 void main() {
   testWidgets(
-    'vehicle controls stay expanded during and after server refresh',
+    'vehicle status control remains available during and after refresh',
     (tester) async {
       tester.view.physicalSize = const Size(900, 1600);
       tester.view.devicePixelRatio = 1;
@@ -77,16 +77,27 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Vehicles').last);
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Fixture Cargo'));
+      expect(find.byType(DropdownButtonFormField<String>), findsOneWidget);
+      expect(find.text('INACTIVE'), findsOneWidget);
+      expect(find.text('Request verification'), findsNothing);
+      expect(find.text('Show Code'), findsOneWidget);
+      expect(find.text('Unassign driver'), findsNothing);
+      await tester.tap(find.text('Vehicle documents'));
       await tester.pumpAndSettle();
-      expect(find.text('ACTIVE'), findsOneWidget);
+      expect(find.text('Vehicle Photos'), findsOneWidget);
+      for (final side in ['Front', 'Rear', 'Left', 'Right']) {
+        expect(find.text(side), findsOneWidget);
+      }
+      await tester.tap(find.text('Close'));
+      await tester.pumpAndSettle();
       pending = Completer<void>();
       await tester.tap(find.byTooltip('Refresh'));
       await tester.pump(const Duration(milliseconds: 300));
-      expect(find.text('ACTIVE'), findsOneWidget);
+      expect(find.text('INACTIVE'), findsOneWidget);
       pending.complete();
       await tester.pumpAndSettle();
-      expect(find.text('ACTIVE'), findsOneWidget);
+      expect(find.byType(DropdownButtonFormField<String>), findsOneWidget);
+      expect(find.text('INACTIVE'), findsOneWidget);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
       session.dispose();

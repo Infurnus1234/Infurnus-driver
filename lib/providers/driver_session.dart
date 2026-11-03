@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:developer' as developer;
 
 import '../services/session_store.dart';
 
@@ -125,6 +126,9 @@ class DriverSession extends ChangeNotifier {
   }
 
   Map<String, dynamic>? assignedVehicle;
+  bool assignedVehicleLoading = false;
+  bool assignedVehicleLoaded = false;
+  String? assignedVehicleError;
   Map<String, dynamic>? history;
   int historyLimit = 20;
   List<Map<String, dynamic>> rides = [];
@@ -164,6 +168,7 @@ class DriverSession extends ChangeNotifier {
         'model': 'Ace EV',
         'category': 'THREE_WHEELER',
       };
+      assignedVehicleLoaded = true;
       history ??= {'totalTrips': 14, 'totalEarnings': 3280};
       if (rides.isEmpty) {
         rides = [
@@ -426,6 +431,20 @@ class DriverSession extends ChangeNotifier {
       await action();
       return true;
     } catch (e, stack) {
+      developer.log(
+        'Driver action failed',
+        name: 'DriverSession',
+        error: e,
+        stackTrace: stack,
+      );
+      if (!assignedVehicleLoaded &&
+          api.hasDriverRole &&
+          api.providerMode == 'driver') {
+        assignedVehicleLoading = false;
+        assignedVehicleLoaded = true;
+        assignedVehicleError =
+            'We couldn\'t load your vehicle. Please try again.';
+      }
       if (kDebugMode) {
         debugPrint(
           'Driver action failed: ${e.runtimeType}${e is ApiException ? ' status=${e.status} code=${e.code}' : ''}',
@@ -724,21 +743,24 @@ class DriverSession extends ChangeNotifier {
         if (api.hasDriverRole && api.providerMode == 'driver') {
           profile = await api.fetchDriverProfile();
           currentTrip = null;
+          assignedVehicle = null;
           if (profile != null) {
             final trip = await api.request('GET', '/rides/driver/current-trip');
             if (trip is Map) {
               currentTrip = Map<String, dynamic>.from(trip);
-              final vehicle = await api.request(
-                'GET',
-                '/rides/driver/assigned-vehicle',
-              );
-              assignedVehicle = vehicle is Map
-                  ? Map<String, dynamic>.from(vehicle)
-                  : null;
+              assignedVehicle = await _fetchAssignedVehicle();
               if (api.accessToken != _socket?.auth['token']) _connect();
               _joinTrip();
               if (_positions == null) await _resumeLocation();
+            } else {
+              assignedVehicleLoading = false;
+              assignedVehicleLoaded = true;
+              assignedVehicleError = null;
             }
+          } else {
+            assignedVehicleLoading = false;
+            assignedVehicleLoaded = true;
+            assignedVehicleError = null;
           }
         }
         onboardingLoaded = true;
@@ -763,14 +785,11 @@ class DriverSession extends ChangeNotifier {
     final nextProfile = await api.fetchDriverProfile();
     Map<String, dynamic>? nextVehicle;
     if (nextProfile != null) {
-      try {
-        final data = await api.request('GET', '/rides/driver/assigned-vehicle');
-        nextVehicle = data == null
-            ? null
-            : Map<String, dynamic>.from(data as Map);
-      } on ApiException catch (e) {
-        if (e.status != 404 || e.code != 'NO_ASSIGNED_VEHICLE') rethrow;
-      }
+      nextVehicle = await _fetchAssignedVehicle();
+    } else {
+      assignedVehicleLoading = false;
+      assignedVehicleLoaded = true;
+      assignedVehicleError = null;
     }
     final category =
         nextVehicle?['category'] ??
@@ -1009,21 +1028,42 @@ class DriverSession extends ChangeNotifier {
         'Enter the fleet assignment code (up to 20 characters).',
       );
     }
-    assignmentPreview = Map<String, dynamic>.from(
-      await api.request(
-        'POST',
-        '/rides/driver/assignment/verify-code',
-        body: {'code': code.trim()},
-      ) as Map,
-    );
-    await _load();
+    assignmentPreview = null;
+    try {
+      assignmentPreview = Map<String, dynamic>.from(
+        await api.request(
+          'POST',
+          '/rides/driver/assignment/verify-code',
+          body: {'code': code.trim()},
+        ) as Map,
+      );
+    } on ApiException catch (e, stack) {
+      developer.log(
+        'Assignment code verification failed: ${e.message}',
+        name: 'DriverSession',
+        error: e,
+        stackTrace: stack,
+      );
+      throw ApiException(_assignmentCodeFailure(e), e.status, e.code);
+    }
   });
   Future<bool> claimAssignment(String code) => run(() async {
-    final receipt = await api.request(
-      'POST',
-      '/rides/driver/assignment/claim-code',
-      body: {'code': code.trim()},
-    );
+    dynamic receipt;
+    try {
+      receipt = await api.request(
+        'POST',
+        '/rides/driver/assignment/claim-code',
+        body: {'code': code.trim()},
+      );
+    } on ApiException catch (e, stack) {
+      developer.log(
+        'Assignment code claim failed: ${e.message}',
+        name: 'DriverSession',
+        error: e,
+        stackTrace: stack,
+      );
+      throw ApiException(_assignmentCodeFailure(e), e.status, e.code);
+    }
     if (receipt is Map && receipt['vehicleId'] is String) {
       assignedVehicle = {
         ...Map<String, dynamic>.from(receipt),
@@ -1040,6 +1080,79 @@ class DriverSession extends ChangeNotifier {
     assignmentPreview = null;
     await _reloadAfterMutation();
   });
+
+  Future<Map<String, dynamic>?> _fetchAssignedVehicle() async {
+    assignedVehicleLoading = true;
+    assignedVehicleLoaded = false;
+    assignedVehicleError = null;
+    _notify();
+    try {
+      final result = await api
+          .request('GET', '/rides/driver/assigned-vehicle')
+          .timeout(const Duration(seconds: 30));
+      return result == null ? null : Map<String, dynamic>.from(result as Map);
+    } on ApiException catch (e, stack) {
+      if (e.code == 'NO_ASSIGNED_VEHICLE') return null;
+      developer.log(
+        'Assigned vehicle lookup failed: ${e.message}',
+        name: 'DriverSession',
+        error: e,
+        stackTrace: stack,
+      );
+      assignedVehicleError =
+          'We couldn\'t load your vehicle. Please try again.';
+      return null;
+    } on TimeoutException catch (e, stack) {
+      developer.log(
+        'Assigned vehicle lookup timed out',
+        name: 'DriverSession',
+        error: e,
+        stackTrace: stack,
+      );
+      assignedVehicleError =
+          'We couldn\'t load your vehicle. Please try again.';
+      return null;
+    } catch (e, stack) {
+      developer.log(
+        'Assigned vehicle lookup failed',
+        name: 'DriverSession',
+        error: e,
+        stackTrace: stack,
+      );
+      assignedVehicleError =
+          'We couldn\'t load your vehicle. Please try again.';
+      return null;
+    } finally {
+      assignedVehicleLoading = false;
+      assignedVehicleLoaded = true;
+      _notify();
+    }
+  }
+
+  String _assignmentCodeFailure(ApiException error) {
+    final details = '${error.code ?? ''} ${error.message}'.toLowerCase();
+    if (details.contains('expired') || error.status == 410) {
+      return 'This vehicle code has expired. Request a new code from your Fleet Owner.';
+    }
+    if (details.contains('already_used') ||
+        details.contains('already used') ||
+        details.contains('claimed') ||
+        details.contains('used')) {
+      return 'This vehicle code has already been used. Request a new code from your Fleet Owner.';
+    }
+    if (details.contains('unavailable') ||
+        details.contains('not_found') ||
+        error.status == 404) {
+      return 'This vehicle code is unavailable. Request a new code from your Fleet Owner.';
+    }
+    if (details.contains('invalid') ||
+        details.contains('incorrect') ||
+        details.contains('code_not_valid')) {
+      return 'This vehicle code is incorrect. Check it and try again.';
+    }
+    return 'We couldn\'t verify this vehicle code. Check it or request a new code.';
+  }
+
   Future<bool> applyToFleet(Map<String, dynamic> input) => run(() async {
     if (profile == null) {
       throw const ApiException('Save your driver profile first.');
@@ -1523,6 +1636,9 @@ class DriverSession extends ChangeNotifier {
     profile = null;
     currentTrip = null;
     assignedVehicle = null;
+    assignedVehicleLoading = false;
+    assignedVehicleLoaded = false;
+    assignedVehicleError = null;
     history = null;
     historyLimit = 20;
     rides = [];

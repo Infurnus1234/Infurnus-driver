@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 
-import '../../providers/driver_session.dart';
 import '../../core/operations_theme.dart';
+import '../../providers/driver_session.dart';
 
 class VehicleAssignmentScreen extends StatefulWidget {
   const VehicleAssignmentScreen({super.key});
+
   @override
   State<VehicleAssignmentScreen> createState() =>
       _VehicleAssignmentScreenState();
@@ -17,6 +18,7 @@ class _VehicleAssignmentScreenState extends State<VehicleAssignmentScreen> {
   final _code = TextEditingController();
   String? _error;
   bool _initialized = false;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -34,108 +36,133 @@ class _VehicleAssignmentScreenState extends State<VehicleAssignmentScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final s = context.watch<DriverSession>();
-    final preview = s.assignmentPreview;
+    final session = context.watch<DriverSession>();
+    final preview = session.assignmentPreview;
     return Scaffold(
       appBar: AppBar(title: const Text('Vehicle assignment')),
-      body: ListView(
-        padding: const EdgeInsets.all(24),
-        children: [
-          const Text(
-            'Enter the six-digit vehicle code provided by your Fleet Owner. Joining is optional for dashboard access. Your account, Fleet membership, Driver approval and vehicle eligibility are checked by the backend.',
-          ),
-          const SizedBox(height: 24),
-          TextField(
-            controller: _code,
-            enabled: !s.busy,
-            keyboardType: TextInputType.number,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            maxLength: 6,
-            decoration: const InputDecoration(
-              labelText: 'Six-digit vehicle assignment code',
-            ),
-            onChanged: (_) {
-              setState(() {
-                _error = null;
-                s.assignmentPreview = null;
-              });
-            },
-          ),
-          FilledButton(
-            style: Ops.darkButton,
-            onPressed: s.busy
-                ? null
-                : () async {
-                    if (!RegExp(r'^\d{6}$').hasMatch(_code.text)) {
-                      setState(
-                        () => _error = 'Enter all six digits, including any leading zeroes.',
-                      );
-                      return;
-                    }
-                    await s.previewAssignment(_code.text);
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 520),
+            child: ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                Text(
+                  'Enter the six-digit vehicle code from your Fleet Owner.',
+                  style: Theme.of(context).textTheme.bodyLarge,
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _code,
+                  enabled: !session.busy,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  maxLength: 6,
+                  decoration: InputDecoration(
+                    labelText: 'Vehicle assignment code',
+                    errorText: _error ?? session.error,
+                    helperText: 'Leading zeroes count toward all six digits.',
+                  ),
+                  onChanged: (_) {
+                    setState(() {
+                      _error = null;
+                      session.assignmentPreview = null;
+                    });
                   },
-            child: const Text('Check vehicle assignment'),
+                ),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton.icon(
+                    onPressed: session.busy
+                        ? null
+                        : () => context.push('/support-tickets'),
+                    icon: const Icon(Icons.support_agent),
+                    label: const Text('Request a new code'),
+                  ),
+                ),
+                FilledButton(
+                  style: Ops.darkButton,
+                  onPressed: session.busy
+                      ? null
+                      : () async {
+                          if (!RegExp(r'^\d{6}$').hasMatch(_code.text)) {
+                            setState(
+                              () => _error = 'Enter all six digits, including any leading zeroes.',
+                            );
+                            return;
+                          }
+                          await session.previewAssignment(_code.text);
+                        },
+                  child: Text(
+                    session.busy
+                        ? 'Checking code…'
+                        : 'Check vehicle assignment',
+                  ),
+                ),
+                if (preview != null) ...[
+                  const SizedBox(height: 20),
+                  Text(
+                    '${preview['vehicle']?['make'] ?? ''} ${preview['vehicle']?['model'] ?? ''}',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  Text(
+                    'Registration: ${preview['vehicle']?['plateNumber'] ?? 'Unavailable'}',
+                  ),
+                  Text(
+                    'Fleet: ${preview['owner']?['businessName'] ?? 'Unavailable'}',
+                  ),
+                  FilledButton(
+                    onPressed: session.busy
+                        ? null
+                        : () async {
+                            if (await session.claimAssignment(_code.text) &&
+                                context.mounted) {
+                              if (session.api.roleFlowEnabled) {
+                                context.go(session.landingPath);
+                              } else {
+                                Navigator.of(context).pop();
+                              }
+                            }
+                          },
+                    child: Text(
+                      session.busy
+                          ? 'Confirming vehicle…'
+                          : 'Confirm assigned vehicle',
+                    ),
+                  ),
+                ],
+                if (session.assignedVehicleError != null ||
+                    session.refreshWarning != null)
+                  TextButton(
+                    onPressed: session.busy
+                        ? null
+                        : () async {
+                            final expected = preview?['vehicle']?['id'];
+                            if (await session.refresh() &&
+                                expected != null &&
+                                session.assignedVehicle?['id'] == expected &&
+                                context.mounted) {
+                              Navigator.of(context).pop();
+                            }
+                          },
+                    child: const Text('Refresh assignment status'),
+                  ),
+                TextButton(
+                  onPressed: session.busy
+                      ? null
+                      : () async {
+                          if (await session.deferDashboardSetup() &&
+                              context.mounted) {
+                            context.go(session.landingPath);
+                          }
+                        },
+                  child: const Text('Skip for now'),
+                ),
+                if (session.busy) const LinearProgressIndicator(),
+              ],
+            ),
           ),
-          if (preview != null) ...[
-            const SizedBox(height: 20),
-            Text(
-              '${preview['vehicle']?['make'] ?? ''} ${preview['vehicle']?['model'] ?? ''}',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            Text(
-              'Registration: ${preview['vehicle']?['plateNumber'] ?? 'Unavailable'}',
-            ),
-            Text(
-              'Fleet: ${preview['owner']?['businessName'] ?? 'Unavailable'}',
-            ),
-            FilledButton(
-              onPressed: s.busy
-                  ? null
-                  : () async {
-                      if (await s.claimAssignment(_code.text) &&
-                          context.mounted) {
-                        if (s.api.roleFlowEnabled) {
-                          context.go(s.landingPath);
-                        } else {
-                          Navigator.of(context).pop();
-                        }
-                      }
-                    },
-              child: const Text('Confirm assigned vehicle'),
-            ),
-          ],
-          if (s.error != null || s.refreshWarning != null)
-            TextButton(
-              onPressed: s.busy
-                  ? null
-                  : () async {
-                      final expected = preview?['vehicle']?['id'];
-                      if (await s.refresh() &&
-                          expected != null &&
-                          s.assignedVehicle?['id'] == expected &&
-                          context.mounted) {
-                        Navigator.of(context).pop();
-                      }
-                    },
-              child: const Text('Refresh assignment status'),
-            ),
-          TextButton(
-            onPressed: s.busy
-                ? null
-                : () async {
-                    if (await s.deferDashboardSetup() && context.mounted) {
-                      context.go(s.landingPath);
-                    }
-                  },
-            child: const Text('Skip for now'),
-          ),
-          if (s.busy) const LinearProgressIndicator(),
-          if (_error != null || s.error != null)
-            Text(
-              _error ?? s.error!,
-              style: TextStyle(color: Theme.of(context).colorScheme.error),
-            ),
-        ],
+        ),
       ),
     );
   }

@@ -492,6 +492,7 @@ class AppState extends ChangeNotifier {
     required String modelName,
     required String category,
   }) {
+    if (category.toLowerCase() == 'passenger') return;
     final newVehicle = VehicleModel(
       id: 'VEH-${DateTime.now().millisecondsSinceEpoch % 10000}',
       plateNumber: plateNumber,

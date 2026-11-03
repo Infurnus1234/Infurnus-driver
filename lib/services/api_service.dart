@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:developer' as developer;
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart' show kDebugMode;
@@ -233,6 +234,12 @@ class ApiService {
         response.statusCode >= 300 ||
         envelope?['success'] == false) {
       final error = envelope?['error'];
+      final code = error is Map ? error['code']?.toString() : null;
+      final serverMessage = error is Map ? error['message']?.toString() : null;
+      developer.log(
+        'API request failed: $method $requestPath status=${response.statusCode} code=${code ?? 'unknown'} detail=${serverMessage ?? 'No server detail'}',
+        name: 'ApiService',
+      );
       if (isTestOnboarding &&
           response.statusCode == 404 &&
           error is Map &&
@@ -249,11 +256,9 @@ class ApiService {
         clearSession();
       }
       throw ApiException(
-        error is Map
-            ? error['message']?.toString() ?? 'Request failed.'
-            : 'Request failed (${response.statusCode}).',
+        _userFacingError(code, response.statusCode),
         response.statusCode,
-        error is Map ? error['code']?.toString() : null,
+        code,
       );
     }
     if (response.statusCode == 204) return null;
@@ -312,6 +317,29 @@ class ApiService {
       return {'items': items, 'total': total.toInt()};
     }
     return envelope['data'];
+  }
+
+  String _userFacingError(String? code, int status) {
+    if (code == 'INVALID_CREDENTIALS') {
+      return 'Those sign-in details could not be verified. Check them and retry.';
+    }
+    if (code == 'ACCOUNT_ROLE_REQUIRED') {
+      return 'Choose the account type you want to sign in to.';
+    }
+    if (code == 'ASSIGNMENT_CODE_EXPIRED' || code == 'CODE_EXPIRED') {
+      return 'This vehicle code has expired. Request a new code from your Fleet Owner.';
+    }
+    if (code == 'ASSIGNMENT_CODE_ALREADY_USED' || code == 'CODE_ALREADY_USED') {
+      return 'This vehicle code has already been used. Request a new code from your Fleet Owner.';
+    }
+    if (code == 'ASSIGNMENT_CODE_INVALID' ||
+        code == 'INVALID_ASSIGNMENT_CODE') {
+      return 'This vehicle code is incorrect. Check it and try again.';
+    }
+    if (status >= 500) {
+      return 'We couldn\'t complete this request. Please try again.';
+    }
+    return 'This request couldn\'t be completed. Check your information and retry.';
   }
 
   Future<dynamic> requestAgain(

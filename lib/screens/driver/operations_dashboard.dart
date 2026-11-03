@@ -98,7 +98,9 @@ class OperationsDashboard extends StatelessWidget {
                     onPressed: session.busy
                         ? null
                         : () => _next(context, session, next),
-                    child: Text(labels[next]!),
+                    child: Text(
+                      session.busy ? 'Updating trip…' : labels[next]!,
+                    ),
                   ),
                 ),
               ),
@@ -134,7 +136,10 @@ class OperationsDashboard extends StatelessWidget {
                   ),
                 ),
               if (session.error != null)
-                OpsError(session.error!, retry: session.refresh),
+                OpsError(
+                  'We couldn\'t load this information. Please try again.',
+                  retry: session.refresh,
+                ),
               if (session.refreshWarning != null)
                 OpsError(session.refreshWarning!, retry: session.refresh),
               if (session.api.hasFleetRole && trip == null)
@@ -174,10 +179,17 @@ class OperationsDashboard extends StatelessWidget {
                         ),
                       ),
                     ),
-                    Switch.adaptive(
-                      value: session.online,
-                      activeTrackColor: const Color(0xFF007C3C),
-                      onChanged: session.busy ? null : session.setOnline,
+                    Tooltip(
+                      message: session.busy
+                          ? 'Updating availability'
+                          : session.online
+                          ? 'Go offline'
+                          : 'Go online',
+                      child: Switch.adaptive(
+                        value: session.online,
+                        activeTrackColor: const Color(0xFF007C3C),
+                        onChanged: session.busy ? null : session.setOnline,
+                      ),
                     ),
                   ],
                 ),
@@ -194,54 +206,15 @@ class OperationsDashboard extends StatelessWidget {
                 ),
               AssignedVehicleCard(
                 vehicle: session.assignedVehicle,
-                loading: session.busy,
+                loading:
+                    session.assignedVehicleLoading ||
+                    (session.busy && !session.assignedVehicleLoaded),
+                error: session.assignedVehicleError,
                 canManage: trip == null && !session.online,
                 retry: session.refresh,
               ),
-              if (!session.isPreview) const TripMap(compact: true),
-              if (session.isPreview)
-                const OpsEmpty(
-                  'Maps require an authenticated device session.',
-                  icon: Icons.map_outlined,
-                ),
-              if (!session.online && trip == null)
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        const Icon(
-                          Icons.directions_car_outlined,
-                          size: 36,
-                          color: Ops.textPrimary,
-                        ),
-                        const SizedBox(height: 8),
-                        const Text(
-                          "You're Offline",
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontWeight: FontWeight.w700,
-                            fontSize: 17,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        const Text(
-                          'Go online to receive new ride requests.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(color: Ops.textSecondary),
-                        ),
-                        const SizedBox(height: 14),
-                        FilledButton(
-                          onPressed: session.busy
-                              ? null
-                              : () => session.setOnline(true),
-                          child: const Text('Go Online'),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+              if (trip != null && !session.isPreview)
+                const TripMap(compact: true),
               if (trip != null)
                 OpsPanel(
                   title: trip['status'] == 'in_progress'
@@ -278,7 +251,7 @@ class OperationsDashboard extends StatelessWidget {
                     ],
                   ),
                 ),
-              if (trip == null) ...[
+              if (trip == null && session.error == null) ...[
                 Text(
                   'Ride offers',
                   style: Theme.of(context).textTheme.titleLarge,
@@ -353,8 +326,9 @@ class RideDetails extends StatelessWidget {
         if (fare != null)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 12),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            child: Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              runSpacing: 4,
               children: [
                 Text(
                   fareInfo?['authority'] == 'final' || ride['finalFare'] != null

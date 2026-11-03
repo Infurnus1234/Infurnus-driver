@@ -3,7 +3,7 @@ import 'dart:async';
 import '../models/vehicle_catalog_model.dart';
 
 class VehicleCatalogRepository {
-  // Comprehensive Vehicle Catalog Database updated with Auto Rickshaw, E-Rickshaw, Passenger, Trip, Logistic, and Premium vehicles
+  // Catalog for the legacy searchable vehicle-entry flow.
   static const List<VehicleCatalogItem> _catalog = [
     // Auto Rickshaw & 3-Wheeler / E-Rickshaw
     VehicleCatalogItem(
@@ -46,7 +46,6 @@ class VehicleCatalogRepository {
       fuelType: 'Electric',
       payloadCapacity: '400 kg',
     ),
-
     // Trip Vehicle
     VehicleCatalogItem(
       id: 'CAT-T1',

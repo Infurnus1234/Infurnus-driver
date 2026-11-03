@@ -94,6 +94,8 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    expect(find.text('Subject *'), findsOneWidget);
+    expect(find.text('Describe the issue *'), findsOneWidget);
     await tester.enterText(find.byType(TextFormField).at(0), 'Local issue');
     await tester.enterText(
       find.byType(TextFormField).at(1),
@@ -101,7 +103,42 @@ void main() {
     );
     await tester.tap(find.text('Create ticket'));
     await tester.pumpAndSettle();
-    expect(find.text('Support unavailable'), findsOneWidget);
+    expect(
+      find.text('We couldn\'t create your ticket. Please retry.'),
+      findsOneWidget,
+    );
+    expect(find.text('Support unavailable'), findsNothing);
     expect(find.text('Local issue'), findsOneWidget);
+  });
+  testWidgets('ticket list failure never appears with an empty state', (
+    tester,
+  ) async {
+    final api = ApiService(
+      client: MockClient(
+        (request) async => http.Response(
+          jsonEncode({
+            'success': false,
+            'error': {'message': 'Raw list backend detail'},
+          }),
+          503,
+        ),
+      ),
+    );
+    final session = DriverSession(api: api);
+    addTearDown(session.dispose);
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: session,
+        child: const MaterialApp(home: SupportTicketsScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('No support tickets yet.'), findsNothing);
+    expect(find.text('Raw list backend detail'), findsNothing);
+    expect(
+      find.text('We couldn\'t load your support tickets. Please retry.'),
+      findsOneWidget,
+    );
+    expect(find.text('Retry'), findsOneWidget);
   });
 }

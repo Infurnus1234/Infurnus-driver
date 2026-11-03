@@ -34,7 +34,10 @@ class _VehicleSelectionSearchWidgetState
   @override
   void initState() {
     super.initState();
-    _selectedItem = widget.initialSelection;
+    _selectedItem =
+        widget.initialSelection?.category.toLowerCase() == 'passenger'
+        ? null
+        : widget.initialSelection;
     _performSearch('');
   }
 
@@ -59,7 +62,9 @@ class _VehicleSelectionSearchWidgetState
     final results = await _repository.searchVehicles(query);
     if (mounted) {
       setState(() {
-        _suggestions = results;
+        _suggestions = results
+            .where((item) => item.category.toLowerCase() != 'passenger')
+            .toList();
         _isLoading = false;
       });
     }

@@ -91,4 +91,61 @@ void main() {
       expect(find.text('Authenticated role selection'), findsOneWidget);
     },
   );
+  testWidgets('login email validation is inline and gates Continue', (
+    tester,
+  ) async {
+    final session = LoginEntryFixture();
+    addTearDown(session.dispose);
+    final router = GoRouter(
+      initialLocation: '/login',
+      routes: [
+        GoRoute(path: '/login', builder: (_, _) => const LoginScreen()),
+        GoRoute(
+          path: '/role-selection',
+          builder: (_, _) => const Scaffold(body: Text('Role selection')),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+    tester.view.physicalSize = const Size(900, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(
+      ChangeNotifierProvider<DriverSession>.value(
+        value: session,
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Use Email'));
+    await tester.pumpAndSettle();
+    final emailField = tester.widget<TextField>(find.byType(TextField).first);
+    expect(emailField.keyboardType, TextInputType.emailAddress);
+    await tester.enterText(find.byType(TextField).first, 'not-an-email');
+    await tester.pumpAndSettle();
+    expect(find.text('Enter a valid email address.'), findsOneWidget);
+    expect(
+      tester
+          .widget<ElevatedButton>(
+            find.widgetWithText(ElevatedButton, 'Continue'),
+          )
+          .onPressed,
+      isNull,
+    );
+    await tester.enterText(
+      find.byType(TextField).first,
+      'driver@example.invalid',
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Enter a valid email address.'), findsNothing);
+    expect(
+      tester
+          .widget<ElevatedButton>(
+            find.widgetWithText(ElevatedButton, 'Continue'),
+          )
+          .onPressed,
+      isNotNull,
+    );
+  });
 }

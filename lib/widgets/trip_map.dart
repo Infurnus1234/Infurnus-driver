@@ -150,6 +150,9 @@ class _TripMapState extends State<TripMap> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.compact && _configured == false) {
+      return const SizedBox.shrink();
+    }
     final session = context.watch<DriverSession>();
     final trip = session.currentTrip;
     final pickup = _point(trip?['pickup']);

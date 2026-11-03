@@ -39,10 +39,8 @@ void main() {
       };
       addTearDown(s.dispose);
       await tester.pumpWidget(host(s, const VehicleAssignmentScreen()));
-      expect(
-        find.textContaining('Joining is optional for dashboard access'),
-        findsOneWidget,
-      );
+      expect(find.textContaining('six-digit vehicle code'), findsOneWidget);
+      expect(find.text('Request a new code'), findsOneWidget);
       await tester.enterText(find.byType(TextField), '123');
       await tester.tap(find.text('Check vehicle assignment'));
       await tester.pumpAndSettle();

@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -49,8 +51,8 @@ class _SupportTicketsScreenState extends State<SupportTicketsScreen> {
   final _subject = TextEditingController(), _message = TextEditingController();
   final _form = GlobalKey<FormState>();
   List<Map<String, dynamic>> _tickets = [];
-  bool _busy = false;
-  String? _error;
+  bool _busy = false, _loaded = false, _creating = false;
+  String? _error, _formError;
   int _page = 1;
   bool _hasNext = false;
   int? _failedPage;
@@ -89,15 +91,26 @@ class _SupportTicketsScreenState extends State<SupportTicketsScreen> {
           _failedPage = null;
         });
       }
-    } catch (e) {
+    } catch (e, stack) {
+      developer.log(
+        'Support ticket list load failed',
+        name: 'SupportTicketsScreen',
+        error: e,
+        stackTrace: stack,
+      );
       if (mounted) {
         setState(() {
-          _error = e.toString();
+          _error = 'We couldn\'t load your support tickets. Please retry.';
           _failedPage = targetPage;
         });
       }
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _loaded = true;
+        });
+      }
     }
   }
 
@@ -105,7 +118,8 @@ class _SupportTicketsScreenState extends State<SupportTicketsScreen> {
     if (!_form.currentState!.validate() || _busy) return;
     setState(() {
       _busy = true;
-      _error = null;
+      _formError = null;
+      _creating = true;
     });
     try {
       await context.read<DriverSession>().api.request(
@@ -120,10 +134,25 @@ class _SupportTicketsScreenState extends State<SupportTicketsScreen> {
       _subject.clear();
       _message.clear();
       if (mounted) await _load(page: 1);
-    } catch (e) {
-      if (mounted) setState(() => _error = e.toString());
+    } catch (e, stack) {
+      developer.log(
+        'Support ticket creation failed',
+        name: 'SupportTicketsScreen',
+        error: e,
+        stackTrace: stack,
+      );
+      if (mounted) {
+        setState(
+          () => _formError = 'We couldn\'t create your ticket. Please retry.',
+        );
+      }
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _creating = false;
+        });
+      }
     }
   }
 
@@ -150,7 +179,10 @@ class _SupportTicketsScreenState extends State<SupportTicketsScreen> {
               TextFormField(
                 controller: _subject,
                 maxLength: 200,
-                decoration: const InputDecoration(labelText: 'Subject'),
+                decoration: const InputDecoration(
+                  labelText: 'Subject *',
+                  helperText: 'Required · 3–200 characters',
+                ),
                 validator: (v) => (v?.trim().length ?? 0) < 3
                     ? 'Enter at least 3 characters'
                     : null,
@@ -160,7 +192,8 @@ class _SupportTicketsScreenState extends State<SupportTicketsScreen> {
                 maxLength: 5000,
                 maxLines: 4,
                 decoration: const InputDecoration(
-                  labelText: 'Describe the issue',
+                  labelText: 'Describe the issue *',
+                  helperText: 'Required · 5–5,000 characters',
                 ),
                 validator: (v) => (v?.trim().length ?? 0) < 5
                     ? 'Enter at least 5 characters'
@@ -168,59 +201,75 @@ class _SupportTicketsScreenState extends State<SupportTicketsScreen> {
               ),
               ElevatedButton(
                 onPressed: _busy ? null : _create,
-                child: const Text('Create ticket'),
+                child: Text(_creating ? 'Creating ticket…' : 'Create ticket'),
               ),
             ],
           ),
         ),
-        if (_busy) const LinearProgressIndicator(),
-        if (_error != null)
-          Text(
-            _error!,
-            style: TextStyle(color: Theme.of(context).colorScheme.error),
+        if (_formError != null)
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  _formError!,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+              ),
+              TextButton(
+                onPressed: _busy ? null : _create,
+                child: const Text('Retry'),
+              ),
+            ],
           ),
-        if (_error != null)
-          TextButton(
-            onPressed: _busy ? null : () => _load(page: _failedPage),
-            child: const Text('Retry'),
+        if (_busy || !_loaded)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 20),
+            child: LinearProgressIndicator(),
+          )
+        else if (_error != null)
+          OpsError(_error!, retry: () => _load(page: _failedPage))
+        else if (_tickets.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 20),
+            child: Text('No support tickets yet.'),
           ),
         const SizedBox(height: 20),
-        if (!_busy && _error == null && _tickets.isEmpty)
-          const Text('No support tickets on this page.'),
-        ..._tickets.map(
-          (t) => Card(
-            child: ListTile(
-              onTap: () => _detail(t['id'] as String),
-              title: Text(t['subject'].toString()),
-              subtitle: Text(
-                '${t['ticketNumber']} · ${t['status']}\n${t['message']}',
+        if (!_busy && _error == null && _tickets.isNotEmpty)
+          ..._tickets.map(
+            (t) => Card(
+              child: ListTile(
+                onTap: () => _detail(t['id'] as String),
+                title: Text(t['subject'].toString()),
+                subtitle: Text(
+                  'ID ${t['ticketNumber']} · ${t['status']}\nLatest update: ${t['updatedAt'] ?? t['createdAt'] ?? 'Unknown'}\n${t['message']}',
+                ),
+                isThreeLine: true,
               ),
-              isThreeLine: true,
             ),
           ),
-        ),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            TextButton(
-              onPressed: _busy || _page == 1
-                  ? null
-                  : () {
-                      _load(page: _page - 1);
-                    },
-              child: const Text('Previous'),
-            ),
-            Text('Page $_page'),
-            TextButton(
-              onPressed: _busy || !_hasNext
-                  ? null
-                  : () {
-                      _load(page: _page + 1);
-                    },
-              child: const Text('Next'),
-            ),
-          ],
-        ),
+        if (!_busy && _tickets.isNotEmpty)
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              TextButton(
+                onPressed: _busy || _error != null || _page == 1
+                    ? null
+                    : () {
+                        _load(page: _page - 1);
+                      },
+                child: const Text('Previous'),
+              ),
+              Text('Page $_page'),
+              TextButton(
+                onPressed: _busy || _error != null || !_hasNext
+                    ? null
+                    : () {
+                        _load(page: _page + 1);
+                      },
+                child: const Text('Next'),
+              ),
+            ],
+          ),
       ],
     ),
   );

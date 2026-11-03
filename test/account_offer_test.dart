@@ -1,4 +1,6 @@
 import 'package:infurnus_driver/screens/fleet/fleet_vehicle_category_dialog.dart';
+import 'package:infurnus_driver/providers/provider_assets.dart';
+import 'package:infurnus_driver/repositories/vehicle_catalog_repository.dart';
 
 import 'dart:convert';
 
@@ -14,26 +16,116 @@ import 'package:infurnus_driver/screens/driver/operations_dashboard.dart';
 
 void main() {
   testWidgets(
-    'custom type is selected only after backend persistence and catalog reload',
+    'Logistics exposes only the four approved types and excludes Passenger',
     (tester) async {
-      final types = <Map<String, dynamic>>[];
       Map<String, String>? selected;
       final calls = <String>[];
       final api = ApiService(
         client: MockClient((r) async {
           calls.add('${r.method} ${r.url.path}');
-          if (r.method == 'POST') {
-            final body = jsonDecode(r.body) as Map;
-            expect(body, {'sector': 'logistics', 'name': 'My Truck'});
-            final entry = <String, dynamic>{
+          return http.Response(
+            jsonEncode({
+              'success': true,
+              'data': {
+                'sectors': ['passenger', 'logistics'],
+                'types': [
+                  {'name': 'Sedan', 'code': 'sedan', 'sector': 'passenger'},
+                  {
+                    'name': '3-Wheeler (Goods)',
+                    'code': 'three_wheeler_goods',
+                    'sector': 'logistics',
+                  },
+                  {
+                    'name': 'Mini Truck (Tata Ace)',
+                    'code': 'mini_truck_tata_ace',
+                    'sector': 'logistics',
+                  },
+                  {
+                    'name': 'Pickup 8ft',
+                    'code': 'pickup_8ft',
+                    'sector': 'logistics',
+                  },
+                  {
+                    'name': 'Tata 407',
+                    'code': 'tata_407',
+                    'sector': 'logistics',
+                  },
+                  {
+                    'name': '207 Heavy',
+                    'code': '207_heavy',
+                    'sector': 'logistics',
+                  },
+                ],
+              },
+            }),
+            200,
+          );
+        }),
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: TextButton(
+                onPressed: () async {
+                  selected = await selectFleetVehicleCategory(context, api);
+                },
+                child: const Text('Choose'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Choose'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(DropdownButtonFormField<String>).first);
+      await tester.pumpAndSettle();
+      expect(find.text('passenger'), findsNothing);
+      await tester.tap(find.text('logistics').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(DropdownButtonFormField<String>).last);
+      await tester.pumpAndSettle();
+      for (final name in [
+        '3-Wheeler (Goods)',
+        'Mini Truck (Tata Ace)',
+        'Pickup 8ft',
+        'Tata 407',
+      ]) {
+        expect(find.text(name), findsOneWidget);
+      }
+      expect(find.text('207 Heavy'), findsNothing);
+      await tester.tap(find.text('Tata 407').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Continue'));
+      await tester.pumpAndSettle();
+      expect(selected, {'sector': 'logistics', 'category': 'tata_407'});
+      expect(calls, ['GET /provider/vehicle-catalog']);
+    },
+  );
+
+  testWidgets(
+    'custom types remain available through a separate dialog outside Logistics',
+    (tester) async {
+      final types = <Map<String, dynamic>>[];
+      final calls = <String>[];
+      Map<String, String>? selected;
+      final api = ApiService(
+        client: MockClient((request) async {
+          calls.add('${request.method} ${request.url.path}');
+          if (request.method == 'POST') {
+            expect(jsonDecode(request.body), {
+              'sector': 'service',
               'name': 'My Truck',
-              'code': 'custom_test',
-              'sector': 'logistics',
+            });
+            final item = {
+              'name': 'My Truck',
+              'code': 'custom_truck',
+              'sector': 'service',
               'custom': true,
             };
-            types.add(entry);
+            types.add(item);
             return http.Response(
-              jsonEncode({'success': true, 'data': entry}),
+              jsonEncode({'success': true, 'data': item}),
               201,
             );
           }
@@ -41,7 +133,7 @@ void main() {
             jsonEncode({
               'success': true,
               'data': {
-                'sectors': ['passenger', 'logistics'],
+                'sectors': ['passenger', 'service'],
                 'types': types,
               },
             }),
@@ -67,20 +159,76 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byType(DropdownButtonFormField<String>).first);
       await tester.pumpAndSettle();
-      await tester.tap(find.text('logistics').last);
+      expect(find.text('passenger'), findsNothing);
+      await tester.tap(find.text('service').last);
+      await tester.pumpAndSettle();
+      expect(find.byType(TextField), findsNothing);
+      await tester.tap(find.text('Add custom vehicle type'));
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField), 'My Truck');
+      await tester.ensureVisible(find.text('Create type'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Add "My Truck"'));
+      await tester.tap(find.text('Create type'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Continue'));
-      await tester.pumpAndSettle();
-      expect(selected, {'sector': 'logistics', 'category': 'custom_test'});
+      expect(find.text('Vehicle category and type'), findsOneWidget);
+      expect(find.byType(AlertDialog), findsOneWidget);
       expect(calls, [
         'GET /provider/vehicle-catalog',
         'POST /provider/vehicle-catalog/custom',
         'GET /provider/vehicle-catalog',
       ]);
+      await tester.tap(find.byType(DropdownButtonFormField<String>).last);
+      await tester.pumpAndSettle();
+      expect(find.text('My Truck'), findsNWidgets(2));
+      await tester.tap(find.text('My Truck').last);
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<DropdownButtonFormField<String>>(
+              find.byType(DropdownButtonFormField<String>).last,
+            )
+            .initialValue,
+        'custom_truck',
+      );
+      await tester.tap(find.text('Continue'));
+      await tester.pumpAndSettle();
+      expect(selected, {'sector': 'service', 'category': 'custom_truck'});
+      expect(calls, [
+        'GET /provider/vehicle-catalog',
+        'POST /provider/vehicle-catalog/custom',
+        'GET /provider/vehicle-catalog',
+      ]);
+      api.dispose();
+    },
+  );
+
+  test(
+    'legacy catalog preserves models without making Passenger selectable',
+    () async {
+      final results = await VehicleCatalogRepository().searchVehicles(
+        'E-Rickshaw',
+      );
+      expect(results.single.modelName, 'E-Rickshaw');
+      expect(results.single.category, 'Passenger');
+    },
+  );
+
+  test(
+    'vehicle save validation rejects Passenger before any API call',
+    () async {
+      var requests = 0;
+      final api = ApiService(
+        client: MockClient((request) async {
+          requests++;
+          return http.Response('{}', 500);
+        }),
+      );
+      final assets = ProviderAssets(api);
+      expect(await assets.saveVehicle({'sector': 'passenger'}), isFalse);
+      expect(assets.error, contains('Passenger vehicles are not available'));
+      expect(requests, 0);
+      assets.dispose();
+      api.dispose();
     },
   );
 
@@ -133,7 +281,11 @@ void main() {
       );
       await tester.tap(find.text('Save'));
       await tester.pumpAndSettle();
-      expect(find.text('Temporary outage'), findsOneWidget);
+      expect(
+        find.text('We couldn\'t complete this request. Please try again.'),
+        findsOneWidget,
+      );
+      expect(find.text('Temporary outage'), findsNothing);
       expect(
         find.widgetWithText(TextFormField, '+919876543210'),
         findsOneWidget,

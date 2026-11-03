@@ -325,14 +325,14 @@ void main() {
       await tester.scrollUntilVisible(
         find.text('Next'),
         600,
-        scrollable: find.byType(Scrollable).last,
+        scrollable: find.byType(Scrollable).first,
       );
       await tester.tap(find.text('Next'));
       await tester.pumpAndSettle();
       await tester.scrollUntilVisible(
         find.text('Page 1'),
         200,
-        scrollable: find.byType(Scrollable).last,
+        scrollable: find.byType(Scrollable).first,
       );
       expect(find.text('Page 1'), findsOneWidget);
       expect(find.text('Page 2'), findsNothing);
@@ -340,7 +340,7 @@ void main() {
       await tester.scrollUntilVisible(
         find.text('Retry'),
         -600,
-        scrollable: find.byType(Scrollable).last,
+        scrollable: find.byType(Scrollable).first,
       );
       await tester.tap(find.text('Retry'));
       await tester.pumpAndSettle();

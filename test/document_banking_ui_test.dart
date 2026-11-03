@@ -55,9 +55,14 @@ void main() {
               return ok(vehicles);
             case '/provider/vehicle-catalog':
               return ok({
-                'sectors': ['passenger'],
+                'sectors': ['passenger', 'logistics'],
                 'types': [
                   {'sector': 'passenger', 'code': 'sedan', 'name': 'Sedan'},
+                  {
+                    'sector': 'logistics',
+                    'code': 'tata_407',
+                    'name': 'Tata 407',
+                  },
                 ],
               });
             default:
@@ -79,11 +84,12 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byType(DropdownButtonFormField<String>).first);
       await tester.pumpAndSettle();
-      await tester.tap(find.text('passenger').last);
+      expect(find.text('passenger'), findsNothing);
+      await tester.tap(find.text('logistics').last);
       await tester.pumpAndSettle();
       await tester.tap(find.byType(DropdownButtonFormField<String>).last);
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Sedan').last);
+      await tester.tap(find.text('Tata 407').last);
       await tester.pumpAndSettle();
       await tester.tap(find.text('Continue'));
       await tester.pumpAndSettle();

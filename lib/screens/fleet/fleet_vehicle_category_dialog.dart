@@ -1,5 +1,8 @@
+import 'dart:developer' as developer;
+
 import 'package:flutter/material.dart';
 
+import '../../models/vehicle_category_policy.dart';
 import '../../services/api_service.dart';
 
 Future<Map<String, String>?> selectFleetVehicleCategory(
@@ -15,15 +18,17 @@ class _VehicleCategoryDialog extends StatefulWidget {
   final ApiService api;
   final Map<String, dynamic>? initial;
   const _VehicleCategoryDialog({required this.api, this.initial});
+
   @override
   State<_VehicleCategoryDialog> createState() => _VehicleCategoryDialogState();
 }
 
 class _VehicleCategoryDialogState extends State<_VehicleCategoryDialog> {
+  final _customName = TextEditingController();
   late Future<dynamic> _catalog;
   String? _sector, _type, _error;
-  String _search = '';
-  bool _creating = false;
+  bool _creating = false, _addingCustomType = false;
+
   @override
   void initState() {
     super.initState();
@@ -32,7 +37,19 @@ class _VehicleCategoryDialogState extends State<_VehicleCategoryDialog> {
     _catalog = widget.api.request('GET', '/provider/vehicle-catalog');
   }
 
+  @override
+  void dispose() {
+    _customName.dispose();
+    super.dispose();
+  }
+
   Future<void> _create() async {
+    if (_sector == null ||
+        !VehicleCategoryPolicy.isSelectableSector(_sector) ||
+        _sector == 'logistics' ||
+        _customName.text.trim().isEmpty) {
+      return;
+    }
     setState(() {
       _creating = true;
       _error = null;
@@ -41,21 +58,23 @@ class _VehicleCategoryDialogState extends State<_VehicleCategoryDialog> {
       final created = await widget.api.request(
         'POST',
         '/provider/vehicle-catalog/custom',
-        body: {'sector': _sector, 'name': _search.trim()},
+        body: {'sector': _sector, 'name': _customName.text.trim()},
       ) as Map;
       if (!mounted) return;
       setState(() {
         _type = created['code'] as String;
-        _search = '';
+        _customName.clear();
+        _addingCustomType = false;
         _catalog = widget.api.request('GET', '/provider/vehicle-catalog');
       });
     } catch (e) {
+      developer.log(
+        'Custom vehicle type creation failed',
+        name: 'VehicleCategoryDialog',
+        error: e,
+      );
       if (mounted) {
-        setState(
-          () => _error = e is ApiException
-              ? e.message
-              : 'Could not create this type. Please retry.',
-        );
+        setState(() => _error = 'Could not create this type. Please retry.');
       }
     } finally {
       if (mounted) setState(() => _creating = false);
@@ -91,30 +110,35 @@ class _VehicleCategoryDialogState extends State<_VehicleCategoryDialog> {
             ],
           );
         }
+
         final data = snapshot.data as Map;
-        final sectors = List<String>.from(data['sectors'] as List);
+        final sectors = List<String>.from(data['sectors'] as List)
+            .where(VehicleCategoryPolicy.isSelectableSector)
+            .toList();
         final matches = (data['types'] as List)
             .cast<Map>()
             .where(
-              (t) =>
-                  t['sector'] == _sector ||
+              (type) =>
+                  (type['sector'] == _sector &&
+                      VehicleCategoryPolicy.allowsType(
+                        _sector,
+                        type['name']?.toString(),
+                      )) ||
                   (_sector == 'rental' &&
-                      ['passenger', 'premium'].contains(t['sector'])),
+                      type['sector'] == 'premium' &&
+                      VehicleCategoryPolicy.allowsType(
+                        _sector,
+                        type['name']?.toString(),
+                      )),
             )
             .toList();
         final types = <String, Map>{
-          for (final t in matches) t['code'] as String: t,
+          for (final type in matches) type['code'] as String: type,
         }.values.toList();
-        final visibleTypes = types
-            .where(
-              (t) => t['name'].toString().toLowerCase().contains(
-                _search.toLowerCase(),
-              ),
-            )
-            .toList();
-        final selectedType = types.any((t) => t['code'] == _type)
+        final selectedType = types.any((type) => type['code'] == _type)
             ? _type
             : null;
+
         return SizedBox(
           width: 420,
           child: SingleChildScrollView(
@@ -122,88 +146,119 @@ class _VehicleCategoryDialogState extends State<_VehicleCategoryDialog> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 DropdownButtonFormField<String>(
-                  initialValue: sectors.contains(_sector) ? _sector : null,
+                  initialValue:
+                      sectors.any(
+                        (sector) =>
+                            sector.toLowerCase() == _sector?.toLowerCase(),
+                      )
+                      ? _sector
+                      : null,
                   decoration: const InputDecoration(
                     labelText: 'Vehicle category',
                   ),
                   items: sectors
-                      .map((v) => DropdownMenuItem(value: v, child: Text(v)))
+                      .map(
+                        (sector) => DropdownMenuItem(
+                          value: sector,
+                          child: Text(sector),
+                        ),
+                      )
                       .toList(),
-                  onChanged: (v) => setState(() {
-                    _sector = v;
+                  onChanged: (value) => setState(() {
+                    _sector = value;
                     _type = null;
+                    _addingCustomType = false;
+                    _customName.clear();
                   }),
                 ),
                 const SizedBox(height: 16),
-                TextField(
-                  decoration: const InputDecoration(
-                    labelText: 'Search or enter a missing vehicle name',
-                  ),
-                  maxLength: 100,
-                  onChanged: (v) => setState(() => _search = v),
-                ),
                 DropdownButtonFormField<String>(
-                  key: ValueKey('$_sector:$_search:$_type'),
-                  initialValue:
-                      visibleTypes.any((t) => t['code'] == selectedType)
-                      ? selectedType
-                      : null,
+                  key: ValueKey('$_sector:$_type'),
+                  initialValue: selectedType,
                   isExpanded: true,
                   decoration: const InputDecoration(
                     labelText: 'Configured vehicle type',
                   ),
-                  items: visibleTypes
+                  items: types
                       .map(
-                        (t) => DropdownMenuItem(
-                          value: t['code'] as String,
-                          child: Text(t['name'].toString()),
+                        (type) => DropdownMenuItem(
+                          value: type['code'] as String,
+                          child: Text(type['name'].toString()),
                         ),
                       )
                       .toList(),
-                  onChanged: (v) => setState(() => _type = v),
+                  onChanged: (value) => setState(() => _type = value),
                 ),
                 if (_sector != null && types.isEmpty)
                   const Text(
                     'No configured types are available for this category.',
                   ),
                 if (_sector != null &&
-                    _search.trim().isNotEmpty &&
-                    !types.any(
-                      (t) =>
-                          t['name'].toString().toLowerCase() ==
-                          _search.trim().toLowerCase(),
-                    ))
+                    VehicleCategoryPolicy.isSelectableSector(_sector) &&
+                    _sector != 'logistics' &&
+                    !_addingCustomType)
                   TextButton.icon(
-                    onPressed: _creating ? null : _create,
+                    onPressed: _creating
+                        ? null
+                        : () => setState(() => _addingCustomType = true),
                     icon: const Icon(Icons.add),
-                    label: Text(
-                      _creating ? 'Creating…' : 'Add "${_search.trim()}"',
-                    ),
+                    label: const Text('Add custom vehicle type'),
                   ),
+                if (_addingCustomType) ...[
+                  TextField(
+                    controller: _customName,
+                    maxLength: 100,
+                    decoration: const InputDecoration(
+                      labelText: 'Custom vehicle type name',
+                    ),
+                    onChanged: (_) => setState(() {}),
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: _creating
+                            ? null
+                            : () => setState(() {
+                                _addingCustomType = false;
+                                _customName.clear();
+                              }),
+                        child: const Text('Cancel'),
+                      ),
+                      FilledButton(
+                        onPressed: _creating || _customName.text.trim().isEmpty
+                            ? null
+                            : _create,
+                        child: const Text('Create type'),
+                      ),
+                    ],
+                  ),
+                ],
                 if (_error != null) Text(_error!),
-                const Text(
-                  'Custom types are saved for your fleet. Registration does not enable pricing or dispatch.',
-                ),
-                const SizedBox(height: 20),
-                FilledButton(
-                  onPressed: _sector == null || selectedType == null
-                      ? null
-                      : () => Navigator.pop(context, {
-                          'sector': _sector!,
-                          'category': selectedType,
-                        }),
-                  child: const Text('Continue'),
-                ),
+                if (_sector != null && _sector != 'logistics')
+                  const Text(
+                    'Custom types are saved for your fleet. Registration does not enable pricing or dispatch.',
+                  ),
               ],
             ),
           ),
         );
       },
     ),
+    actionsAlignment: MainAxisAlignment.spaceBetween,
     actions: [
       TextButton(
         onPressed: () => Navigator.pop(context),
         child: const Text('Cancel'),
+      ),
+      FilledButton(
+        onPressed: _sector == null || _type == null
+            ? null
+            : () => Navigator.pop(context, {
+                'sector': _sector!,
+                'category': _type!,
+              }),
+        child: const Text('Continue'),
       ),
     ],
   );

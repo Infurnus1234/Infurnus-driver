@@ -49,8 +49,23 @@ void main() {
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField).first, '9999999999');
       await tester.ensureVisible(find.text('Continue'));
+      expect(
+        tester.widget<TextField>(find.byType(TextField).first).controller!.text,
+        '9999999999',
+      );
+      expect(session.busy, isFalse);
+      expect(
+        tester
+            .widget<ElevatedButton>(
+              find.widgetWithText(ElevatedButton, 'Continue'),
+            )
+            .onPressed,
+        isNotNull,
+      );
       await tester.tap(find.text('Continue'));
       await tester.pumpAndSettle();
+      expect(logins, hasLength(1));
+      expect(session.errorCode, 'INVALID_CREDENTIALS');
       expect(
         find.textContaining('Fleet Owner accounts need an account password'),
         findsOneWidget,

@@ -10,32 +10,61 @@ abstract final class Ops {
   static const surfaceOverlay = Color(0xFFEDF7F0);
   static const textPrimary = Color(0xFF171D1A);
   static const textSecondary = Color(0xFF626B65);
-  static const textMuted = Color(0xFF747D77);
+  static const textMuted = Color(0xFF626B65);
   static const borderSubtle = Color(0xFFE2E8E3);
-  static const actionPrimary = Color(0xFF00A14D);
-  static const actionPrimaryPressed = Color(0xFF00873F);
+  static const actionPrimary = Color(0xFF007A3E);
+  static const actionPrimaryPressed = Color(0xFF006332);
   static const actionDark = Color(0xFF111820);
   static const onAction = Colors.white;
   static const disabled = Color(0xFFE1E5E2);
-  static const success = Color(0xFF00873F);
-  static const warning = Color(0xFF996500);
-  static const error = Color(0xFFD73339);
+  static const success = actionPrimary;
+  static const warning = Color(0xFF854D0E);
+  static const error = Color(0xFFB42318);
   static const info = success;
   static const mapSurface = Color(0xFFF0F3F0);
   static const scrim = Color(0x66000000);
   static const padding = 16.0, gap = 12.0, radius = 12.0, buttonHeight = 48.0;
+  static const pageTitleSize = 24.0;
+  static const sectionTitleSize = 18.0;
+  static const bodySize = 15.0;
+  static const helperSize = 13.0;
+  static const labelSize = 13.0;
   static const metric = TextStyle(
     fontSize: 26,
     height: 1.15,
     fontWeight: FontWeight.w700,
     fontFeatures: [FontFeature.tabularFigures()],
   );
-  static ButtonStyle get darkButton => FilledButton.styleFrom(
-    backgroundColor: actionDark,
-    foregroundColor: onAction,
-  );
+  static ButtonStyle _buttonStyle({
+    required Color background,
+    required Color pressed,
+  }) =>
+      FilledButton.styleFrom(
+        minimumSize: const Size(48, buttonHeight),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(radius),
+        ),
+      ).copyWith(
+        backgroundColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.disabled)) return disabled;
+          if (states.contains(WidgetState.pressed)) return pressed;
+          return background;
+        }),
+        foregroundColor: WidgetStateProperty.resolveWith(
+          (states) =>
+              states.contains(WidgetState.disabled) ? textMuted : onAction,
+        ),
+        overlayColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.pressed)
+              ? Colors.white.withValues(alpha: 0.12)
+              : null,
+        ),
+      );
+
+  static ButtonStyle get darkButton =>
+      _buttonStyle(background: actionDark, pressed: const Color(0xFF263442));
   static ButtonStyle get criticalButton =>
-      FilledButton.styleFrom(backgroundColor: error, foregroundColor: onAction);
+      _buttonStyle(background: error, pressed: const Color(0xFF8F1D14));
   static ThemeData get theme {
     final base = ThemeData(
       brightness: Brightness.light,
@@ -49,20 +78,72 @@ abstract final class Ops {
       bodyColor: textPrimary,
       displayColor: textPrimary,
     );
-    final positive = FilledButton.styleFrom(
-      backgroundColor: actionPrimary,
-      foregroundColor: onAction,
-      disabledBackgroundColor: disabled,
-      disabledForegroundColor: textMuted,
-      minimumSize: const Size(48, buttonHeight),
-      shape: shape,
-      textStyle: const TextStyle(
-        inherit: false,
-        fontFamily: 'Roboto',
-        fontSize: 15,
-        fontWeight: FontWeight.w600,
-      ),
-    );
+    final positive =
+        _buttonStyle(
+          background: actionPrimary,
+          pressed: actionPrimaryPressed,
+        ).copyWith(
+          textStyle: const WidgetStatePropertyAll(
+            TextStyle(
+              inherit: false,
+              fontFamily: 'Roboto',
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        );
+    final outlined =
+        OutlinedButton.styleFrom(
+          minimumSize: const Size(48, buttonHeight),
+          side: const BorderSide(color: borderSubtle),
+          shape: shape,
+          textStyle: const TextStyle(
+            inherit: false,
+            fontFamily: 'Roboto',
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+          ),
+        ).copyWith(
+          backgroundColor: WidgetStateProperty.resolveWith(
+            (states) => states.contains(WidgetState.pressed)
+                ? backgroundSecondary
+                : surfacePrimary,
+          ),
+          foregroundColor: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.disabled)) return textMuted;
+            if (states.contains(WidgetState.pressed)) {
+              return actionPrimaryPressed;
+            }
+            return textPrimary;
+          }),
+          side: WidgetStateProperty.resolveWith(
+            (states) => BorderSide(
+              color: states.contains(WidgetState.disabled)
+                  ? disabled
+                  : states.contains(WidgetState.pressed)
+                  ? actionPrimaryPressed
+                  : borderSubtle,
+            ),
+          ),
+        );
+    final textButton =
+        TextButton.styleFrom(
+          minimumSize: const Size(48, 48),
+          textStyle: const TextStyle(
+            inherit: false,
+            fontFamily: 'Roboto',
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+          ),
+        ).copyWith(
+          foregroundColor: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.disabled)) return textMuted;
+            if (states.contains(WidgetState.pressed)) {
+              return actionPrimaryPressed;
+            }
+            return success;
+          }),
+        );
     return base.copyWith(
       scaffoldBackgroundColor: backgroundPrimary,
       colorScheme: const ColorScheme.light(
@@ -132,33 +213,8 @@ abstract final class Ops {
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: positive.copyWith(elevation: const WidgetStatePropertyAll(0)),
       ),
-      outlinedButtonTheme: OutlinedButtonThemeData(
-        style: OutlinedButton.styleFrom(
-          backgroundColor: surfacePrimary,
-          foregroundColor: textPrimary,
-          minimumSize: const Size(48, buttonHeight),
-          side: const BorderSide(color: borderSubtle),
-          shape: shape,
-          textStyle: const TextStyle(
-            inherit: false,
-            fontFamily: 'Roboto',
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ),
-      textButtonTheme: TextButtonThemeData(
-        style: TextButton.styleFrom(
-          foregroundColor: success,
-          minimumSize: const Size(48, 48),
-          textStyle: const TextStyle(
-            inherit: false,
-            fontFamily: 'Roboto',
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(style: outlined),
+      textButtonTheme: TextButtonThemeData(style: textButton),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: surfacePrimary,

@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -132,12 +134,16 @@ class _ApiPanelState extends State<ApiPanel> {
     try {
       final data = await widget.api.request('GET', widget.path);
       if (mounted && generation == _generation) setState(() => _data = data);
-    } catch (e) {
+    } catch (e, stack) {
+      developer.log(
+        'API panel request failed: ${widget.path}',
+        name: 'ApiPanel',
+        error: e,
+        stackTrace: stack,
+      );
       if (mounted && generation == _generation) {
         setState(
-          () => _error = e is ApiException
-              ? e.message
-              : 'Connection unavailable. Please retry.',
+          () => _error = 'We couldn\'t load this information. Please retry.',
         );
       }
     } finally {
@@ -159,8 +165,9 @@ class _ApiPanelState extends State<ApiPanel> {
       children: [
         if (_busy)
           const LinearProgressIndicator(semanticsLabel: 'Loading server data'),
-        if (_error != null) OpsError(_error!, retry: _load),
-        if (_data != null) widget.builder(context, _data),
+        if (!_busy && _error != null) OpsError(_error!, retry: _load),
+        if (!_busy && _error == null && _data != null)
+          widget.builder(context, _data),
       ],
     ),
   );

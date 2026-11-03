@@ -63,6 +63,46 @@ void main() {
     session.dispose();
     api.dispose();
   });
+  testWidgets('OTP errors are friendly and retain the destination contact', (
+    tester,
+  ) async {
+    final api = ApiService(
+      client: MockClient((_) async => http.Response('{}', 500)),
+    );
+    final session = DriverSession(api: api)
+      ..challengeId = 'challenge'
+      ..verificationContact = 'driver@example.invalid'
+      ..errorCode = 'OTP_EXPIRED'
+      ..error = 'Raw backend detail';
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: session,
+        child: MaterialApp(
+          theme: Ops.theme,
+          home: const OtpVerificationScreen(),
+        ),
+      ),
+    );
+    expect(
+      find.textContaining('expired for driver@example.invalid'),
+      findsOneWidget,
+    );
+    expect(find.text('Raw backend detail'), findsNothing);
+    session
+      ..errorCode = 'INVALID_OTP'
+      ..error = 'Invalid code from provider';
+    session.notifyListeners();
+    await tester.pumpAndSettle();
+    expect(
+      find.textContaining(
+        'does not match the one sent to driver@example.invalid',
+      ),
+      findsOneWidget,
+    );
+    await tester.pumpWidget(const SizedBox());
+    session.dispose();
+    api.dispose();
+  });
   test('signup includes country code without duplicating it or changing explicit international numbers', () {
     expect(normalizeSignupPhone('98765 43210'), '+919876543210');
     expect(normalizeSignupPhone('919876543210'), '+919876543210');

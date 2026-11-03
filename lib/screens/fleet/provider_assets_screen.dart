@@ -461,7 +461,12 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
           errorMessage: () => _assets!.error,
         ),
       );
-  Widget _document(DocumentRule rule, {String? vehicleId}) {
+  Widget _document(
+    DocumentRule rule, {
+    String? vehicleId,
+    bool compact = false,
+  }) {
+    final label = _documentLabel(rule);
     final doc = _assets!.documentFor(rule.code, vehicleId: vehicleId);
     final reason = doc == null ? null : rejectionReason(doc);
     final expiry = DateTime.tryParse(doc?['expiresAt']?.toString() ?? '');
@@ -472,70 +477,112 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
         expiry != null &&
         !expired &&
         expiry.isBefore(DateTime.now().add(const Duration(days: 30)));
-    return Card(
-      child: ListTile(
-        onTap: doc == null || _assets!.busy
+    final status = expired ? 'Expired' : statusLabel(doc?['status']);
+    final expiryDetails = rule.requiresExpiry || expiry != null
+        ? expiry == null
+              ? '\nExpiry required'
+              : '\nExpiry: ${doc!['expiresAt']}'
+        : '';
+    final detailText = compact
+        ? '${rule.required ? 'Required · ' : ''}$status${soon ? ' · Expires within 30 days' : ''}$expiryDetails${reason == null ? '' : '\n$reason'}'
+        : '${rule.required ? 'Required by policy' : 'Optional'} · $status${soon ? ' · Expires within 30 days' : ''}$expiryDetails\n${rule.minimumPages}–5 files/pages; JPEG, PNG, WebP${rule.code == 'profile_photo' ? '' : ', PDF'}; ${rule.imageOnly ? 10 : 15} MiB/file, 30 MiB total${reason == null ? '' : '\nReason: $reason'}';
+    final actions = <Widget>[
+      if (doc != null)
+        IconButton(
+          tooltip: 'View document',
+          visualDensity: VisualDensity.compact,
+          icon: const Icon(Icons.visibility_outlined),
+          onPressed: _assets!.busy
+              ? null
+              : () => showPrivateDocumentPreview(
+                  context,
+                  _assets!.api,
+                  '/partners/${_assets!.partner!['id']}/documents/${doc['id']}',
+                  label,
+                ),
+        ),
+      IconButton(
+        tooltip: doc == null ? 'Upload' : 'Replace / resubmit',
+        visualDensity: VisualDensity.compact,
+        icon: const Icon(Icons.upload_file),
+        onPressed: _assets!.busy
             ? null
-            : () => showPrivateDocumentPreview(
-                context,
-                _assets!.api,
-                '/partners/${_assets!.partner!['id']}/documents/${doc['id']}',
-                rule.label,
-              ),
-        title: Text(
-          '${rule.label} — ${rule.required ? 'Required by policy' : 'Optional'}',
-        ),
-        subtitle: Text(
-          '${expired ? 'Expired' : statusLabel(doc?['status'])}${soon ? ' — expires within 30 days' : ''}${expiry == null ? '' : '\nExpiry: ${doc!['expiresAt']}'}\n${rule.minimumPages}–5 files/pages; JPEG, PNG, WebP${rule.code == 'profile_photo' ? '' : ', PDF'}; ${rule.code == 'profile_photo' ? 10 : 15} MiB/file, 30 MiB total\nExpiry ${rule.requiresExpiry ? 'required' : 'optional'}${reason == null ? '' : '\nReason: $reason'}',
-        ),
-        isThreeLine: true,
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              tooltip: doc == null ? 'Upload' : 'Replace / resubmit',
-              icon: const Icon(Icons.upload_file),
-              onPressed: _assets!.busy
-                  ? null
-                  : () {
-                      if (_assets!.partner == null) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                              'Please create your provider/business profile first.',
-                            ),
-                          ),
-                        );
-                        _business();
-                        return;
-                      }
-                      _upload(rule, vehicleId: vehicleId);
-                    },
-            ),
-            if (doc != null &&
-                doc['status'] == 'PENDING' &&
-                (doc['version'] ?? 1) == 1)
-              IconButton(
-                tooltip: 'Remove unreviewed draft',
-                icon: const Icon(Icons.delete_outline),
-                onPressed: _assets!.busy
-                    ? null
-                    : () async {
-                        if (await confirmOperation(
-                          context,
-                          'Remove draft document?',
-                          'Only an original unreviewed draft can be removed. Reviewed or replaced evidence must be retained.',
-                        )) {
-                          await _assets!.removeDraftDocument(
-                            doc['id'] as String,
-                          );
-                        }
-                      },
-              ),
-          ],
-        ),
+            : () {
+                if (_assets!.partner == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Please create your provider/business profile first.',
+                      ),
+                    ),
+                  );
+                  _business();
+                  return;
+                }
+                _upload(rule, vehicleId: vehicleId);
+              },
       ),
+      if (doc != null &&
+          doc['status'] == 'PENDING' &&
+          (doc['version'] ?? 1) == 1)
+        IconButton(
+          tooltip: 'Remove unreviewed draft',
+          visualDensity: VisualDensity.compact,
+          icon: const Icon(Icons.delete_outline),
+          onPressed: _assets!.busy
+              ? null
+              : () async {
+                  if (await confirmOperation(
+                    context,
+                    'Remove draft document?',
+                    'Only an original unreviewed draft can be removed. Reviewed or replaced evidence must be retained.',
+                  )) {
+                    await _assets!.removeDraftDocument(doc['id'] as String);
+                  }
+                },
+        ),
+    ];
+    final tile = ListTile(
+      dense: compact,
+      contentPadding: compact ? EdgeInsets.zero : null,
+      onTap: doc == null || _assets!.busy
+          ? null
+          : () => showPrivateDocumentPreview(
+              context,
+              _assets!.api,
+              '/partners/${_assets!.partner!['id']}/documents/${doc['id']}',
+              rule.label,
+            ),
+      title: Text(
+        compact
+            ? label
+            : '$label — ${rule.required ? 'Required by policy' : 'Optional'}',
+      ),
+      subtitle: Text(detailText),
+      trailing: Row(mainAxisSize: MainAxisSize.min, children: actions),
     );
+    return compact ? tile : Card(child: tile);
+  }
+
+  String _documentLabel(DocumentRule rule) {
+    const identityLabels = {
+      'pan': 'PAN',
+      'driving_licence': 'Driving Licence',
+      'profile_photo': 'Profile Photo',
+      'address_proof': 'Address Proof',
+      'other': 'Other',
+    };
+    if (identityLabels.containsKey(rule.code)) {
+      return identityLabels[rule.code]!;
+    }
+    if (rule.code.startsWith('vehicle_') && rule.code.endsWith('_photo')) {
+      final side = rule.code.substring(8, rule.code.length - 6);
+      return '${side[0].toUpperCase()}${side.substring(1)}';
+    }
+    return rule.label
+        .split('_')
+        .map((part) => '${part[0].toUpperCase()}${part.substring(1)}')
+        .join(' ');
   }
 
   Future<void> _vehicleDocuments(Map<String, dynamic> vehicle) async {
@@ -563,6 +610,15 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
     for (final rule in policy) {
       rules.putIfAbsent(rule.code, () => rule);
     }
+    final photoRules = rules.values
+        .where(
+          (rule) =>
+              rule.code.startsWith('vehicle_') && rule.code.endsWith('_photo'),
+        )
+        .toList();
+    final documentRules = rules.values
+        .where((rule) => !photoRules.contains(rule))
+        .toList();
     await showDialog<void>(
       context: context,
       builder: (_) => AlertDialog(
@@ -573,8 +629,45 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                for (final rule in rules.values)
-                  _document(rule, vehicleId: vehicle['id'] as String),
+                const Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Vehicle Photos',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ),
+                const Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'One image each · JPEG, PNG or WebP · 10 MiB per photo',
+                  ),
+                ),
+                for (final rule in photoRules)
+                  _document(
+                    rule,
+                    vehicleId: vehicle['id'] as String,
+                    compact: true,
+                  ),
+                const Divider(),
+                const Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Vehicle Documents',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ),
+                const Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'File/page count follows policy · JPEG, PNG, WebP or PDF · 15 MiB per file, 30 MiB total',
+                  ),
+                ),
+                for (final rule in documentRules)
+                  _document(
+                    rule,
+                    vehicleId: vehicle['id'] as String,
+                    compact: true,
+                  ),
               ],
             ),
           ),
@@ -585,6 +678,270 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
             child: const Text('Close'),
           ),
         ],
+      ),
+    );
+  }
+
+  bool _canRequestVehicleReview(Map<String, dynamic> vehicle) {
+    final status = providerStatus(
+      vehicle['approvalStatus'] ?? vehicle['verificationStatus'],
+    );
+    return {
+      ProviderStatus.unknown,
+      ProviderStatus.rejected,
+      ProviderStatus.expired,
+      ProviderStatus.changesRequested,
+    }.contains(status);
+  }
+
+  Future<void> _generateAssignmentCode(Map<String, dynamic> vehicle) async {
+    final eligible = _assets!.drivers
+        .where(
+          (driver) =>
+              driver['verificationStatus'] == 'approved' &&
+              driver['assignedVehicle'] == null,
+        )
+        .toList();
+    final selected = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => SimpleDialog(
+        title: const Text('Select an eligible Driver'),
+        children: [
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(dialogContext, ''),
+            child: const Text('Any eligible Driver in my Fleet'),
+          ),
+          if (eligible.isEmpty)
+            const Padding(
+              padding: EdgeInsets.all(20),
+              child: Text(
+                'No eligible unassigned Drivers. Add or review fleet memberships first.',
+              ),
+            ),
+          for (final driver in eligible)
+            SimpleDialogOption(
+              onPressed: () =>
+                  Navigator.pop(dialogContext, driver['id'] as String),
+              child: Text(driver['name']?.toString() ?? 'Driver'),
+            ),
+        ],
+      ),
+    );
+    if (selected == null) return;
+    final code = await _assets!.assignmentCode(
+      vehicle['id'] as String,
+      selected.isEmpty ? null : selected,
+    );
+    if (!mounted || code == null) return;
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Fleet assignment code'),
+        content: SelectableText(
+          '${code['code']}\nExpires: ${code['expiresAt']}',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showAssignmentCode(Map<String, dynamic> vehicle) =>
+      showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Vehicle assignment code'),
+          content: SelectableText(vehicle['activeAssignmentCode'].toString()),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Close'),
+            ),
+          ],
+        ),
+      );
+
+  Widget _vehicleCard(Map<String, dynamic> vehicle, DriverSession session) {
+    final assets = _assets!;
+    final vehicleId = vehicle['id'] as String;
+    final approvalValue =
+        vehicle['approvalStatus'] ?? vehicle['verificationStatus'];
+    final approval = providerStatus(approvalValue);
+    final operationalStatus =
+        vehicle['operationalStatus']?.toString().toUpperCase() ??
+        (vehicle['isActive'] == false ? 'INACTIVE' : 'ACTIVE');
+    final assignedDriver = vehicle['assignedDriver'];
+    final activeCode = vehicle['activeAssignmentCode']?.toString();
+    final permanentCode = vehicle['permanentVehicleCode']?.toString();
+    final statusOptions = const ['ACTIVE', 'INACTIVE', 'MAINTENANCE'];
+
+    return Card(
+      key: ValueKey('fleet-vehicle-$vehicleId'),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                const CircleAvatar(
+                  backgroundColor: Ops.surfaceOverlay,
+                  child: Icon(
+                    Icons.directions_car_outlined,
+                    color: Ops.textPrimary,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${vehicle['make']} ${vehicle['model']}',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      Text(
+                        '${vehicle['plateNumber']} · ${vehicle['sector'] ?? 'Sector unavailable'} · ${vehicle['category'] ?? 'Type unavailable'}',
+                      ),
+                    ],
+                  ),
+                ),
+                StatusPill(statusLabel(approvalValue)),
+                if (assets.fleetMode)
+                  IconButton(
+                    tooltip: 'Vehicle revenue details',
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => FleetVehicleRevenueScreen(
+                          vehicleId: vehicleId,
+                          name: vehicle['plateNumber'].toString(),
+                        ),
+                      ),
+                    ),
+                    icon: const Icon(Icons.payments_outlined),
+                  ),
+              ],
+            ),
+            if (permanentCode != null && permanentCode.isNotEmpty)
+              ListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Permanent vehicle code'),
+                trailing: SelectableText(permanentCode),
+              ),
+            if (rejectionReason(vehicle) != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(rejectionReason(vehicle)!),
+              ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: assets.busy ? null : () => _vehicle(vehicle),
+                  icon: const Icon(Icons.edit_outlined),
+                  label: const Text('Edit vehicle'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: assets.busy
+                      ? null
+                      : () => _vehicleDocuments(vehicle),
+                  icon: const Icon(Icons.description_outlined),
+                  label: const Text('Vehicle documents'),
+                ),
+                if (_canRequestVehicleReview(vehicle))
+                  _review('vehicle', vehicleId, 'vehicle_verification'),
+              ],
+            ),
+            DropdownButtonFormField<String>(
+              initialValue: statusOptions.contains(operationalStatus)
+                  ? operationalStatus
+                  : 'ACTIVE',
+              decoration: const InputDecoration(labelText: 'Vehicle status'),
+              items: statusOptions
+                  .map(
+                    (status) =>
+                        DropdownMenuItem(value: status, child: Text(status)),
+                  )
+                  .toList(),
+              onChanged: assets.busy
+                  ? null
+                  : (status) {
+                      if (status != null) assets.operate(vehicleId, status);
+                    },
+            ),
+            if (!assets.fleetMode &&
+                approval == ProviderStatus.approved &&
+                session.profile != null &&
+                session.assignedVehicle?['id'] != vehicleId)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: OutlinedButton.icon(
+                  onPressed: assets.busy
+                      ? null
+                      : () async {
+                          final ok = await session.run(() async {
+                            await session.api.request(
+                              'POST',
+                              '/rides/driver/active-vehicle',
+                              body: {'vehicleId': vehicleId},
+                            );
+                          });
+                          if (ok) await session.refresh();
+                        },
+                  icon: const Icon(Icons.check_circle_outline),
+                  label: const Text('Select own approved vehicle'),
+                ),
+              ),
+            if (assets.fleetMode && assignedDriver is Map)
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Assigned Driver · ${assignedDriver['name'] ?? 'Driver'}',
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: assets.busy
+                        ? null
+                        : () => assets.unassign(vehicleId),
+                    child: const Text('Unassign driver'),
+                  ),
+                ],
+              ),
+            if (assets.fleetMode &&
+                (assignedDriver is! Map) &&
+                activeCode != null &&
+                activeCode.isNotEmpty)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: () => _showAssignmentCode(vehicle),
+                  icon: const Icon(Icons.qr_code_2),
+                  label: const Text('Show Code'),
+                ),
+              ),
+            if (assets.fleetMode &&
+                (assignedDriver is! Map) &&
+                (activeCode == null || activeCode.isEmpty))
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: assets.busy
+                      ? null
+                      : () => _generateAssignmentCode(vehicle),
+                  icon: const Icon(Icons.qr_code_2),
+                  label: const Text('Generate assignment code'),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -812,6 +1169,12 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
                       _document(const DocumentRule('bank_proof')),
                     ]
                   : [
+                      const Padding(
+                        padding: EdgeInsets.all(12),
+                        child: Text(
+                          'JPEG, PNG or WebP; PDF where allowed · 10 MiB per image or 15 MiB per other file · 30 MiB total. The upload form enforces policy-specific counts and expiry.',
+                        ),
+                      ),
                       for (final r in rules.values.where(
                         (r) => ![
                           'bank_proof',
@@ -820,7 +1183,7 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
                           'bank_passbook',
                         ].contains(r.code),
                       ))
-                        _document(r),
+                        _document(r, compact: true),
                     ],
             ),
           ],
@@ -850,226 +1213,23 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
                     : _vehicle,
                 child: const Text('Add vehicle'),
               ),
-            for (final v
+            for (final vehicle
                 in assets.vehicles
                     .where(_matches)
                     .where(
-                      (v) =>
+                      (vehicle) =>
                           _vehicleFilter == 'All' ||
                           (_vehicleFilter == 'Active'
-                              ? v['isActive'] == true
-                              : v['isActive'] == false),
+                              ? vehicle['isActive'] == true
+                              : vehicle['isActive'] == false),
                     ))
-              Card(
-                key: ValueKey('fleet-vehicle-${v['id']}'),
-                child: ExpansionTile(
-                  leading: const CircleAvatar(
-                    backgroundColor: Ops.surfaceOverlay,
-                    child: Icon(
-                      Icons.directions_car_outlined,
-                      color: Ops.textPrimary,
-                    ),
-                  ),
-                  title: Text('${v['make']} ${v['model']}'),
-                  trailing: StatusPill(
-                    (v['operationalStatus'] ??
-                            v['approvalStatus'] ??
-                            v['verificationStatus'] ??
-                            'Unknown')
-                        .toString(),
-                  ),
-                  subtitle: Text(
-                    '${v['plateNumber']} • ${statusLabel(v['approvalStatus'] ?? v['verificationStatus'])}',
-                  ),
-                  children: [
-                    Text('${v['sector']} · ${v['category']}'),
-                    if (assets.fleetMode)
-                      TextButton(
-                        onPressed: () => Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => FleetVehicleRevenueScreen(
-                              vehicleId: v['id'] as String,
-                              name: v['plateNumber'].toString(),
-                            ),
-                          ),
-                        ),
-                        child: const Text('Vehicle revenue details'),
-                      ),
-                    if (v['activeAssignmentCode'] != null)
-                      ListTile(
-                        title: Text(
-                          'Vehicle assignment code - ${v['assignmentCodeStatus'] ?? 'single use'}',
-                        ),
-                        subtitle: SelectableText(
-                          v['activeAssignmentCode'].toString(),
-                        ),
-                      ),
-                    if (v['assignedDriver'] is Map)
-                      ListTile(
-                        title: const Text('Assigned Driver'),
-                        subtitle: Text(
-                          v['assignedDriver']['name']?.toString() ?? 'Driver',
-                        ),
-                      ),
-                    if (rejectionReason(v) != null) Text(rejectionReason(v)!),
-                    TextButton(
-                      onPressed: assets.busy ? null : () => _vehicle(v),
-                      child: const Text('Edit vehicle'),
-                    ),
-                    TextButton(
-                      onPressed: assets.busy
-                          ? null
-                          : () => _vehicleDocuments(v),
-                      child: const Text('Vehicle documents'),
-                    ),
-                    _review(
-                      'vehicle',
-                      v['id'] as String,
-                      'vehicle_verification',
-                    ),
-                    if (!assets.fleetMode) ...[
-                      Wrap(
-                        children: [
-                          for (final state in [
-                            'ACTIVE',
-                            'INACTIVE',
-                            'MAINTENANCE',
-                          ])
-                            TextButton(
-                              onPressed: assets.busy
-                                  ? null
-                                  : () => assets.operate(
-                                      v['id'] as String,
-                                      state,
-                                    ),
-                              child: Text(state),
-                            ),
-                        ],
-                      ),
-                      TextButton(
-                        onPressed: assets.busy || session.profile == null
-                            ? null
-                            : () async {
-                                final ok = await session.run(() async {
-                                  await session.api.request(
-                                    'POST',
-                                    '/rides/driver/active-vehicle',
-                                    body: {'vehicleId': v['id']},
-                                  );
-                                });
-                                if (ok) await session.refresh();
-                              },
-                        child: const Text('Select own approved vehicle'),
-                      ),
-                    ],
-                    if (assets.fleetMode) ...[
-                      Wrap(
-                        children: [
-                          for (final state in [
-                            'ACTIVE',
-                            'INACTIVE',
-                            'MAINTENANCE',
-                          ])
-                            TextButton(
-                              onPressed: assets.busy
-                                  ? null
-                                  : () => assets.operate(
-                                      v['id'] as String,
-                                      state,
-                                    ),
-                              child: Text(state),
-                            ),
-                        ],
-                      ),
-                      TextButton(
-                        onPressed: assets.busy
-                            ? null
-                            : () async {
-                                final eligible = assets.drivers
-                                    .where(
-                                      (d) =>
-                                          d['verificationStatus'] ==
-                                              'approved' &&
-                                          d['assignedVehicle'] == null,
-                                    )
-                                    .toList();
-                                final selected = await showDialog<String>(
-                                  context: context,
-                                  builder: (c) => SimpleDialog(
-                                    title: const Text(
-                                      'Select an eligible Driver',
-                                    ),
-                                    children: [
-                                      SimpleDialogOption(
-                                        onPressed: () => Navigator.pop(c, ''),
-                                        child: const Text(
-                                          'Any eligible Driver in my Fleet',
-                                        ),
-                                      ),
-                                      if (eligible.isEmpty)
-                                        const Padding(
-                                          padding: EdgeInsets.all(20),
-                                          child: Text(
-                                            'No eligible unassigned Drivers. Add or review fleet memberships first.',
-                                          ),
-                                        ),
-                                      for (final d in eligible)
-                                        SimpleDialogOption(
-                                          onPressed: () => Navigator.pop(
-                                            c,
-                                            d['id'] as String,
-                                          ),
-                                          child: Text(
-                                            d['name']?.toString() ?? 'Driver',
-                                          ),
-                                        ),
-                                    ],
-                                  ),
-                                );
-                                if (selected == null) return;
-                                final code = await assets.assignmentCode(
-                                  v['id'] as String,
-                                  selected.isEmpty ? null : selected,
-                                );
-                                if (context.mounted && code != null) {
-                                  showDialog<void>(
-                                    context: context,
-                                    builder: (context) => AlertDialog(
-                                      title: const Text(
-                                        'Fleet assignment code',
-                                      ),
-                                      content: SelectableText(
-                                        '${code['code']}\nExpires: ${code['expiresAt']}',
-                                      ),
-                                      actions: [
-                                        TextButton(
-                                          onPressed: () =>
-                                              Navigator.pop(context),
-                                          child: const Text('Close'),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                }
-                              },
-                        child: const Text('Generate assignment code'),
-                      ),
-                      TextButton(
-                        onPressed: assets.busy
-                            ? null
-                            : () => assets.unassign(v['id'] as String),
-                        child: const Text('Unassign driver'),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
+              _vehicleCard(vehicle, session),
           ],
           if (assets.fleetMode && _tab == 2) ...[
             Text('Drivers', style: Theme.of(context).textTheme.titleLarge),
             if (!assets.approvedPartner)
               const Text(
-                'Your business must be approved before creating or inviting Drivers. Complete the business details and request verification from the provider profile.',
+                'Your business must be approved before creating Drivers. Complete the business details and request verification from the provider profile.',
               ),
             const SizedBox(height: 12),
             FilledButton.icon(
@@ -1176,47 +1336,6 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
                   ],
                 ),
               ),
-            OutlinedButton.icon(
-              onPressed: assets.busy || !assets.approvedPartner
-                  ? null
-                  : () async {
-                      final input = await _form(
-                        'Add Driver',
-                        {'email': 'Registered Driver email'},
-                        requiredFields: {'email'},
-                      );
-                      if (input == null) return;
-                      Map<String, dynamic>? invite;
-                      final ok = await assets.run(() async {
-                        invite = Map<String, dynamic>.from(
-                          await session.api.request(
-                            'POST',
-                            '/provider/fleet-drivers',
-                            body: input,
-                          ) as Map,
-                        );
-                      });
-                      if (ok && context.mounted) {
-                        await showDialog<void>(
-                          context: context,
-                          builder: (c) => AlertDialog(
-                            title: const Text('Fleet invitation'),
-                            content: SelectableText(
-                              'Invitation created. The Driver can accept from Account > Fleet invitations. Expires: ${invite!['expiresAt']}',
-                            ),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(c),
-                                child: const Text('Close'),
-                              ),
-                            ],
-                          ),
-                        );
-                      }
-                    },
-              icon: const Icon(Icons.person_add_alt),
-              label: const Text('Invite an existing Driver'),
-            ),
             for (final invite in assets.invitations)
               ListTile(
                 leading: const Icon(Icons.person_outline),

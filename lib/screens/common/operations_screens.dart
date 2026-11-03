@@ -336,69 +336,91 @@ class TripsScreen extends StatelessWidget {
                 padding: const EdgeInsets.all(Ops.padding),
                 physics: const AlwaysScrollableScrollPhysics(),
                 children: [
-                  if (session.busy) const LinearProgressIndicator(),
-                  if (session.error != null)
-                    OpsError(session.error!, retry: session.refresh),
-                  if (rows.isEmpty) const OpsEmpty('No trips in this view.'),
-                  Text('Showing ${trips.length} most recent server records.'),
-                  for (final ride in rows)
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(14),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '${ride['pickupAddress'] ?? 'Pickup unavailable'} → ${ride['destinationAddress'] ?? 'Destination unavailable'}',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w600,
+                  if (session.busy)
+                    const Padding(
+                      padding: EdgeInsets.all(16),
+                      child: LinearProgressIndicator(),
+                    )
+                  else if (session.error != null || session.history == null)
+                    OpsError(
+                      'We couldn\'t load your trips. Please try again.',
+                      retry: session.refresh,
+                    )
+                  else if (rows.isEmpty)
+                    const OpsEmpty('No trips in this view.'),
+                  if (!session.busy &&
+                      session.error == null &&
+                      session.history != null &&
+                      rows.isNotEmpty)
+                    Text('Showing ${trips.length} most recent server records.'),
+                  if (!session.busy &&
+                      session.error == null &&
+                      session.history != null)
+                    for (final ride in rows)
+                      Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(14),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '${ride['pickupAddress'] ?? 'Pickup unavailable'} → ${ride['destinationAddress'] ?? 'Destination unavailable'}',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              '${ride['createdAt'] ?? ''}',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: Ops.textSecondary,
+                              const SizedBox(height: 8),
+                              Text(
+                                '${ride['createdAt'] ?? ''}',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Ops.textSecondary,
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 8),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  ride['finalFare'] == null
-                                      ? 'Fare unavailable'
-                                      : inrRupees(ride['finalFare']),
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w700,
+                              const SizedBox(height: 8),
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    ride['finalFare'] == null
+                                        ? 'Fare unavailable'
+                                        : inrRupees(ride['finalFare']),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                    ),
                                   ),
-                                ),
-                                StatusPill(
-                                  ride['status']?.toString() ?? 'Unknown',
-                                ),
-                              ],
-                            ),
-                            ExpansionTile(
-                              dense: true,
-                              tilePadding: EdgeInsets.zero,
-                              title: const Text(
-                                'Trip reference',
-                                style: TextStyle(fontSize: 11),
+                                  StatusPill(
+                                    ride['status']?.toString() ?? 'Unknown',
+                                  ),
+                                ],
                               ),
-                              children: [SelectableText('Ride ${ride['id']}')],
-                            ),
-                          ],
+                              ExpansionTile(
+                                dense: true,
+                                tilePadding: EdgeInsets.zero,
+                                title: const Text(
+                                  'Trip reference',
+                                  style: TextStyle(fontSize: 11),
+                                ),
+                                children: [
+                                  SelectableText('Ride ${ride['id']}'),
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                  if (trips.length >= session.historyLimit &&
+                  if (!session.busy &&
+                      session.error == null &&
+                      trips.length >= session.historyLimit &&
                       session.historyLimit < 100)
                     OutlinedButton(
                       onPressed: session.busy ? null : session.loadMoreHistory,
                       child: const Text('Load more trips'),
                     ),
-                  if (trips.length >= 100)
+                  if (!session.busy &&
+                      session.error == null &&
+                      trips.length >= 100)
                     const Text(
                       'The history API supports up to 100 recent trips.',
                     ),
@@ -450,6 +472,13 @@ class AccountScreen extends StatelessWidget {
                     'Verification: ${(session.profile!['verificationStatus'] ?? 'Unknown').toString().replaceAll('_', ' ')}',
                   ),
               ],
+            ),
+          ),
+          const Padding(
+            padding: EdgeInsets.only(top: 12, bottom: 4),
+            child: Text(
+              'Account',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
             ),
           ),
           const AccountDetailsCard(),
@@ -518,6 +547,13 @@ class AccountScreen extends StatelessWidget {
               'Driver onboarding & verification',
               '/verification-status',
             ),
+          const Padding(
+            padding: EdgeInsets.only(top: 12, bottom: 4),
+            child: Text(
+              'Preferences & support',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+            ),
+          ),
           _link(
             context,
             Icons.notifications_outlined,
@@ -542,7 +578,17 @@ class AccountScreen extends StatelessWidget {
             'Help & support',
             '/support-tickets',
           ),
+          const Divider(height: 24),
+          const Padding(
+            padding: EdgeInsets.only(bottom: 4),
+            child: Text(
+              'Account actions',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+            ),
+          ),
           ListTile(
+            minTileHeight: 56,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 4),
             leading: const Icon(Icons.logout, color: Ops.error),
             title: const Text('Log out'),
             onTap: session.busy
@@ -569,13 +615,13 @@ class AccountScreen extends StatelessWidget {
     IconData icon,
     String title,
     String path,
-  ) => Card(
-    child: ListTile(
-      leading: Icon(icon),
-      title: Text(title),
-      trailing: const Icon(Icons.chevron_right),
-      onTap: () => context.push(path),
-    ),
+  ) => ListTile(
+    minTileHeight: 56,
+    contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+    leading: SizedBox(width: 24, child: Icon(icon)),
+    title: Text(title),
+    trailing: const Icon(Icons.chevron_right),
+    onTap: () => context.push(path),
   );
 }
 

@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/theme.dart';
 import '../../providers/driver_session.dart';
 import '../../widgets/signup_verification_layout.dart';
 
@@ -18,6 +19,21 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
   final _otp = TextEditingController();
   Timer? _timer;
   bool _submitting = false;
+
+  String _friendlyVerificationError(DriverSession session) {
+    final contact = session.verificationContact ?? 'your account';
+    final details = '${session.errorCode ?? ''} ${session.error ?? ''}'
+        .toLowerCase();
+    if (details.contains('expired')) {
+      return 'That verification code expired for $contact. Request a new code.';
+    }
+    if (details.contains('invalid') ||
+        details.contains('incorrect') ||
+        details.contains('does not match')) {
+      return 'That code does not match the one sent to $contact. Check it and try again.';
+    }
+    return 'We could not verify the code for $contact. Check it and try again.';
+  }
 
   @override
   void initState() {
@@ -71,13 +87,15 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
       children: [
         Text(
           'Enter your verification code',
-          style: Theme.of(context).textTheme.headlineSmall,
+          style: Theme.of(context).textTheme.titleMedium
+              ?.copyWith(fontSize: 17),
         ),
         const SizedBox(height: 12),
         Text(
           active
               ? 'Enter the 6-digit code for ${session.verificationContact ?? 'your registered contact'}.'
               : 'Start signup or login to request a verification code.',
+          style: Theme.of(context).textTheme.bodyLarge,
         ),
         if (!signup) ...[
           const SizedBox(height: 12),
@@ -109,15 +127,37 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
           onSubmitted: (_) => _verify(session),
         ),
         if (expired)
-          const Text(
-            'This code has expired. Start signup again to request a new code.',
+          const Text('This code has expired. Go back to request a new one.'),
+        if (active && !expired)
+          Container(
+            margin: const EdgeInsets.only(top: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: InfurnusTheme.greenLight,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: InfurnusTheme.greenBorder),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.schedule, size: 18),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    remaining > 0
+                        ? 'Resend available in ${remaining}s'
+                        : 'You can request a new code.',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ),
+              ],
+            ),
           ),
         if (session.error != null) ...[
           const SizedBox(height: 12),
           Semantics(
             liveRegion: true,
             child: Text(
-              session.error!,
+              _friendlyVerificationError(session),
               style: TextStyle(color: Theme.of(context).colorScheme.error),
             ),
           ),
@@ -141,6 +181,13 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
         ),
         const SizedBox(height: 12),
         TextButton(
+          style: TextButton.styleFrom(
+            minimumSize: const Size.fromHeight(48),
+            textStyle: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
           onPressed: !active || busy || expired || remaining > 0
               ? null
               : () async {
@@ -160,11 +207,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                     if (mounted) setState(() => _submitting = false);
                   }
                 },
-          child: Text(
-            remaining > 0
-                ? 'Resend in ${remaining}s'
-                : 'Resend verification code',
-          ),
+          child: const Text('Resend verification code'),
         ),
         TextButton(
           onPressed: busy

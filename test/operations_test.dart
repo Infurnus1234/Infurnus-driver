@@ -13,12 +13,35 @@ import 'package:infurnus_driver/core/operations_theme.dart';
 import 'package:infurnus_driver/models/route_geometry.dart';
 import 'package:infurnus_driver/providers/driver_session.dart';
 import 'package:infurnus_driver/screens/common/operations_screens.dart';
+import 'package:infurnus_driver/screens/driver/operations_dashboard.dart';
 import 'package:infurnus_driver/services/api_service.dart';
 import 'package:infurnus_driver/services/notification_service.dart';
 import 'package:infurnus_driver/widgets/operations.dart';
 import 'package:infurnus_driver/screens/fleet/fleet_reports_screen.dart';
 
 void main() {
+  test('operations theme defines pressed and disabled button states', () {
+    final theme = Ops.theme;
+    final filled = theme.filledButtonTheme.style!;
+    expect(
+      filled.backgroundColor!.resolve({WidgetState.pressed}),
+      Ops.actionPrimaryPressed,
+    );
+    expect(
+      filled.backgroundColor!.resolve({WidgetState.disabled}),
+      Ops.disabled,
+    );
+    final outlined = theme.outlinedButtonTheme.style!;
+    expect(
+      outlined.foregroundColor!.resolve({WidgetState.disabled}),
+      Ops.textMuted,
+    );
+    final textButton = theme.textButtonTheme.style!;
+    expect(
+      textButton.foregroundColor!.resolve({WidgetState.pressed}),
+      Ops.actionPrimaryPressed,
+    );
+  });
   test('fleet CSV escapes spreadsheet formulas and quoted content', () {
     expect(
       fleetCsvCell('=HYPERLINK("https://example.invalid")'),
@@ -112,7 +135,11 @@ void main() {
             .value,
         isTrue,
       );
-      expect(find.text('Preference could not be saved'), findsOneWidget);
+      expect(
+        find.text('We couldn\'t complete this request. Please try again.'),
+        findsOneWidget,
+      );
+      expect(find.text('Preference could not be saved'), findsNothing);
       await tester.pumpWidget(const SizedBox());
       session.dispose();
     },
@@ -204,6 +231,106 @@ void main() {
       session.dispose();
     },
   );
+  testWidgets('profile settings group sections and separate account actions', (
+    tester,
+  ) async {
+    final api = ApiService(
+      client: MockClient(
+        (request) async => http.Response(
+          jsonEncode({
+            'success': true,
+            'data': {'firstName': 'Fixture', 'lastName': 'Driver'},
+          }),
+          200,
+        ),
+      ),
+    );
+    final session = DriverSession(api: api);
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: session,
+        child: MaterialApp(theme: Ops.theme, home: const AccountScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Account'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Preferences & support'),
+      240,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Preferences & support'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Account actions'),
+      240,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Account actions'), findsOneWidget);
+    expect(find.text('Log out'), findsOneWidget);
+    expect(find.text('Notifications'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+    session.dispose();
+  });
+  testWidgets(
+    'home load error is friendly and excludes the offers empty state',
+    (tester) async {
+      final session = DriverSession()..error = 'Internal server error';
+      await tester.pumpWidget(
+        ChangeNotifierProvider.value(
+          value: session,
+          child: MaterialApp(
+            theme: Ops.theme,
+            home: const OperationsDashboard(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.text('We couldn\'t load this information. Please try again.'),
+        findsOneWidget,
+      );
+      expect(find.text('Internal server error'), findsNothing);
+      expect(find.text('No ride offers right now.'), findsNothing);
+      expect(find.textContaining('Map is unavailable'), findsNothing);
+      expect(find.text('Retry'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox());
+      session.dispose();
+    },
+  );
+  testWidgets('notification load error never appears with the empty state', (
+    tester,
+  ) async {
+    final api = ApiService(
+      client: MockClient(
+        (request) async => http.Response(
+          '{"success":false,"error":{"code":"INTERNAL","message":"Internal server error"}}',
+          500,
+        ),
+      ),
+    );
+    final session = DriverSession(api: api);
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: session,
+        child: MaterialApp(
+          theme: Ops.theme,
+          home: const ServerNotificationInbox(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('No notifications yet.'), findsNothing);
+    expect(find.text('Internal server error'), findsNothing);
+    expect(
+      find.text('We couldn\'t load notifications. Please try again.'),
+      findsOneWidget,
+    );
+    expect(find.text('Retry'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+    session.dispose();
+  });
   test('road geometry decodes known provider polyline', () {
     final points = decodeRoutePolyline('_p~iF~ps|U_ulLnnqC_mqNvxq`@');
     expect(points, [
@@ -352,6 +479,70 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('No trips in this view.'), findsOneWidget);
       await tester.pumpWidget(const SizedBox());
+      session.dispose();
+    },
+  );
+  testWidgets('trip load error never appears with a true empty state', (
+    tester,
+  ) async {
+    final session = DriverSession()
+      ..history = {'rides': <Map<String, dynamic>>[]}
+      ..error = 'Assignment code is invalid or has expired';
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: session,
+        child: MaterialApp(theme: Ops.theme, home: const TripsScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('No trips in this view.'), findsNothing);
+    expect(
+      find.text('Assignment code is invalid or has expired'),
+      findsNothing,
+    );
+    expect(
+      find.text('We couldn\'t load your trips. Please try again.'),
+      findsOneWidget,
+    );
+    expect(find.text('Retry'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+    session.dispose();
+  });
+  test(
+    'assignment verification does not trigger an unrelated session reload',
+    () async {
+      final paths = <String>[];
+      final api = ApiService(
+        client: MockClient((request) async {
+          paths.add(request.url.path);
+          return http.Response(
+            '{"success":true,"data":{"vehicle":{"id":"vehicle-1"},"owner":{"id":"owner-1"}}}',
+            200,
+          );
+        }),
+      );
+      final session = DriverSession(api: api);
+      expect(await session.previewAssignment('001234'), isTrue);
+      expect(paths, ['/rides/driver/assignment/verify-code']);
+      expect(session.assignmentPreview?['vehicle']?['id'], 'vehicle-1');
+      session.dispose();
+    },
+  );
+  test(
+    'assignment verifier errors map to friendly actionable messages',
+    () async {
+      final api = ApiService(
+        client: MockClient(
+          (request) async => http.Response(
+            '{"success":false,"error":{"code":"ASSIGNMENT_CODE_EXPIRED","message":"Raw backend detail"}}',
+            410,
+          ),
+        ),
+      );
+      final session = DriverSession(api: api);
+      expect(await session.previewAssignment('001234'), isFalse);
+      expect(session.error, contains('expired'));
+      expect(session.error, isNot(contains('Raw backend detail')));
       session.dispose();
     },
   );

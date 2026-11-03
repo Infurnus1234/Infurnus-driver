@@ -20,7 +20,34 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _passwordLogin = false;
   bool _rememberMe = true;
   bool _useEmail = false;
+  bool _identifierAttempted = false;
   String? _clientValidationMessage;
+
+  bool get _identifierIsValid {
+    final input = _identifier.text.trim();
+    if (input.isEmpty) return false;
+    if (_useEmail || input.contains('@')) {
+      return RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(input);
+    }
+    return true;
+  }
+
+  String? get _emailValidationError {
+    if (!_useEmail || !_identifierAttempted) return null;
+    final input = _identifier.text.trim();
+    if (input.isEmpty) return 'Enter your email address.';
+    return RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(input)
+        ? null
+        : 'Enter a valid email address.';
+  }
+
+  String? _loginError(DriverSession session) {
+    if (session.error == null) return null;
+    if (session.errorCode == 'INVALID_CREDENTIALS') {
+      return 'Those sign-in details could not be verified. Check them and retry.';
+    }
+    return 'We couldn\'t sign you in. Check your connection and try again.';
+  }
 
   @override
   void dispose() {
@@ -53,7 +80,10 @@ class _LoginScreenState extends State<LoginScreen> {
   );
 
   void _validateAndSubmit(DriverSession session) async {
-    setState(() => _clientValidationMessage = null);
+    setState(() {
+      _identifierAttempted = true;
+      _clientValidationMessage = null;
+    });
     final rawInput = _identifier.text.trim();
 
     if (rawInput.isEmpty) {
@@ -66,13 +96,7 @@ class _LoginScreenState extends State<LoginScreen> {
     }
 
     if (_useEmail || rawInput.contains('@')) {
-      if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(rawInput)) {
-        setState(
-          () =>
-              _clientValidationMessage = 'Please enter a valid email address.',
-        );
-        return;
-      }
+      if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(rawInput)) return;
     } else {
       final digits = rawInput.replaceAll(RegExp(r'\D'), '');
       if (digits.length < 10) {
@@ -286,6 +310,10 @@ class _LoginScreenState extends State<LoginScreen> {
                                       vertical: 15,
                                     ),
                                   ),
+                                  onChanged: (_) => setState(() {
+                                    _clientValidationMessage = null;
+                                    _identifierAttempted = true;
+                                  }),
                                 ),
                               ),
                             ],
@@ -297,10 +325,16 @@ class _LoginScreenState extends State<LoginScreen> {
                           enabled: !session.busy,
                           keyboardType: TextInputType.emailAddress,
                           autofillHints: const [AutofillHints.email],
-                          decoration: const InputDecoration(
+                          decoration: InputDecoration(
                             labelText: 'Email Address',
-                            prefixIcon: Icon(Icons.email_outlined),
+                            prefixIcon: const Icon(Icons.email_outlined),
+                            helperText: 'Enter a valid email to continue.',
+                            errorText: _emailValidationError,
                           ),
+                          onChanged: (_) => setState(() {
+                            _clientValidationMessage = null;
+                            _identifierAttempted = true;
+                          }),
                         ),
 
                       if (_passwordLogin) ...[
@@ -353,6 +387,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                 : () => setState(() {
                                     _useEmail = !_useEmail;
                                     _identifier.clear();
+                                    _identifierAttempted = false;
+                                    _clientValidationMessage = null;
                                   }),
                             child: Text(
                               _useEmail ? 'Use Phone' : 'Use Email',
@@ -368,7 +404,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                       // Error display
                       if (_clientValidationMessage != null ||
-                          session.error != null) ...[
+                          _loginError(session) != null) ...[
                         Container(
                           margin: const EdgeInsets.symmetric(vertical: 8),
                           padding: const EdgeInsets.symmetric(
@@ -390,7 +426,8 @@ class _LoginScreenState extends State<LoginScreen> {
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
-                                  _clientValidationMessage ?? session.error!,
+                                  _clientValidationMessage ??
+                                      _loginError(session)!,
                                   style: GoogleFonts.inter(
                                     color: InfurnusTheme.dangerRed,
                                     fontSize: 13,
@@ -406,15 +443,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
                       // Primary Continue Button
                       ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: InfurnusTheme.buttonBlack,
-                          foregroundColor: Colors.white,
-                          minimumSize: const Size.fromHeight(52),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                        ),
-                        onPressed: session.busy
+                        onPressed:
+                            session.busy || (_useEmail && !_identifierIsValid)
                             ? null
                             : () => _validateAndSubmit(session),
                         child: session.busy

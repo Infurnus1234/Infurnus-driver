@@ -7,6 +7,7 @@ import 'reference_components.dart';
 class AssignedVehicleCard extends StatelessWidget {
   final Map<String, dynamic>? vehicle;
   final bool loading, canManage;
+  final String? error;
   final VoidCallback retry;
   const AssignedVehicleCard({
     super.key,
@@ -14,6 +15,7 @@ class AssignedVehicleCard extends StatelessWidget {
     required this.loading,
     required this.retry,
     this.canManage = true,
+    this.error,
   });
   @override
   Widget build(BuildContext context) {
@@ -30,10 +32,17 @@ class AssignedVehicleCard extends StatelessWidget {
                 style: TextStyle(fontWeight: FontWeight.w700),
               ),
               Text(
-                loading ? 'Loading assigned vehicle…' : 'Unassigned · Enter a vehicle code when you are ready to join.',
+                loading ? 'Loading assigned vehicle…' : error ?? 'Unassigned · Enter a vehicle code when you are ready to join.',
               ),
+              if (loading) const LinearProgressIndicator(),
+              if (error != null && !loading)
+                TextButton.icon(
+                  onPressed: canManage ? retry : null,
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Retry'),
+                ),
               TextButton(
-                onPressed: loading || !canManage
+                onPressed: loading || error != null || !canManage
                     ? null
                     : () => context.push('/driver/assignment'),
                 child: const Text('Manage vehicle assignment'),
@@ -59,8 +68,8 @@ class AssignedVehicleCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 SizedBox(
-                  width: 112,
-                  height: 100,
+                  width: 84,
+                  height: 72,
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(10),
                     child: photo != null && photo.isNotEmpty
@@ -99,7 +108,7 @@ class AssignedVehicleCard extends StatelessWidget {
                         value['plateNumber']?.toString() ??
                             'Registration unavailable',
                         style: const TextStyle(
-                          fontSize: 19,
+                          fontSize: 17,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -158,31 +167,37 @@ class AssignedVehicleCard extends StatelessWidget {
   Widget _missing(String message, VoidCallback? retry) => Container(
     color: Ops.backgroundSecondary,
     child: Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(
-            Icons.directions_car_outlined,
-            size: 20,
-            color: Ops.textSecondary,
-          ),
-          Text(
-            message,
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 11),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-          if (retry != null)
-            TextButton(
-              style: TextButton.styleFrom(
-                padding: EdgeInsets.zero,
-                minimumSize: const Size(0, 24),
-              ),
-              onPressed: retry,
-              child: const Text('Retry photo', style: TextStyle(fontSize: 11)),
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.directions_car_outlined,
+              size: 16,
+              color: Ops.textSecondary,
             ),
-        ],
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 10),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            if (retry != null)
+              TextButton(
+                style: TextButton.styleFrom(
+                  padding: EdgeInsets.zero,
+                  minimumSize: const Size(0, 24),
+                ),
+                onPressed: retry,
+                child: const Text(
+                  'Retry photo',
+                  style: TextStyle(fontSize: 11),
+                ),
+              ),
+          ],
+        ),
       ),
     ),
   );

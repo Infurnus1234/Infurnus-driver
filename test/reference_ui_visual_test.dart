@@ -186,6 +186,12 @@ void main() {
                           'sector': 'passenger',
                           'active': true,
                         },
+                        {
+                          'code': 'tata_407',
+                          'name': 'Tata 407',
+                          'sector': 'logistics',
+                          'active': true,
+                        },
                       ],
                     };
                   case '/provider/approvals':
@@ -535,13 +541,21 @@ void main() {
       }
       if (name == 'add-vehicle') {
         expect(find.text('Vehicle category and type'), findsOneWidget);
-        await tester.tap(find.byType(DropdownButtonFormField<String>).first);
+        final categoryDropdown = find
+            .descendant(
+              of: find.byType(AlertDialog),
+              matching: find.byType(DropdownButtonFormField<String>),
+            )
+            .first;
+        await tester.ensureVisible(categoryDropdown);
+        await tester.tap(categoryDropdown);
         await tester.pumpAndSettle();
-        await tester.tap(find.text('passenger').last);
+        expect(find.text('passenger'), findsNothing);
+        await tester.tap(find.text('logistics').last);
         await tester.pumpAndSettle();
         await tester.tap(find.byType(DropdownButtonFormField<String>).last);
         await tester.pumpAndSettle();
-        await tester.tap(find.text('Sedan').last);
+        await tester.tap(find.text('Tata 407').last);
         await tester.pumpAndSettle();
         await tester.tap(find.text('Continue'));
         await tester.pumpAndSettle();
