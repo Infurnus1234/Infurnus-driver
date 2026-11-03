@@ -42,9 +42,7 @@ class ProviderAssets extends ChangeNotifier {
       await action();
       return true;
     } catch (e) {
-      error = e is ApiException
-          ? e.message
-          : 'Unable to complete the action. Please retry.';
+      error = userSafeErrorMessage(e);
       return false;
     } finally {
       busy = false;

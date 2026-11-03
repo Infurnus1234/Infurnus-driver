@@ -268,11 +268,7 @@ class _FleetLocationMapState extends State<FleetLocationMap> {
             ],
           ),
           if (_configured == null) const LinearProgressIndicator(),
-          if (_configured == false)
-            const OpsEmpty(
-              'Live map is unavailable in this build. Location records remain available below.',
-              icon: Icons.map_outlined,
-            ),
+          if (_configured == false) const SizedBox.shrink(),
           if (_configured == true && points.isNotEmpty)
             SizedBox(
               height: 260,

@@ -20,7 +20,13 @@ class ApiException implements Exception {
   final String message;
   final int? status;
   final String? code;
-  const ApiException(this.message, [this.status, this.code]);
+  final bool generic;
+  const ApiException(
+    this.message, [
+    this.status,
+    this.code,
+    this.generic = false,
+  ]);
   @override
   String toString() => message;
 }
@@ -226,11 +232,15 @@ class ApiService {
       throw ApiException(
         'The server returned an invalid response.',
         response.statusCode,
+        null,
+        true,
       );
     } on TypeError {
       throw ApiException(
         'The server returned an invalid response.',
         response.statusCode,
+        null,
+        true,
       );
     }
     if (response.statusCode < 200 ||
@@ -253,12 +263,14 @@ class ApiService {
           !invalidLinkIdentity) {
         clearSession();
       }
+      final isFallback = error is! Map || error['message'] == null;
       throw ApiException(
         error is Map
             ? error['message']?.toString() ?? 'Request failed.'
             : 'Request failed (${response.statusCode}).',
         response.statusCode,
         error is Map ? error['code']?.toString() : null,
+        isFallback,
       );
     }
     if (response.statusCode == 204) return null;
@@ -754,4 +766,14 @@ class ApiService {
       fileField: bundle ? 'files' : 'file',
     );
   }
+}
+
+String userSafeErrorMessage(Object e) {
+  if (e is ApiException) {
+    if (e.generic || e.message.isEmpty) {
+      return "We couldn't load this information. Please try again.";
+    }
+    return e.message;
+  }
+  return "We couldn't load this information. Please try again.";
 }
