@@ -1,5 +1,3 @@
-import 'dart:developer' as developer;
-
 import 'package:flutter/material.dart';
 
 import '../../models/vehicle_category_policy.dart';
@@ -24,10 +22,8 @@ class _VehicleCategoryDialog extends StatefulWidget {
 }
 
 class _VehicleCategoryDialogState extends State<_VehicleCategoryDialog> {
-  final _customName = TextEditingController();
   late Future<dynamic> _catalog;
   String? _sector, _type, _error;
-  bool _creating = false, _addingCustomType = false;
 
   @override
   void initState() {
@@ -35,50 +31,6 @@ class _VehicleCategoryDialogState extends State<_VehicleCategoryDialog> {
     _sector = widget.initial?['sector'] as String?;
     _type = widget.initial?['category'] as String?;
     _catalog = widget.api.request('GET', '/provider/vehicle-catalog');
-  }
-
-  @override
-  void dispose() {
-    _customName.dispose();
-    super.dispose();
-  }
-
-  Future<void> _create() async {
-    if (_sector == null ||
-        !VehicleCategoryPolicy.isSelectableSector(_sector) ||
-        _sector == 'logistics' ||
-        _customName.text.trim().isEmpty) {
-      return;
-    }
-    setState(() {
-      _creating = true;
-      _error = null;
-    });
-    try {
-      final created = await widget.api.request(
-        'POST',
-        '/provider/vehicle-catalog/custom',
-        body: {'sector': _sector, 'name': _customName.text.trim()},
-      ) as Map;
-      if (!mounted) return;
-      setState(() {
-        _type = created['code'] as String;
-        _customName.clear();
-        _addingCustomType = false;
-        _catalog = widget.api.request('GET', '/provider/vehicle-catalog');
-      });
-    } catch (e) {
-      developer.log(
-        'Custom vehicle type creation failed',
-        name: 'VehicleCategoryDialog',
-        error: e,
-      );
-      if (mounted) {
-        setState(() => _error = 'Could not create this type. Please retry.');
-      }
-    } finally {
-      if (mounted) setState(() => _creating = false);
-    }
   }
 
   @override
@@ -115,26 +67,27 @@ class _VehicleCategoryDialogState extends State<_VehicleCategoryDialog> {
         final sectors = List<String>.from(data['sectors'] as List)
             .where(VehicleCategoryPolicy.isSelectableSector)
             .toList();
-        final matches = (data['types'] as List)
-            .cast<Map>()
-            .where(
-              (type) =>
-                  (type['sector'] == _sector &&
-                      VehicleCategoryPolicy.allowsType(
-                        _sector,
-                        type['name']?.toString(),
-                      )) ||
-                  (_sector == 'rental' &&
-                      type['sector'] == 'premium' &&
-                      VehicleCategoryPolicy.allowsType(
-                        _sector,
-                        type['name']?.toString(),
-                      )),
-            )
-            .toList();
-        final types = <String, Map>{
-          for (final type in matches) type['code'] as String: type,
-        }.values.toList();
+        final rawTypes = (data['types'] as List).cast<Map>();
+        final matches = rawTypes.where((type) {
+          final s = type['sector']?.toString();
+          final c = type['code']?.toString();
+          return VehicleCategoryPolicy.allowsCode(s, c) &&
+              s?.toLowerCase() == _sector?.toLowerCase();
+        }).toList();
+
+        // Deduplicate by composite key (sector, code)
+        final seenKeys = <String>{};
+        final types = <Map>[];
+        for (final type in matches) {
+          final sector = (type['sector'] as String? ?? '').toLowerCase();
+          final code = (type['code'] as String? ?? '').toLowerCase();
+          final key = '$sector:$code';
+          if (code.isNotEmpty && !seenKeys.contains(key)) {
+            seenKeys.add(key);
+            types.add(type);
+          }
+        }
+
         final selectedType = types.any((type) => type['code'] == _type)
             ? _type
             : null;
@@ -167,8 +120,6 @@ class _VehicleCategoryDialogState extends State<_VehicleCategoryDialog> {
                   onChanged: (value) => setState(() {
                     _sector = value;
                     _type = null;
-                    _addingCustomType = false;
-                    _customName.clear();
                   }),
                 ),
                 const SizedBox(height: 16),
@@ -193,52 +144,7 @@ class _VehicleCategoryDialogState extends State<_VehicleCategoryDialog> {
                   const Text(
                     'No configured types are available for this category.',
                   ),
-                if (_sector != null &&
-                    VehicleCategoryPolicy.isSelectableSector(_sector) &&
-                    _sector != 'logistics' &&
-                    !_addingCustomType)
-                  TextButton.icon(
-                    onPressed: _creating
-                        ? null
-                        : () => setState(() => _addingCustomType = true),
-                    icon: const Icon(Icons.add),
-                    label: const Text('Add custom vehicle type'),
-                  ),
-                if (_addingCustomType) ...[
-                  TextField(
-                    controller: _customName,
-                    maxLength: 100,
-                    decoration: const InputDecoration(
-                      labelText: 'Custom vehicle type name',
-                    ),
-                    onChanged: (_) => setState(() {}),
-                  ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      TextButton(
-                        onPressed: _creating
-                            ? null
-                            : () => setState(() {
-                                _addingCustomType = false;
-                                _customName.clear();
-                              }),
-                        child: const Text('Cancel'),
-                      ),
-                      FilledButton(
-                        onPressed: _creating || _customName.text.trim().isEmpty
-                            ? null
-                            : _create,
-                        child: const Text('Create type'),
-                      ),
-                    ],
-                  ),
-                ],
                 if (_error != null) Text(_error!),
-                if (_sector != null && _sector != 'logistics')
-                  const Text(
-                    'Custom types are saved for your fleet. Registration does not enable pricing or dispatch.',
-                  ),
               ],
             ),
           ),

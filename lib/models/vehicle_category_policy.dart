@@ -1,19 +1,28 @@
 class VehicleCategoryPolicy {
-  static const Map<String, Set<String>> vehicleTypesBySector = {
+  static const Map<String, Set<String>> vehicleCodesBySector = {
     'logistics': {
-      '3-Wheeler (Goods)',
-      'Mini Truck (Tata Ace)',
-      'Pickup 8ft',
-      'Tata 407',
+      'cargo_207_heavy',
+      'three_wheeler',
+      'cargo_407',
+      'mini_truck',
+      'tata_407',
     },
+    'service': {'ambulance'},
+    'premium': {'thar'},
+    'rental': {'thar'},
   };
 
   static bool isSelectableSector(String? sector) =>
-      sector == null || sector.toLowerCase() != 'passenger';
+      sector != null &&
+      !['passenger', 'passengers'].contains(sector.toLowerCase().trim());
 
-  static bool allowsType(String? sector, String? typeName) {
-    if (!isSelectableSector(sector)) return false;
-    final approvedTypes = vehicleTypesBySector[sector?.toLowerCase()];
-    return approvedTypes == null || approvedTypes.contains(typeName);
+  static bool allowsCode(String? sector, String? code) {
+    if (!isSelectableSector(sector) || sector == null || code == null) {
+      return false;
+    }
+    final sec = sector.toLowerCase().trim();
+    final c = code.toLowerCase().trim();
+    final approvedCodes = vehicleCodesBySector[sec];
+    return approvedCodes != null && approvedCodes.contains(c);
   }
 }
