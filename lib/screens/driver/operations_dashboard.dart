@@ -238,6 +238,11 @@ class OperationsDashboard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
+                      if (trip['sector'] == 'logistics')
+                        LogisticsUpfrontPaymentCard(
+                          trip: trip,
+                          session: session,
+                        ),
                       RideDetails(ride: trip),
                       const RideCustomerContactCard(),
                       Row(
@@ -571,6 +576,125 @@ class _LogisticsPaymentBanner extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class LogisticsUpfrontPaymentCard extends StatelessWidget {
+  final Map trip;
+  final DriverSession session;
+  const LogisticsUpfrontPaymentCard({
+    super.key,
+    required this.trip,
+    required this.session,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (trip['sector'] != 'logistics') return const SizedBox.shrink();
+    final fare =
+        num.tryParse(
+          trip['finalFare']?.toString() ??
+              trip['fareEstimate']?.toString() ??
+              '0',
+        ) ??
+        0;
+    final upfrontAmount = fare * 0.40;
+    final remainingAmount = fare * 0.60;
+    final status =
+        trip['upfrontPaymentStatus']?.toString().toUpperCase() ?? 'PENDING';
+    final method =
+        trip['upfrontPaymentMethod']?.toString().toLowerCase() ?? 'online';
+    final isVerified = status == 'PAID_VERIFIED';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: isVerified ? const Color(0xFFF0FDF4) : const Color(0xFFFEF2F2),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isVerified ? const Color(0xFFBBF7D0) : const Color(0xFFFCA5A5),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Logistics 40% Upfront Payment',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+              ),
+              StatusPill(status),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Total Fare: ${inrRupees(fare)}',
+            style: const TextStyle(fontSize: 13),
+          ),
+          Text(
+            '40% Payable Upfront: ${inrRupees(upfrontAmount)}',
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+          ),
+          Text(
+            '60% Remaining (Post-Delivery): ${inrRupees(remainingAmount)}',
+            style: const TextStyle(color: Ops.textSecondary, fontSize: 12),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Payment Method: ${method.toUpperCase()}',
+            style: const TextStyle(fontSize: 12),
+          ),
+          const SizedBox(height: 10),
+          if (!isVerified) ...[
+            if (method == 'cash')
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Ops.actionPrimary,
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: session.busy
+                    ? null
+                    : () => session.confirmLogisticsUpfrontCash(
+                        trip['id'].toString(),
+                      ),
+                icon: const Icon(Icons.check_circle_outline, size: 18),
+                label: const Text('Confirm 40% Cash Received'),
+              )
+            else
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Ops.actionPrimary,
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: session.busy
+                    ? null
+                    : () => session.payLogisticsUpfrontOnline(
+                        trip['id'].toString(),
+                      ),
+                icon: const Icon(Icons.payment, size: 18),
+                label: const Text('Pay 40% Online (Gateway Verified)'),
+              ),
+            const SizedBox(height: 6),
+            const Text(
+              'Ride start is blocked until 40% upfront payment is verified.',
+              style: TextStyle(color: Ops.error, fontSize: 11),
+            ),
+          ] else ...[
+            const Text(
+              '40% upfront payment verified successfully. You can now verify PIN and start ride.',
+              style: TextStyle(
+                color: Ops.success,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }

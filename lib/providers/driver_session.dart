@@ -1490,6 +1490,13 @@ class DriverSession extends ChangeNotifier {
       if (status == 'completed') {
         currentTrip = null;
       } else {
+        if (status == 'in_progress' &&
+            currentTrip?['sector'] == 'logistics' &&
+            currentTrip?['upfrontPaymentStatus'] != 'PAID_VERIFIED') {
+          throw const ApiException(
+            'Logistics bookings require 40% upfront payment verification (ONLINE or CASH confirmation) before starting the ride.',
+          );
+        }
         currentTrip?['status'] = status;
       }
       return;
@@ -1498,6 +1505,12 @@ class DriverSession extends ChangeNotifier {
     if (status == 'completed') {
       await api.request('POST', '/rides/$id/complete');
     } else if (status == 'in_progress') {
+      if (currentTrip?['sector'] == 'logistics' &&
+          currentTrip?['upfrontPaymentStatus'] != 'PAID_VERIFIED') {
+        throw const ApiException(
+          'Logistics bookings require 40% upfront payment verification (ONLINE or CASH confirmation) before starting the ride.',
+        );
+      }
       if (currentTrip?['status'] != 'driver_arrived' ||
           pin == null ||
           !RegExp(r'^\d{4}$').hasMatch(pin)) {
@@ -1539,6 +1552,40 @@ class DriverSession extends ChangeNotifier {
       }
       rethrow;
     }
+  });
+
+  Future<bool> confirmLogisticsUpfrontCash(String rideId) => run(() async {
+    if (isPreview) {
+      if (currentTrip?['id'] == rideId &&
+          currentTrip?['sector'] == 'logistics') {
+        currentTrip?['upfrontPaymentStatus'] = 'PAID_VERIFIED';
+        currentTrip?['upfrontPaymentMethod'] = 'cash';
+      }
+      return;
+    }
+    await api.request(
+      'POST',
+      '/rides/${Uri.encodeComponent(rideId)}/logistics-upfront-cash',
+      body: {},
+    );
+    await _load();
+  });
+
+  Future<bool> payLogisticsUpfrontOnline(String rideId) => run(() async {
+    if (isPreview) {
+      if (currentTrip?['id'] == rideId &&
+          currentTrip?['sector'] == 'logistics') {
+        currentTrip?['upfrontPaymentStatus'] = 'PAID_VERIFIED';
+        currentTrip?['upfrontPaymentMethod'] = 'online';
+      }
+      return;
+    }
+    await api.request(
+      'POST',
+      '/rides/${Uri.encodeComponent(rideId)}/logistics-upfront-online',
+      body: {},
+    );
+    await _load();
   });
 
   static const _rideEvents = {
