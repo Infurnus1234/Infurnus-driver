@@ -1,3 +1,4 @@
+import '../../models/provider_public_id.dart';
 import '../../widgets/assigned_owner_details.dart';
 
 import 'package:flutter/material.dart';
@@ -242,6 +243,9 @@ class _ManagedDriverScreenState extends State<ManagedDriverScreen> {
               Text(
                 '${profile['firstName']} ${profile['lastName']}',
                 style: Theme.of(context).textTheme.titleLarge,
+              ),
+              Text(
+                'Driver ID: ${providerPublicId(profile['publicId']) ?? 'Unavailable'}',
               ),
               Text('Verification: ${profile['verificationStatus']}'),
               Text(

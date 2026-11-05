@@ -162,7 +162,7 @@ class ProductionDriverScreen extends StatelessWidget {
                   ],
                 ),
               ),
-              const TripMap(),
+              const TripMap(key: ValueKey('driver-map')),
               if (trip != null)
                 OpsPanel(
                   title: 'Active trip · ${trip['status']}',
@@ -232,7 +232,11 @@ class _RideDetails extends StatelessWidget {
   const _RideDetails({required this.ride});
   @override
   Widget build(BuildContext context) {
-    final fare = ride['finalFare'] ?? ride['fareEstimate'];
+    final fare =
+        (ride['rideInformation'] as Map?)?['fare']?['amount'] ??
+        ride['finalFare'] ??
+        ride['fareEstimate'];
+    final rentalHours = (ride['rentalDetails'] as Map?)?['hours'];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -241,6 +245,9 @@ class _RideDetails extends StatelessWidget {
         Text('Destination · ${ride['destinationAddress'] ?? 'Not disclosed'}'),
         const SizedBox(height: 8),
         Text('Category · ${ride['vehicleCategory'] ?? 'Not provided'}'),
+        if (ride['sector'] == 'premium') const Text('Premium'),
+        if (ride['sector'] == 'rental')
+          Text(rentalHours == null ? 'Rental' : 'Rental · $rentalHours hours'),
         if (fare != null)
           Text(
             '${ride['finalFare'] == null ? 'Estimated fare' : 'Final fare'} · ₹$fare',

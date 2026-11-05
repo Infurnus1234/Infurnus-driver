@@ -173,7 +173,8 @@ class _AccountDetailsCardState extends State<AccountDetailsCard> {
 
   @override
   Widget build(BuildContext context) {
-    final account = context.watch<DriverSession>().providerAccount ?? {};
+    final session = context.watch<DriverSession>();
+    final account = session.providerAccount ?? {};
     return Card(
       child: Column(
         children: [
@@ -186,6 +187,10 @@ class _AccountDetailsCardState extends State<AccountDetailsCard> {
               icon: Icon(_expanded ? Icons.expand_less : Icons.expand_more),
               onPressed: () => setState(() => _expanded = !_expanded),
             ),
+          ),
+          ListTile(
+            title: const Text('Provider ID'),
+            subtitle: Text(session.publicId ?? 'Unavailable'),
           ),
           if (_expanded) ...[
             if (_loading) const LinearProgressIndicator(),

@@ -82,8 +82,6 @@ void main() {
         await tester.ensureVisible(find.text('Show vehicle code'));
         await tester.tap(find.text('Show vehicle code'));
         await tester.pumpAndSettle();
-        await tester.tap(find.text('Any eligible Driver in my Fleet'));
-        await tester.pumpAndSettle();
         expect(
           find.textContaining('001234\nUse this same code'),
           findsOneWidget,

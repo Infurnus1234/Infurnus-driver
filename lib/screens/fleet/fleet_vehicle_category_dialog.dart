@@ -23,14 +23,64 @@ class _VehicleCategoryDialog extends StatefulWidget {
 
 class _VehicleCategoryDialogState extends State<_VehicleCategoryDialog> {
   late Future<dynamic> _catalog;
-  String? _sector, _type, _error;
+  String? _sector, _type, _city, _error;
 
   @override
   void initState() {
     super.initState();
     _sector = widget.initial?['sector'] as String?;
     _type = widget.initial?['category'] as String?;
+    _city = widget.initial?['operatingCityId'] as String?;
     _catalog = widget.api.request('GET', '/provider/vehicle-catalog');
+  }
+
+  Future<void> _addCustomType() async {
+    var enteredName = '';
+    final name = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Add custom vehicle type'),
+        content: TextField(
+          onChanged: (value) => enteredName = value,
+          maxLength: 100,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final name = enteredName.trim();
+              if (name.isNotEmpty) Navigator.pop(dialogContext, name);
+            },
+            child: const Text('Create type'),
+          ),
+        ],
+      ),
+    );
+    if (name == null || !mounted) return;
+    try {
+      final created = await widget.api.request(
+        'POST',
+        '/provider/vehicle-catalog/custom',
+        body: {'sector': _sector, 'name': name},
+      ) as Map;
+      if (!mounted) return;
+      setState(() {
+        _type = created['code'] as String;
+        _error = null;
+        _catalog = widget.api.request('GET', '/provider/vehicle-catalog');
+      });
+    } catch (error) {
+      if (mounted) {
+        setState(
+          () => _error = error is ApiException
+              ? error.message
+              : 'Could not create this type. Please retry.',
+        );
+      }
+    }
   }
 
   @override
@@ -64,6 +114,8 @@ class _VehicleCategoryDialogState extends State<_VehicleCategoryDialog> {
         }
 
         final data = snapshot.data as Map;
+        final cities = (data['operatingCities'] as List? ?? []).cast<Map>();
+        final selectedCity = cities.any((c) => c['id'] == _city) ? _city : null;
         final sectors = List<String>.from(data['sectors'] as List)
             .where(VehicleCategoryPolicy.isSelectableSector)
             .toList();
@@ -113,7 +165,9 @@ class _VehicleCategoryDialogState extends State<_VehicleCategoryDialog> {
                       .map(
                         (sector) => DropdownMenuItem(
                           value: sector,
-                          child: Text(sector),
+                          child: Text(
+                            sector == 'passenger' ? 'Rental fleet' : sector,
+                          ),
                         ),
                       )
                       .toList(),
@@ -144,6 +198,34 @@ class _VehicleCategoryDialogState extends State<_VehicleCategoryDialog> {
                   const Text(
                     'No configured types are available for this category.',
                   ),
+                if (_sector == 'premium') ...[
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    key: ValueKey('operating-city:$_city'),
+                    initialValue: selectedCity,
+                    decoration: const InputDecoration(
+                      labelText: 'Supported Bihar city *',
+                    ),
+                    items: cities
+                        .map(
+                          (city) => DropdownMenuItem(
+                            value: city['id'] as String,
+                            child: Text(city['name'].toString()),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (v) => setState(() => _city = v),
+                  ),
+                  if (cities.isEmpty)
+                    const Text(
+                      'No approved Premium cities are configured. Retry configuration before saving.',
+                    ),
+                ],
+                if (_sector != null && _sector != 'logistics')
+                  TextButton(
+                    onPressed: _addCustomType,
+                    child: const Text('Add custom vehicle type'),
+                  ),
                 if (_error != null) Text(_error!),
               ],
             ),
@@ -158,11 +240,15 @@ class _VehicleCategoryDialogState extends State<_VehicleCategoryDialog> {
         child: const Text('Cancel'),
       ),
       FilledButton(
-        onPressed: _sector == null || _type == null
+        onPressed:
+            _sector == null ||
+                _type == null ||
+                (_sector == 'premium' && _city == null)
             ? null
             : () => Navigator.pop(context, {
                 'sector': _sector!,
                 'category': _type!,
+                if (_sector == 'premium') 'operatingCityId': _city!,
               }),
         child: const Text('Continue'),
       ),

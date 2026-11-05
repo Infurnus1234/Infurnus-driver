@@ -71,7 +71,11 @@ void main() {
       appRouter.go('/profile');
       await tester.pumpAndSettle();
       expect(find.text('Profile & Settings'), findsOneWidget);
-      await tester.ensureVisible(find.text('Fleet invitations'));
+      await tester.scrollUntilVisible(
+        find.text('Fleet invitations'),
+        180,
+        scrollable: find.byType(Scrollable).first,
+      );
       await tester.tap(find.text('Fleet invitations'));
       await tester.pumpAndSettle();
       expect(find.byType(FleetInvitationsScreen), findsOneWidget);

@@ -226,8 +226,51 @@ class OperationsDashboard extends StatelessWidget {
                 canManage: trip == null && !session.online,
                 retry: session.refresh,
               ),
-              if (trip != null && !session.isPreview)
-                const TripMap(compact: true),
+              if (!session.isPreview)
+                const TripMap(key: ValueKey('driver-map'), compact: true),
+              if (session.isPreview)
+                const OpsEmpty(
+                  'Maps require an authenticated device session.',
+                  icon: Icons.map_outlined,
+                ),
+              if (!session.online && trip == null)
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const Icon(
+                          Icons.directions_car_outlined,
+                          size: 36,
+                          color: Ops.textPrimary,
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          "You're Offline",
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 17,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        const Text(
+                          'Go online to receive new ride requests.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Ops.textSecondary),
+                        ),
+                        const SizedBox(height: 14),
+                        FilledButton(
+                          onPressed: session.busy
+                              ? null
+                              : () => session.setOnline(true),
+                          child: const Text('Go Online'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               if (trip != null)
                 OpsPanel(
                   title: trip['status'] == 'in_progress'
@@ -366,6 +409,20 @@ class RideDetails extends StatelessWidget {
                   ),
                 ),
               ],
+            ),
+          ),
+        if (ride['sector'] == 'rental' || ride['sector'] == 'premium')
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(ride['sector'] == 'rental' ? 'Rental' : 'Premium'),
+            subtitle: Text(
+              [
+                ride['vehicleCategory'] ?? 'Vehicle',
+                if (ride['sector'] == 'rental' &&
+                    ride['rentalDetails'] is Map &&
+                    (ride['rentalDetails'] as Map)['hours'] != null)
+                  "${(ride['rentalDetails'] as Map)['hours']} hours",
+              ].join(' · '),
             ),
           ),
         if (ride['sector'] == 'service' && ride['serviceDetails'] is Map)
@@ -593,15 +650,17 @@ class LogisticsUpfrontPaymentCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (trip['sector'] != 'logistics') return const SizedBox.shrink();
-    final fare =
-        num.tryParse(
-          trip['finalFare']?.toString() ??
-              trip['fareEstimate']?.toString() ??
-              '0',
-        ) ??
-        0;
-    final upfrontAmount = fare * 0.40;
-    final remainingAmount = fare * 0.60;
+    final payment = trip['logisticsPayment'] as Map?;
+    num? rupees(String paise, String legacy) {
+      final value = payment?[paise];
+      return value is num ? value / 100 : payment?[legacy] as num?;
+    }
+
+    final fare = rupees('totalPaise', 'totalFare');
+    final upfrontAmount = rupees('upfrontPaise', 'upfrontAmount');
+    final remainingAmount = rupees('finalPaise', 'remainingAmount');
+    String display(num? amount) =>
+        amount == null ? 'Unavailable' : inrRupees(amount);
     final status =
         trip['upfrontPaymentStatus']?.toString().toUpperCase() ?? 'PENDING';
     final method =
@@ -633,15 +692,15 @@ class LogisticsUpfrontPaymentCard extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            'Total Fare: ${inrRupees(fare)}',
+            'Total Fare: ${display(fare)}',
             style: const TextStyle(fontSize: 13),
           ),
           Text(
-            '40% Payable Upfront: ${inrRupees(upfrontAmount)}',
+            '40% Payable Upfront: ${display(upfrontAmount)}',
             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
           ),
           Text(
-            '60% Remaining (Post-Delivery): ${inrRupees(remainingAmount)}',
+            '60% Remaining (Post-Delivery): ${display(remainingAmount)}',
             style: const TextStyle(color: Ops.textSecondary, fontSize: 12),
           ),
           const SizedBox(height: 4),
@@ -677,7 +736,7 @@ class LogisticsUpfrontPaymentCard extends StatelessWidget {
                         trip['id'].toString(),
                       ),
                 icon: const Icon(Icons.payment, size: 18),
-                label: const Text('Pay 40% Online (Gateway Verified)'),
+                label: const Text('Refresh online payment status'),
               ),
             const SizedBox(height: 6),
             const Text(

@@ -1,3 +1,5 @@
+import 'package:infurnus_driver/widgets/vehicle_motion.dart';
+
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -46,6 +48,7 @@ void main() {
   testWidgets(
     'booking, pickup, PIN and completion preserve the native map and correct markers',
     (tester) async {
+      await tester.runAsync(navigationArrow);
       final previous = GoogleMapsFlutterPlatform.instance;
       final maps = RecordingMaps();
       GoogleMapsFlutterPlatform.instance = maps;
@@ -80,7 +83,9 @@ void main() {
         ChangeNotifierProvider<DriverSession>.value(
           value: session,
           child: const MaterialApp(
-            home: Scaffold(body: SingleChildScrollView(child: TripMap())),
+            home: Scaffold(
+              body: SingleChildScrollView(child: TripMap(compact: true)),
+            ),
           ),
         ),
       );
@@ -105,11 +110,14 @@ void main() {
         await tester.pump(const Duration(milliseconds: 500));
         await tester.pump();
         final map = tester.widget<GoogleMap>(find.byType(GoogleMap));
-        expect(map.markers.any((m) => m.markerId.value == 'pickup'), isTrue);
+        expect(
+          map.markers.any((m) => m.markerId.value == 'pickup'),
+          status != 'in_progress',
+        );
         expect(map.markers.any((m) => m.markerId.value == 'driver'), isTrue);
         expect(
           map.markers.any((m) => m.markerId.value == 'destination'),
-          status == 'in_progress',
+          isTrue,
         );
         expect(map.polylines, isNotEmpty);
         expect(maps.created.length, 1);
@@ -135,6 +143,7 @@ void main() {
   testWidgets(
     'structured route throttling keeps map markers and recovers on a successful refresh',
     (tester) async {
+      await tester.runAsync(navigationArrow);
       final previous = GoogleMapsFlutterPlatform.instance;
       final maps = RecordingMaps();
       GoogleMapsFlutterPlatform.instance = maps;
@@ -217,6 +226,7 @@ void main() {
   testWidgets('early GPS is replayed after delayed Driver map initialization', (
     tester,
   ) async {
+    await tester.runAsync(navigationArrow);
     final previous = GoogleMapsFlutterPlatform.instance;
     final maps = RecordingMaps(deferCreation: true);
     GoogleMapsFlutterPlatform.instance = maps;
@@ -253,6 +263,7 @@ void main() {
   testWidgets(
     'driver map animates arrow, follows until pan, recenters, and retains route between GPS samples',
     (tester) async {
+      await tester.runAsync(navigationArrow);
       final previous = GoogleMapsFlutterPlatform.instance;
       final maps = RecordingMaps();
       GoogleMapsFlutterPlatform.instance = maps;

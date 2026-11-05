@@ -1,3 +1,7 @@
+import 'fleet_refresh_test.dart' show RefreshFixtureSession;
+
+import 'package:flutter/services.dart';
+
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -24,6 +28,17 @@ String _mockToken(String role) =>
     'h.${base64Url.encode(utf8.encode(jsonEncode({'role': role}))).replaceAll('=', '')}.s';
 
 void main() {
+  setUp(() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+          const MethodChannel('infurnus/maps'),
+          (_) async => false,
+        );
+  });
+  tearDown(() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(const MethodChannel('infurnus/maps'), null);
+  });
   group('1. Home Dashboard Layout & Responsiveness', () {
     testWidgets(
       'FleetOverview adapts to narrow and standard screen widths without overflow',
@@ -93,16 +108,26 @@ void main() {
         );
 
         await tester.pumpWidget(
-          ChangeNotifierProvider.value(
+          ChangeNotifierProvider<DriverSession>.value(
             value: session,
             child: MaterialApp(theme: Ops.theme, home: const AccountScreen()),
           ),
         );
         await tester.pumpAndSettle();
 
+        await tester.scrollUntilVisible(
+          find.text('Notifications'),
+          180,
+          scrollable: find.byType(Scrollable).first,
+        );
         // Exactly ONE Notifications entry
         expect(find.text('Notifications'), findsOneWidget);
 
+        await tester.scrollUntilVisible(
+          find.text('Help center'),
+          180,
+          scrollable: find.byType(Scrollable).first,
+        );
         // Exactly ONE Help Center entry
         expect(find.text('Help center'), findsOneWidget);
 
@@ -132,7 +157,7 @@ void main() {
         );
 
         await tester.pumpWidget(
-          ChangeNotifierProvider.value(
+          ChangeNotifierProvider<DriverSession>.value(
             value: session,
             child: MaterialApp(
               theme: Ops.theme,
@@ -143,7 +168,10 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('Email Support'), findsOneWidget);
-        expect(find.textContaining('support@infurnus.com'), findsOneWidget);
+        expect(
+          find.textContaining('support@infurnuslogistics.com'),
+          findsOneWidget,
+        );
         expect(find.byIcon(Icons.email_outlined), findsOneWidget);
 
         expect(tester.takeException(), isNull);
@@ -202,9 +230,8 @@ void main() {
     testWidgets(
       'ProviderAssetsScreen opens bounded, scrollable vehicle documents dialog with pinned close button',
       (tester) async {
-        final session = DriverSession(
-          onboardingDraftStore: MemorySessionStore(),
-          api: ApiService(
+        final session = RefreshFixtureSession(
+          ApiService(
             store: MemorySessionStore(),
             client: MockClient((r) async {
               if (r.url.path == '/auth/session') {
@@ -213,6 +240,10 @@ void main() {
                   'user': {'id': 'user-1', 'role': 'provider'},
                   'accessToken': _mockToken('provider'),
                 });
+              }
+              if (r.url.path.contains('/earnings') ||
+                  r.url.path.contains('/revenue')) {
+                return _envelope({});
               }
               if (r.url.path.contains('/rules')) {
                 return _envelope([
@@ -256,8 +287,11 @@ void main() {
           ),
         );
 
+        session.api.role = 'fleet_owner';
+        session.api.providerMode = 'fleet_owner';
+        session.roleEnrolment = {'dashboardAccessible': true};
         await tester.pumpWidget(
-          ChangeNotifierProvider.value(
+          ChangeNotifierProvider<DriverSession>.value(
             value: session,
             child: MaterialApp(
               theme: Ops.theme,
@@ -267,6 +301,8 @@ void main() {
         );
         await tester.pumpAndSettle();
 
+        await tester.tap(find.text('Vehicles').last);
+        await tester.pumpAndSettle();
         // Open vehicle documents dialog
         final vehicleDocsBtn = find.text('Vehicle documents');
         if (vehicleDocsBtn.evaluate().isNotEmpty) {

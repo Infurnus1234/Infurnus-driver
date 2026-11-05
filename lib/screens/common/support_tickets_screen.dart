@@ -13,7 +13,7 @@ import '../../widgets/operations.dart';
 
 const String kSupportEmail = String.fromEnvironment(
   'SUPPORT_EMAIL',
-  defaultValue: 'support@infurnus.com',
+  defaultValue: 'support@infurnuslogistics.com',
 );
 
 String supportRequestId() => List.generate(

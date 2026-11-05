@@ -126,6 +126,7 @@ class _AssignedVehicleCardState extends State<AssignedVehicleCard> {
       );
     }
     final photo = value['photoUrl']?.toString();
+    final owner = value['owner'];
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(14),
@@ -224,6 +225,13 @@ class _AssignedVehicleCardState extends State<AssignedVehicleCard> {
                   Text(value['operationalStatus'].toString()),
               ],
             ),
+            if (owner is Map) ...[
+              if (owner['name'] != null) Text('Fleet Owner: ${owner['name']}'),
+              if (owner['phone'] != null) Text('Phone: ${owner['phone']}'),
+              if (owner['email'] != null) Text('Email: ${owner['email']}'),
+              if (owner['businessName'] != null)
+                Text('Business: ${owner['businessName']}'),
+            ],
             if (widget.canManage)
               TextButton(
                 onPressed: widget.loading

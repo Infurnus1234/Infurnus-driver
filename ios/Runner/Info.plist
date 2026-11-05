@@ -72,5 +72,14 @@
 		</array>
 		<key>UIStatusBarHidden</key>
 		<false/>
+		<key>NSLocationWhenInUseUsageDescription</key>
+		<string>Show your position and ride pickup location.</string>
+		<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+		<string>Share driver location during an active ride, including when the app is in the background.</string>
+		<key>UIBackgroundModes</key>
+		<array>
+			<string>remote-notification</string>
+			<string>location</string>
+		</array>
 	</dict>
 </plist>

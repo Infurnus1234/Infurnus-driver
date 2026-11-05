@@ -249,9 +249,8 @@ class ApiService {
         envelope?['success'] == false) {
       final error = envelope?['error'];
       final code = error is Map ? error['code']?.toString() : null;
-      final serverMessage = error is Map ? error['message']?.toString() : null;
       developer.log(
-        'API request failed: $method $requestPath status=${response.statusCode} code=${code ?? 'unknown'} detail=${serverMessage ?? 'No server detail'}',
+        'API request failed: $method $requestPath status=${response.statusCode} code=${code ?? 'unknown'}',
         name: 'ApiService',
       );
       if (isTestOnboarding &&
@@ -335,6 +334,12 @@ class ApiService {
   }
 
   String _userFacingError(String? code, int status) {
+    if (code == 'MAP_RATE_LIMITED') {
+      return 'Wait before refreshing the map.';
+    }
+    if (code == 'DUPLICATE_VEHICLE') {
+      return 'This vehicle is already registered. Check the registration details.';
+    }
     if (code == 'INVALID_CREDENTIALS') {
       return 'Those sign-in details could not be verified. Check them and retry.';
     }

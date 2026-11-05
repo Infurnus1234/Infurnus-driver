@@ -132,11 +132,14 @@ void main() {
 
       await upload();
       await tester.scrollUntilVisible(
-        find.text('Fixture upload failed'),
+        find.text("We couldn't complete this request. Please try again."),
         120,
         scrollable: find.byType(Scrollable).first,
       );
-      expect(find.text('Fixture upload failed'), findsOneWidget);
+      expect(
+        find.text("We couldn't complete this request. Please try again."),
+        findsOneWidget,
+      );
       expect(documents, isEmpty);
       expect(documents, isEmpty);
       fail = false;
@@ -286,7 +289,12 @@ void main() {
       }
       await add();
       expect(vehicles, isEmpty);
-      expect(find.text('Fixture registration conflict'), findsOneWidget);
+      expect(
+        find.text(
+          'This vehicle is already registered. Check the registration details.',
+        ),
+        findsOneWidget,
+      );
       failCreate = false;
       await add();
       expect(vehicles, hasLength(1));

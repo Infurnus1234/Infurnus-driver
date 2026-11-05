@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:geolocator/geolocator.dart';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/widgets.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:infurnus_driver/services/api_service.dart';
@@ -41,6 +42,7 @@ class WorkingGps extends GeolocatorPlatform {
   final at = DateTime.now().toUtc();
   final updates = StreamController<Position>.broadcast();
   LocationSettings? settings;
+  int streamStarts = 0;
   @override
   Future<bool> isLocationServiceEnabled() async => true;
   @override
@@ -53,6 +55,7 @@ class WorkingGps extends GeolocatorPlatform {
   @override
   Stream<Position> getPositionStream({LocationSettings? locationSettings}) {
     settings = locationSettings;
+    streamStarts++;
     return updates.stream;
   }
 }
@@ -61,119 +64,159 @@ http.Response ok(dynamic data) =>
     http.Response(jsonEncode({'success': true, 'data': data}), 200);
 
 void main() {
-  testWidgets(
-    'an out-of-order cached startup fix still starts the stream and recovers on a fresh sample',
-    (tester) async {
-      final previous = GeolocatorPlatform.instance;
-      final gps = WorkingGps();
-      GeolocatorPlatform.instance = gps;
-      addTearDown(() => GeolocatorPlatform.instance = previous);
-      final store = MemorySessionStore();
-      final token =
-          'x.${base64Url.encode(utf8.encode(jsonEncode({'role': 'driver'})))}.x';
-      await store.write(
-        jsonEncode({
-          'accessToken': token,
-          'userId': 'fixture',
-          'role': 'driver',
-          'providerMode': 'driver',
-          'cookies': <String, String>{},
-        }),
-      );
-      final sent = <String>[];
-      final session = DriverSession(
-        api: ProductionFlowApi(
-          MockClient((r) async {
-            if (r.url.path == '/rides/driver/location') {
-              sent.add(jsonDecode(r.body)['timestamp'] as String);
-              if (sent.length == 1) {
-                return http.Response(
-                  jsonEncode({
-                    'success': false,
-                    'error': {
-                      'code': 'DRIVER_LOCATION_OUT_OF_ORDER',
-                      'message': 'Location timestamp must be newer than the stored location',
-                    },
-                  }),
-                  409,
-                );
-              }
-              if (sent.length == 3) {
-                return http.Response(
-                  jsonEncode({
-                    'success': false,
-                    'error': {
-                      'code': 'TEMPORARY_FAILURE',
-                      'message': 'Location delivery temporarily unavailable',
-                    },
-                  }),
-                  503,
-                );
-              }
-              return ok(null);
-            }
-            switch (r.url.path) {
-              case '/auth/refresh':
-                return ok({'accessToken': token});
-              case '/provider/enrolment':
-                return ok({'role': 'driver', 'dashboardAccessible': false});
-              case '/users/fixture':
-                return ok({'firstName': 'Fixture', 'lastName': 'Driver'});
-              case '/rides/driver/profile':
-                return ok({'id': 'fixture-profile'});
-              case '/rides/driver/current-trip':
-                return ok({'id': 'fixture-trip', 'status': 'driver_arriving'});
-              case '/rides/driver/assigned-vehicle':
-                return ok({'id': 'fixture-vehicle'});
-              default:
-                return ok({});
-            }
+  for (final initialFailure in [
+    'DRIVER_LOCATION_OUT_OF_ORDER',
+    'DRIVER_LOCATION_IMPLAUSIBLE',
+    'TEMPORARY_FAILURE',
+  ]) {
+    testWidgets(
+      '$initialFailure at startup still starts the stream and recovers on a fresh sample',
+      (tester) async {
+        final previous = GeolocatorPlatform.instance;
+        final gps = WorkingGps();
+        GeolocatorPlatform.instance = gps;
+        addTearDown(() => GeolocatorPlatform.instance = previous);
+        final store = MemorySessionStore();
+        final token =
+            'x.${base64Url.encode(utf8.encode(jsonEncode({'role': 'driver'})))}.x';
+        await store.write(
+          jsonEncode({
+            'accessToken': token,
+            'userId': 'fixture',
+            'role': 'driver',
+            'providerMode': 'driver',
+            'cookies': <String, String>{},
           }),
-          store,
-        ),
-        onboardingDraftStore: MemorySessionStore(),
-      );
-      expect(await session.restore(), true);
-      expect(session.error, isNull);
-      expect(session.locationWarning, contains('newer GPS'));
-      expect(session.lastLocationSent, isNull);
-      expect(gps.settings, isNotNull);
-      gps.updates.add(sample(gps.at));
-      await tester.pump(const Duration(milliseconds: 10));
-      expect(sent.length, 1);
-      gps.updates.add(sample(gps.at.add(const Duration(seconds: 2))));
-      await tester.pump(const Duration(milliseconds: 20));
-      expect(sent.length, 2);
-      expect(session.lastLocationSent, isNotNull);
-      expect(session.locationWarning, isNull);
-      expect(session.error, isNull);
-      expect(DateTime.parse(sent.first), gps.at);
-      await tester.runAsync(
-        () => Future<void>.delayed(const Duration(milliseconds: 1100)),
-      );
-      gps.updates.add(sample(gps.at.add(const Duration(seconds: 4))));
-      await tester.pump(const Duration(milliseconds: 20));
-      expect(session.locationWarning, contains('temporarily unavailable'));
-      expect(session.error, isNull);
-      await tester.runAsync(
-        () => Future<void>.delayed(const Duration(milliseconds: 1100)),
-      );
-      gps.updates.add(sample(gps.at.add(const Duration(seconds: 6))));
-      await tester.pump(const Duration(milliseconds: 20));
-      expect(session.locationWarning, isNull);
-      expect(session.error, isNull);
-      session.error = 'Vehicle request failed';
-      await tester.runAsync(
-        () => Future<void>.delayed(const Duration(milliseconds: 1100)),
-      );
-      gps.updates.add(sample(gps.at.add(const Duration(seconds: 8))));
-      await tester.pump(const Duration(milliseconds: 20));
-      expect(session.error, 'Vehicle request failed');
-      await gps.updates.close();
-      session.dispose();
-      await tester.pump(const Duration(seconds: 1));
-    },
-  );
+        );
+        final sent = <String>[];
+        final session = DriverSession(
+          api: ProductionFlowApi(
+            MockClient((r) async {
+              if (r.url.path == '/rides/driver/location') {
+                sent.add(jsonDecode(r.body)['timestamp'] as String);
+                if (sent.length == 1) {
+                  return http.Response(
+                    jsonEncode({
+                      'success': false,
+                      'error': {
+                        'code': initialFailure,
+                        'message': 'Initial location rejected: $initialFailure',
+                      },
+                    }),
+                    409,
+                  );
+                }
+                if (sent.length == 3) {
+                  return http.Response(
+                    jsonEncode({
+                      'success': false,
+                      'error': {
+                        'code': 'TEMPORARY_FAILURE',
+                        'message': 'Location delivery temporarily unavailable',
+                      },
+                    }),
+                    503,
+                  );
+                }
+                return ok(null);
+              }
+              switch (r.url.path) {
+                case '/auth/refresh':
+                  return ok({'accessToken': token});
+                case '/provider/enrolment':
+                  return ok({'role': 'driver', 'dashboardAccessible': false});
+                case '/users/fixture':
+                  return ok({'firstName': 'Fixture', 'lastName': 'Driver'});
+                case '/rides/driver/profile':
+                  return ok({'id': 'fixture-profile'});
+                case '/rides/driver/current-trip':
+                  return ok({
+                    'id': 'fixture-trip',
+                    'status': 'driver_arriving',
+                  });
+                case '/rides/driver/assigned-vehicle':
+                  return ok({'id': 'fixture-vehicle'});
+                default:
+                  return ok({});
+              }
+            }),
+            store,
+          ),
+          onboardingDraftStore: MemorySessionStore(),
+        );
+        expect(await session.restore(), true);
+        expect(session.error, isNull);
+        expect(
+          session.locationWarning,
+          contains(
+            initialFailure == 'DRIVER_LOCATION_OUT_OF_ORDER'
+                ? 'newer GPS'
+                : 'Check your information and retry.',
+          ),
+        );
+        expect(session.lastLocationSent, isNull);
+        expect(gps.settings, isNotNull);
+        expect(
+          (gps.settings as AndroidSettings)
+              .foregroundNotificationConfig
+              ?.setOngoing,
+          isTrue,
+        );
+        if (initialFailure == 'DRIVER_LOCATION_OUT_OF_ORDER') {
+          final tripId = session.currentTrip?['id'];
+          tester.binding.handleAppLifecycleStateChanged(
+            AppLifecycleState.paused,
+          );
+          await session.refresh();
+          expect(session.currentTrip?['id'], tripId);
+          tester.binding.handleAppLifecycleStateChanged(
+            AppLifecycleState.resumed,
+          );
+          await session.refresh();
+          expect(session.currentTrip?['id'], tripId);
+          expect(
+            gps.streamStarts,
+            1,
+            reason: 'Resume/reconnect must reuse the active foreground stream',
+          );
+        }
+        gps.updates.add(sample(gps.at));
+        await tester.pump(const Duration(milliseconds: 10));
+        expect(sent.length, 1);
+        gps.updates.add(sample(gps.at.add(const Duration(seconds: 2))));
+        await tester.pump(const Duration(milliseconds: 20));
+        expect(sent.length, 2);
+        expect(session.lastLocationSent, isNotNull);
+        expect(session.locationWarning, isNull);
+        expect(session.error, isNull);
+        expect(DateTime.parse(sent.first), gps.at);
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 1100)),
+        );
+        gps.updates.add(sample(gps.at.add(const Duration(seconds: 4))));
+        await tester.pump(const Duration(milliseconds: 20));
+        expect(session.locationWarning, contains('Please try again.'));
+        expect(session.error, isNull);
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 1100)),
+        );
+        gps.updates.add(sample(gps.at.add(const Duration(seconds: 6))));
+        await tester.pump(const Duration(milliseconds: 20));
+        expect(session.locationWarning, isNull);
+        expect(session.error, isNull);
+        session.error = 'Vehicle request failed';
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 1100)),
+        );
+        gps.updates.add(sample(gps.at.add(const Duration(seconds: 8))));
+        await tester.pump(const Duration(milliseconds: 20));
+        expect(session.error, 'Vehicle request failed');
+        await gps.updates.close();
+        session.dispose();
+        await tester.pump(const Duration(seconds: 1));
+      },
+    );
+  }
   testWidgets(
     'GPS unavailable does not fail an authenticated active-trip session restore',
     (tester) async {

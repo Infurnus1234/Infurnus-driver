@@ -1,3 +1,5 @@
+import 'package:flutter/services.dart';
+
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -20,6 +22,17 @@ import 'package:infurnus_driver/widgets/operations.dart';
 import 'package:infurnus_driver/screens/fleet/fleet_reports_screen.dart';
 
 void main() {
+  setUp(() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+          const MethodChannel('infurnus/maps'),
+          (_) async => false,
+        );
+  });
+  tearDown(() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(const MethodChannel('infurnus/maps'), null);
+  });
   test('operations theme defines pressed and disabled button states', () {
     final theme = Ops.theme;
     final filled = theme.filledButtonTheme.style!;
@@ -353,7 +366,7 @@ void main() {
     expect(notificationDestination({'route': '/admin/dashboard'}), isNull);
     expect(
       notificationDestination({'rideId': 'ride', 'route': '/admin/dashboard'}),
-      '/driver/dashboard',
+      '/driver/active-trip',
     );
     expect(notificationDestination({'type': 'PAYOUT_UPDATED'}), isNull);
     expect(notificationDestination({'rideId': ''}), isNull);

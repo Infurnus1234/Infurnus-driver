@@ -154,7 +154,7 @@ void main() {
           failRefresh = true;
           expect(await session.refresh(), false);
           expect(session.onboardingLoaded, isTrue);
-          expect(session.error, contains('Retry status refresh'));
+          expect(session.error, contains('Please try again.'));
           expect(session.approvals.single['status'], 'REJECTED');
         } finally {
           session.dispose();

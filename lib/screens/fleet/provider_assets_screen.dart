@@ -846,20 +846,34 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
     );
   }
 
-  Future<void> _showAssignmentCode(Map<String, dynamic> vehicle) =>
-      showDialog<void>(
-        context: context,
-        builder: (dialogContext) => AlertDialog(
-          title: const Text('Vehicle assignment code'),
-          content: SelectableText(vehicle['activeAssignmentCode'].toString()),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Close'),
-            ),
-          ],
+  Future<void> _showAssignmentCode(Map<String, dynamic> vehicle) async {
+    final permanentCode =
+        vehicle['permanentVehicleCode'] ?? vehicle['vehicleCode'];
+    final code = permanentCode == null
+        ? vehicle['activeAssignmentCode']
+        : (await _assets!.assignmentCode(
+            vehicle['id'] as String,
+            null,
+          ))?['code'];
+    if (!mounted || code == null) return;
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Vehicle assignment code'),
+        content: SelectableText(
+          permanentCode == null
+              ? code.toString()
+              : '$code\nUse this same code to join this vehicle.',
         ),
-      );
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _vehicleCard(Map<String, dynamic> vehicle, DriverSession session) {
     final assets = _assets!;
@@ -872,7 +886,8 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
         (vehicle['isActive'] == false ? 'INACTIVE' : 'ACTIVE');
     final assignedDriver = vehicle['assignedDriver'];
     final activeCode = vehicle['activeAssignmentCode']?.toString();
-    final permanentCode = vehicle['permanentVehicleCode']?.toString();
+    final permanentCode =
+        (vehicle['permanentVehicleCode'] ?? vehicle['vehicleCode'])?.toString();
     final statusOptions = const ['ACTIVE', 'INACTIVE', 'MAINTENANCE'];
 
     return Card(
@@ -1020,7 +1035,9 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
                 child: TextButton.icon(
                   onPressed: () => _showAssignmentCode(vehicle),
                   icon: const Icon(Icons.qr_code_2),
-                  label: const Text('Show Code'),
+                  label: Text(
+                    permanentCode == null ? 'Show Code' : 'Show vehicle code',
+                  ),
                 ),
               ),
             if (assets.fleetMode &&
@@ -1674,6 +1691,56 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
                       ),
                   ],
                 ),
+              ),
+            if (assets.approvedPartner)
+              OutlinedButton.icon(
+                onPressed: assets.busy || !assets.approvedPartner
+                    ? null
+                    : () async {
+                        final input = await _form(
+                          'Invite an existing Driver',
+                          {
+                            'contact': 'Registered Driver phone (with country code) or email',
+                          },
+                          requiredFields: {'contact'},
+                        );
+                        if (input == null) return;
+                        Map<String, dynamic>? invite;
+                        final ok = await assets.run(() async {
+                          invite = Map<String, dynamic>.from(
+                            await session.api.request(
+                              'POST',
+                              '/provider/fleet-drivers',
+                              body: {
+                                input['contact'].toString().contains('@')
+                                    ? 'email'
+                                    : 'phone': input['contact']
+                                    .toString()
+                                    .trim(),
+                              },
+                            ) as Map,
+                          );
+                        });
+                        if (ok && context.mounted) {
+                          await showDialog<void>(
+                            context: context,
+                            builder: (c) => AlertDialog(
+                              title: const Text('Fleet invitation'),
+                              content: SelectableText(
+                                'Invitation created. The Driver can accept from Profile > Fleet invitations. Expires: ${invite!['expiresAt']}',
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(c),
+                                  child: const Text('Close'),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+                      },
+                icon: const Icon(Icons.person_add_alt),
+                label: const Text('Invite an existing Driver'),
               ),
             for (final invite in assets.invitations)
               ListTile(

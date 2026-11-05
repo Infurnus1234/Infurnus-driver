@@ -190,9 +190,7 @@ class ProviderAssets extends ChangeNotifier {
     () async {
       final sector = input['sector']?.toString();
       if (sector != null && !VehicleCategoryPolicy.isSelectableSector(sector)) {
-        throw const ApiException(
-          'Passenger vehicles are not available in this vehicle workflow.',
-        );
+        throw const ApiException('Select a valid vehicle category.');
       }
       final saved = await api.request(
         id == null ? 'POST' : 'PUT',

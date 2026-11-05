@@ -171,12 +171,10 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Verify your account'), findsOneWidget);
       expect(session.authenticated, isFalse);
-      // OTP screen: enter one digit per box (6 separate TextFields)
+      // OTP screen accepts the complete six-digit code in one field.
       final otpBoxes = find.byType(TextField);
-      expect(otpBoxes.evaluate().length, 6);
-      for (var i = 0; i < 6; i++) {
-        await tester.enterText(otpBoxes.at(i), '${i + 1}');
-      }
+      expect(otpBoxes.evaluate().length, 1);
+      await tester.enterText(otpBoxes, '123456');
       await tester.pump();
       await tester.tap(find.text('Verify & Continue'));
       await tester.pumpAndSettle();

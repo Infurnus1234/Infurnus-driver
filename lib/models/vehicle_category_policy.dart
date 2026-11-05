@@ -1,28 +1,17 @@
 class VehicleCategoryPolicy {
-  static const Map<String, Set<String>> vehicleCodesBySector = {
-    'logistics': {
-      'cargo_207_heavy',
-      'three_wheeler',
-      'cargo_407',
-      'mini_truck',
-      'tata_407',
-    },
-    'service': {'ambulance'},
-    'premium': {'thar'},
-    'rental': {'thar'},
+  static const _inventorySectors = {
+    'passenger',
+    'logistics',
+    'service',
+    'premium',
+    'rental',
   };
 
   static bool isSelectableSector(String? sector) =>
-      sector != null &&
-      !['passenger', 'passengers'].contains(sector.toLowerCase().trim());
+      _inventorySectors.contains(sector?.toLowerCase().trim());
 
-  static bool allowsCode(String? sector, String? code) {
-    if (!isSelectableSector(sector) || sector == null || code == null) {
-      return false;
-    }
-    final sec = sector.toLowerCase().trim();
-    final c = code.toLowerCase().trim();
-    final approvedCodes = vehicleCodesBySector[sec];
-    return approvedCodes != null && approvedCodes.contains(c);
-  }
+  // The catalog endpoint and vehicle write API own the configured code list.
+  // In particular, chauffeured Rental uses existing passenger inventory.
+  static bool allowsCode(String? sector, String? code) =>
+      isSelectableSector(sector) && (code?.trim().isNotEmpty ?? false);
 }

@@ -1,3 +1,5 @@
+import 'ride_map_phase.dart';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -11,6 +13,7 @@ import '../providers/driver_session.dart';
 import '../services/api_service.dart';
 import 'operations.dart';
 import 'vehicle_motion.dart';
+import 'map_camera_queue.dart';
 
 class TripMap extends StatefulWidget {
   final bool compact;
@@ -28,6 +31,7 @@ class _TripMapState extends State<TripMap> with SingleTickerProviderStateMixin {
   Timer? _freshnessTimer;
   bool _gpsStale = false;
   GoogleMapController? _controller;
+  final _camera = MapCameraQueue();
   List<LatLng> _route = [];
   String? _error, _tripKey;
   Map? _metrics;
@@ -54,6 +58,7 @@ class _TripMapState extends State<TripMap> with SingleTickerProviderStateMixin {
   void initState() {
     super.initState();
     _motion = VehicleMotion(this);
+    _arrow = cachedNavigationArrow;
     navigationArrow().then((icon) {
       if (mounted) setState(() => _arrow = icon);
     });
@@ -146,7 +151,7 @@ class _TripMapState extends State<TripMap> with SingleTickerProviderStateMixin {
       if (p.longitude < west) west = p.longitude;
       if (p.longitude > east) east = p.longitude;
     }
-    await _controller!.animateCamera(
+    _camera.move(
       CameraUpdate.newLatLngBounds(
         LatLngBounds(
           southwest: LatLng(south, west),
@@ -162,7 +167,9 @@ class _TripMapState extends State<TripMap> with SingleTickerProviderStateMixin {
     _generation++;
     _freshnessTimer?.cancel();
     _motion.dispose();
-    _controller?.dispose();
+    _camera.dispose();
+    // GoogleMap owns the native controller lifecycle.
+    _controller = null;
     super.dispose();
   }
 
@@ -173,12 +180,10 @@ class _TripMapState extends State<TripMap> with SingleTickerProviderStateMixin {
     }
     final session = context.watch<DriverSession>();
     final trip = session.currentTrip;
+    final started = rideHasStarted(trip?['status']?.toString());
     final pickup = _point(trip?['pickup']);
-    final destination =
-        trip?['pinVerified'] == true && trip?['status'] == 'in_progress'
-        ? _point(trip?['destination'])
-        : null;
-    final target = trip?['status'] == 'in_progress' ? destination : pickup;
+    final destination = _point(trip?['destination']);
+    final target = started ? destination : pickup;
     final position = session.position;
     final stale =
         position != null &&
@@ -200,18 +205,16 @@ class _TripMapState extends State<TripMap> with SingleTickerProviderStateMixin {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         if (_follow) {
-          _controller
-              ?.animateCamera(
-                CameraUpdate.newCameraPosition(
-                  CameraPosition(
-                    target: current,
-                    zoom: 17,
-                    tilt: 45,
-                    bearing: _motion.heading,
-                  ),
-                ),
-              )
-              .catchError((_) {});
+          _camera.move(
+            CameraUpdate.newCameraPosition(
+              CameraPosition(
+                target: _motion.target ?? current,
+                zoom: 17,
+                tilt: 45,
+                bearing: _motion.heading,
+              ),
+            ),
+          );
         }
         // Route geometry is retained during normal movement. Require sustained deviation and cooldown.
         if (_route.length > 1 && target != null && !_loading) {
@@ -233,6 +236,8 @@ class _TripMapState extends State<TripMap> with SingleTickerProviderStateMixin {
     if (key != _tripKey) {
       _tripKey = key;
       _routeVersion = -1;
+      _lastRouteAttempt = null;
+      _offRouteSince = null;
       // Invalidate a response for the previous trip or navigation stage.
       _generation++;
       _loading = false;
@@ -275,6 +280,17 @@ class _TripMapState extends State<TripMap> with SingleTickerProviderStateMixin {
           .toList();
       _metrics = route;
     }
+    final polylines = <Polyline>{
+      if (_route.isNotEmpty)
+        Polyline(
+          polylineId: const PolylineId('road'),
+          points: _route,
+          color: trip?['status'] == 'in_progress'
+              ? Ops.actionPrimary
+              : Ops.actionDark,
+          width: 5,
+        ),
+    };
     final content = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -307,11 +323,15 @@ class _TripMapState extends State<TripMap> with SingleTickerProviderStateMixin {
         if (_configured == false) const SizedBox.shrink(),
         if (_configured == true)
           SizedBox(
+            key: const ValueKey('trip-native-map'),
             height: widget.compact ? 330 : 280,
             child: ClipRRect(
               borderRadius: BorderRadius.circular(12),
               child: Listener(
-                onPointerDown: (_) => _follow = false,
+                onPointerDown: (_) {
+                  _follow = false;
+                  _camera.cancel();
+                },
                 child: AnimatedBuilder(
                   animation: _motion,
                   builder: (context, _) => GoogleMap(
@@ -322,24 +342,23 @@ class _TripMapState extends State<TripMap> with SingleTickerProviderStateMixin {
                     ),
                     onMapCreated: (controller) {
                       _controller = controller;
+                      _camera.controller = controller;
                       if (_route.length >= 2) {
                         _fit();
                       } else if (_follow) {
                         // Replay GPS received before native map initialization.
                         final fix = _motion.position ?? current;
                         if (fix != null) {
-                          controller
-                              .animateCamera(
-                                CameraUpdate.newCameraPosition(
-                                  CameraPosition(
-                                    target: fix,
-                                    zoom: 17,
-                                    tilt: 45,
-                                    bearing: _motion.heading,
-                                  ),
-                                ),
-                              )
-                              .catchError((_) {});
+                          _camera.move(
+                            CameraUpdate.newCameraPosition(
+                              CameraPosition(
+                                target: fix,
+                                zoom: 17,
+                                tilt: 45,
+                                bearing: _motion.heading,
+                              ),
+                            ),
+                          );
                         }
                       }
                     },
@@ -348,7 +367,7 @@ class _TripMapState extends State<TripMap> with SingleTickerProviderStateMixin {
                     mapToolbarEnabled: false,
                     zoomControlsEnabled: true,
                     markers: {
-                      if (current != null)
+                      if (current != null && _arrow != null)
                         Marker(
                           markerId: const MarkerId('driver'),
                           position: _motion.position ?? current,
@@ -356,26 +375,20 @@ class _TripMapState extends State<TripMap> with SingleTickerProviderStateMixin {
                           flat: true,
                           anchor: const Offset(0.5, 0.5),
                           infoWindow: InfoWindow(
-                            title: stale
+                            title: stale || _gpsStale
                                 ? 'Last known GPS position (stale)'
                                 : 'GPS position',
                             snippet: position!.timestamp.toIso8601String(),
                           ),
-                          icon:
-                              _arrow ??
-                              BitmapDescriptor.defaultMarkerWithHue(
-                                stale
-                                    ? BitmapDescriptor.hueOrange
-                                    : BitmapDescriptor.hueGreen,
-                              ),
+                          icon: _arrow!,
                         ),
-                      if (pickup != null)
+                      if (pickup != null && !started)
                         Marker(
                           markerId: const MarkerId('pickup'),
                           position: pickup,
                           infoWindow: const InfoWindow(title: 'Pickup'),
                           icon: BitmapDescriptor.defaultMarkerWithHue(
-                            BitmapDescriptor.hueGreen,
+                            BitmapDescriptor.hueRed,
                           ),
                         ),
                       if (destination != null)
@@ -384,21 +397,11 @@ class _TripMapState extends State<TripMap> with SingleTickerProviderStateMixin {
                           position: destination,
                           infoWindow: const InfoWindow(title: 'Destination'),
                           icon: BitmapDescriptor.defaultMarkerWithHue(
-                            BitmapDescriptor.hueRed,
+                            BitmapDescriptor.hueGreen,
                           ),
                         ),
                     },
-                    polylines: {
-                      if (_route.isNotEmpty)
-                        Polyline(
-                          polylineId: const PolylineId('road'),
-                          points: _route,
-                          color: trip?['status'] == 'in_progress'
-                              ? Ops.actionPrimary
-                              : Ops.actionDark,
-                          width: 5,
-                        ),
-                    },
+                    polylines: polylines,
                   ),
                 ),
               ),
@@ -437,7 +440,7 @@ class _TripMapState extends State<TripMap> with SingleTickerProviderStateMixin {
                       _follow = true;
                       final ok = await session.locate();
                       if (ok && session.position != null) {
-                        _controller?.animateCamera(
+                        _camera.move(
                           CameraUpdate.newLatLng(
                             LatLng(
                               session.position!.latitude,

@@ -16,7 +16,7 @@ import 'package:infurnus_driver/screens/driver/operations_dashboard.dart';
 
 void main() {
   testWidgets(
-    'Logistics exposes only the four approved types and excludes Passenger',
+    'Logistics exposes server-configured types and labels Passenger inventory as Rental',
     (tester) async {
       Map<String, String>? selected;
       final calls = <String>[];
@@ -93,7 +93,7 @@ void main() {
       ]) {
         expect(find.text(name), findsOneWidget);
       }
-      expect(find.text('207 Heavy'), findsNothing);
+      expect(find.text('207 Heavy'), findsOneWidget);
       await tester.tap(find.text('Tata 407').last);
       await tester.pumpAndSettle();
       await tester.tap(find.text('Continue'));
@@ -205,16 +205,14 @@ void main() {
   test(
     'legacy catalog preserves models without making Passenger selectable',
     () async {
-      final results = await VehicleCatalogRepository().searchVehicles(
-        'E-Rickshaw',
-      );
-      expect(results.single.modelName, 'E-Rickshaw');
+      final results = await VehicleCatalogRepository().searchVehicles('WagonR');
+      expect(results.single.modelName, 'WagonR (Mini Cab)');
       expect(results.single.category, 'Passenger');
     },
   );
 
   test(
-    'vehicle save validation rejects Passenger before any API call',
+    'vehicle save validation rejects unknown sectors before any API call',
     () async {
       var requests = 0;
       final api = ApiService(
@@ -224,8 +222,8 @@ void main() {
         }),
       );
       final assets = ProviderAssets(api);
-      expect(await assets.saveVehicle({'sector': 'passenger'}), isFalse);
-      expect(assets.error, contains('Passenger vehicles are not available'));
+      expect(await assets.saveVehicle({'sector': 'unknown'}), isFalse);
+      expect(assets.error, contains('Select a valid vehicle category.'));
       expect(requests, 0);
       assets.dispose();
       api.dispose();

@@ -61,15 +61,12 @@ void main() {
     expect(logins, hasLength(1));
     expect(session.errorCode, 'INVALID_CREDENTIALS');
     expect(
-      find.textContaining('Fleet Owner accounts need an account password'),
+      find.text(
+        'Those sign-in details could not be verified. Check them and retry.',
+      ),
       findsOneWidget,
     );
-    expect(find.widgetWithText(TextField, 'Account password'), findsOneWidget);
-    await tester.ensureVisible(find.text('Continue'));
-    await tester.tap(find.text('Continue'));
-    await tester.pumpAndSettle();
-    expect(logins, hasLength(1));
-    expect(find.text('Enter your Fleet account password.'), findsOneWidget);
+    expect(find.widgetWithText(TextField, 'Account password'), findsNothing);
     expect(logins.single.containsKey('password'), isFalse);
   });
 }

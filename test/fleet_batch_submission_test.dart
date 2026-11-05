@@ -73,7 +73,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Submit pending requests'));
+      await tester.tap(find.text('Submit Pending Requests'));
       await tester.pumpAndSettle();
       expect(bodies, [
         {'requestType': 'fleet_submission'},

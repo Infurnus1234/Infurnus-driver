@@ -6,7 +6,7 @@ import 'package:infurnus_driver/services/api_service.dart';
 
 void main() {
   test('DriverSession.run handles server-written 503, non-JSON 502, JSON 500 without message, 4xx and status=null', () async {
-    // 1. Server-written 503 message passes through
+    // 1. Server-written errors are sanitized before presentation
     final api503 = ApiService(
       client: MockClient(
         (r) async =>
@@ -17,7 +17,10 @@ void main() {
     await session503.run(() async {
       await api503.request('GET', '/test');
     });
-    expect(session503.error, "Temporary outage");
+    expect(
+      session503.error,
+      "We couldn't complete this request. Please try again.",
+    );
     session503.dispose();
 
     // 2. Non-JSON 502 body -> generic message
@@ -46,7 +49,7 @@ void main() {
     });
     expect(
       session500NoMsg.error,
-      "We couldn't load this information. Please try again.",
+      "We couldn't complete this request. Please try again.",
     );
     session500NoMsg.dispose();
 
@@ -63,7 +66,10 @@ void main() {
     await session400.run(() async {
       await api400.request('GET', '/test');
     });
-    expect(session400.error, "Invalid request parameters");
+    expect(
+      session400.error,
+      "This request couldn't be completed. Check your information and retry.",
+    );
     session400.dispose();
 
     // 5. status = null ApiException passes through

@@ -1,3 +1,5 @@
+import '../models/provider_public_id.dart';
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:developer' as developer;
@@ -5,7 +7,8 @@ import 'dart:developer' as developer;
 import '../services/session_store.dart';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/widgets.dart' show EditableText, FocusManager;
+import 'package:flutter/widgets.dart'
+    show EditableText, FocusManager, WidgetsBinding, AppLifecycleState;
 import 'package:geolocator/geolocator.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 
@@ -205,6 +208,14 @@ class DriverSession extends ChangeNotifier {
   int _pollFailures = 0;
   Map<String, dynamic>? account;
   Map<String, dynamic>? providerAccount;
+  String? get publicId {
+    for (final record in [providerAccount, account, profile]) {
+      final value = providerPublicId(record?['publicId']);
+      if (value != null) return value;
+    }
+    return null;
+  }
+
   Map<String, dynamic>? assignmentPreview;
   List<Map<String, dynamic>> documents = [];
   List<Map<String, dynamic>> partnerDocuments = [];
@@ -243,7 +254,6 @@ class DriverSession extends ChangeNotifier {
     return candidates.isEmpty ? null : candidates.first;
   }
 
-  static const Duration publishInterval = Duration(seconds: 1);
   String? locationWarning;
   Map<String, dynamic>? get liveNavigation => currentTrip;
 
@@ -744,7 +754,7 @@ class DriverSession extends ChangeNotifier {
   Future<void> _load() async {
     _invalidateCustomerContact();
     _notify();
-    if ((api.roleFlowEnabled || api.accessToken != null) &&
+    if (api.roleFlowEnabled &&
         !api.isAdmin &&
         !isPreview &&
         !api.isTestOnboarding) {
@@ -752,7 +762,11 @@ class DriverSession extends ChangeNotifier {
         roleEnrolment = Map<String, dynamic>.from(
           await api.request('GET', '/provider/enrolment') as Map,
         );
-      } catch (_) {
+      } on ApiException catch (e) {
+        if (e.status == 401 || e.status == 403) {
+          roleEnrolment = null;
+          rethrow;
+        }
         roleEnrolment ??= {
           'role': api.role,
           'dashboardAccessible': false,
@@ -772,17 +786,29 @@ class DriverSession extends ChangeNotifier {
         );
         if (api.hasDriverRole && api.providerMode == 'driver') {
           profile = await api.fetchDriverProfile();
-          currentTrip = null;
-          assignedVehicle = null;
           if (profile != null) {
-            final trip = await api.request('GET', '/rides/driver/current-trip');
-            if (trip is Map) {
-              currentTrip = Map<String, dynamic>.from(trip);
-              assignedVehicle = await _fetchAssignedVehicle();
-              if (api.accessToken != _socket?.auth['token']) _connect();
-              _joinTrip();
-              if (_positions == null) await _resumeLocation();
-            } else {
+            try {
+              final trip = await api.request(
+                'GET',
+                '/rides/driver/current-trip',
+              );
+              if (trip is Map) {
+                currentTrip = Map<String, dynamic>.from(trip);
+                assignedVehicle = await _fetchAssignedVehicle();
+                if (api.accessToken != _socket?.auth['token']) _connect();
+                _joinTrip();
+                if (_positions == null) await _resumeLocation();
+              } else {
+                currentTrip = null;
+                assignedVehicle = null;
+                assignedVehicleLoading = false;
+                assignedVehicleLoaded = true;
+                assignedVehicleError = null;
+              }
+            } on ApiException catch (e) {
+              if (e.status != 404) rethrow;
+              currentTrip = null;
+              assignedVehicle = null;
               assignedVehicleLoading = false;
               assignedVehicleLoaded = true;
               assignedVehicleError = null;
@@ -845,6 +871,7 @@ class DriverSession extends ChangeNotifier {
       assignedVehicleLoaded = true;
       assignedVehicleError = null;
     }
+    assignedVehicle = nextVehicle;
     final category =
         nextVehicle?['category'] ??
         assignmentPreview?['vehicle']?['category'] ??
@@ -1314,11 +1341,37 @@ class DriverSession extends ChangeNotifier {
       // Keep authorization failures authoritative and surface local/GPS failures
       // on the authenticated trip screen with its existing retry control.
       if (e is ApiException && (e.status == 401 || e.status == 403)) rethrow;
-      error = userSafeErrorMessage(e);
+      locationWarning = e is ApiException
+          ? e.message
+          : 'Location unavailable. Check GPS and permissions, then retry.';
     }
   }
 
-  Future<void> _startLocation() async {
+  static const gpsInterval = Duration(
+    milliseconds: int.fromEnvironment('GPS_SAMPLE_MS', defaultValue: 1000),
+  );
+  static const publishInterval = Duration(
+    milliseconds: int.fromEnvironment('GPS_PUBLISH_MS', defaultValue: 1000),
+  );
+  DateTime? _lastPublishAttempt;
+
+  Future<void>? _locationStart;
+  Future<void> _startLocation() {
+    if (_positions != null) return Future.value();
+    return _locationStart ??= _startLocationOnce().whenComplete(
+      () => _locationStart = null,
+    );
+  }
+
+  Future<void> _startLocationOnce() async {
+    final lifecycle = WidgetsBinding.instance.lifecycleState;
+    if (!kIsWeb &&
+        defaultTargetPlatform == TargetPlatform.android &&
+        (lifecycle == AppLifecycleState.paused ||
+            lifecycle == AppLifecycleState.detached)) {
+      return;
+    }
+
     await _permission();
     position = await Geolocator.getCurrentPosition(
       locationSettings: const LocationSettings(
@@ -1326,39 +1379,84 @@ class DriverSession extends ChangeNotifier {
         timeLimit: Duration(seconds: 30),
       ),
     );
-    await _sendLocation(position!);
+    try {
+      await _sendLocation(position!, preferRest: true);
+    } on ApiException catch (e) {
+      if (e.status == 401 || e.status == 403) rethrow;
+      // Cached fixes can survive a process restart while the server already
+      // has a newer sample. A rejected/noisy initial fix must not prevent the
+      // stream from delivering subsequent valid fixes, including after outages.
+      _lastLocationSampleSent = position!.timestamp;
+      if (e.code == 'DRIVER_LOCATION_OUT_OF_ORDER' ||
+          e.code == 'DRIVER_LOCATION_STALE') {
+        locationWarning = 'Waiting for a newer GPS sample.';
+      } else {
+        locationWarning = e.message;
+      }
+    }
+    if (_disposed || !authenticated) return;
     await _positions?.cancel();
     _positions =
         Geolocator.getPositionStream(
-          locationSettings: AndroidSettings(
-            accuracy: LocationAccuracy.high,
-            distanceFilter: 0,
-            intervalDuration: const Duration(seconds: 5),
-            foregroundNotificationConfig: const ForegroundNotificationConfig(
-              notificationTitle: 'Infurnus driver location',
-              notificationText: 'Sharing your location while you are online.',
-              enableWakeLock: true,
-            ),
-          ),
+          locationSettings: defaultTargetPlatform == TargetPlatform.iOS
+              ? AppleSettings(
+                  accuracy: LocationAccuracy.high,
+                  distanceFilter: 0,
+                  activityType: ActivityType.automotiveNavigation,
+                  pauseLocationUpdatesAutomatically: false,
+                  showBackgroundLocationIndicator: true,
+                  allowBackgroundLocationUpdates: true,
+                )
+              : AndroidSettings(
+                  accuracy: LocationAccuracy.high,
+                  distanceFilter: 0,
+                  intervalDuration: gpsInterval,
+                  foregroundNotificationConfig:
+                      const ForegroundNotificationConfig(
+                        notificationTitle: 'Infurnus driver location',
+                        notificationText: 'Sharing your location while online or on an active ride.',
+                        notificationChannelName: 'Active ride location',
+                        setOngoing: true,
+                        enableWakeLock: true,
+                      ),
+                ),
         ).listen(
           (p) {
             position = p;
+            _notify();
             unawaited(_locationUpdate(p));
           },
           onError: (_) {
-            error = 'Location tracking stopped. Check GPS and permissions.';
+            final failed = _positions;
+            _positions = null;
+            unawaited(failed?.cancel());
+            locationWarning =
+                'Location tracking stopped. Check GPS and permissions.';
             _notify();
           },
         );
   }
 
   Future<void> _locationUpdate(Position p) async {
-    if (_sendingLocation || !authenticated) return;
+    // Sampling and delivery have independent clocks. A blocked delivery never queues old fixes.
+    if (_sendingLocation ||
+        !authenticated ||
+        p.accuracy > 200 ||
+        (_lastLocationSampleSent != null &&
+            !p.timestamp.isAfter(_lastLocationSampleSent!))) {
+      return;
+    }
+    final now = DateTime.now();
+    if (_lastPublishAttempt != null &&
+        now.difference(_lastPublishAttempt!) < publishInterval) {
+      return;
+    }
+    _lastPublishAttempt = now;
     _sendingLocation = true;
     try {
       await _sendLocation(p);
     } catch (e) {
-      error = userSafeErrorMessage(e);
+      locationWarning = e is ApiException ? e.message : userSafeErrorMessage(e);
       if (api.accessToken == null) _clear();
     } finally {
       _sendingLocation = false;
@@ -1366,7 +1464,7 @@ class DriverSession extends ChangeNotifier {
     }
   }
 
-  Future<void> _sendLocation(Position p) async {
+  Future<void> _sendLocation(Position p, {bool preferRest = false}) async {
     if (_lastLocationSampleSent != null &&
         !p.timestamp.isAfter(_lastLocationSampleSent!)) {
       return;
@@ -1381,7 +1479,7 @@ class DriverSession extends ChangeNotifier {
     };
     // Send each monotonic GPS sample once. The REST endpoint also broadcasts
     // location when there is no connected ride socket.
-    if (_socket?.connected == true && currentTrip != null) {
+    if (!preferRest && _socket?.connected == true && currentTrip != null) {
       final acknowledgement = Completer<dynamic>();
       _socket!.emitWithAck(
         'driver:location',
@@ -1397,15 +1495,29 @@ class DriverSession extends ChangeNotifier {
         ),
       );
       if (response is! Map || response['success'] != true) {
-        throw const ApiException(
-          'The server rejected the live location update.',
-        );
+        final error = response is Map ? response['error'] : null;
+        final code = error is Map ? error['code'] : null;
+        final message = error is Map ? error['message'] : null;
+        if (code == null || code == 'DRIVER_LOCATION_FORBIDDEN') {
+          // Older servers collapse GPS validation errors into this generic
+          // socket reply. The authenticated HTTP endpoint applies the same
+          // location checks and returns the actionable reason. It also
+          // broadcasts accepted fixes; never mark a rejected fix delivered.
+          await api.request('POST', '/rides/driver/location', body: payload);
+        } else {
+          throw ApiException(
+            message is String && message.isNotEmpty ? message : 'Live location was not accepted. Waiting for a fresh GPS fix.',
+            null,
+            code is String ? code : null,
+          );
+        }
       }
     } else {
       await api.request('POST', '/rides/driver/location', body: payload);
     }
     _lastLocationSampleSent = p.timestamp;
     lastLocationSent = DateTime.now();
+    locationWarning = null;
   }
 
   Future<bool> setOnline(bool value) => run(() async {
@@ -1554,6 +1666,15 @@ class DriverSession extends ChangeNotifier {
     }
   });
 
+  Future<Map> _logisticsPaymentSummary(String rideId) async {
+    final id = Uri.encodeComponent(rideId);
+    final summary = await api.request('GET', '/payments/rides/$id/summary');
+    if (summary is! Map || summary['rideId'] != rideId) {
+      throw const ApiException('Payment status could not be verified.');
+    }
+    return summary;
+  }
+
   Future<bool> confirmLogisticsUpfrontCash(String rideId) => run(() async {
     if (isPreview) {
       if (currentTrip?['id'] == rideId &&
@@ -1563,11 +1684,27 @@ class DriverSession extends ChangeNotifier {
       }
       return;
     }
-    await api.request(
-      'POST',
-      '/rides/${Uri.encodeComponent(rideId)}/logistics-upfront-cash',
-      body: {},
-    );
+    final summary = await _logisticsPaymentSummary(rideId);
+    final payments = summary['payments'];
+    final claim = payments is List
+        ? payments
+              .whereType<Map>()
+              .where(
+                (payment) =>
+                    payment['paymentStage'] == 'upfront' &&
+                    payment['provider'] == 'cash' &&
+                    payment['customerClaimedAt'] != null &&
+                    payment['status'] != 'CAPTURED',
+              )
+              .firstOrNull
+        : null;
+    if (claim?['id'] is! String) {
+      throw const ApiException(
+        'The customer must submit the cash payment claim first.',
+      );
+    }
+    final paymentId = Uri.encodeComponent(claim!['id'] as String);
+    await api.request('POST', '/payments/$paymentId/capture', body: {});
     await _load();
   });
 
@@ -1580,11 +1717,12 @@ class DriverSession extends ChangeNotifier {
       }
       return;
     }
-    await api.request(
-      'POST',
-      '/rides/${Uri.encodeComponent(rideId)}/logistics-upfront-online',
-      body: {},
-    );
+    final summary = await _logisticsPaymentSummary(rideId);
+    if (summary['upfrontConfirmed'] != true) {
+      throw const ApiException(
+        'Waiting for the customer’s verified upfront payment.',
+      );
+    }
     await _load();
   });
 

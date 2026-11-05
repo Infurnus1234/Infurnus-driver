@@ -362,10 +362,8 @@ void main() {
       expect(verify.onPressed, isNull);
       // Entering 6 digits enables the button
       final boxes = find.byType(TextField);
-      expect(boxes.evaluate().length, 6);
-      for (var i = 0; i < 6; i++) {
-        await tester.enterText(boxes.at(i), '$i');
-      }
+      expect(boxes.evaluate().length, 1);
+      await tester.enterText(boxes, '012345');
       await tester.pump();
       expect(
         tester.widget<FilledButton>(find.byType(FilledButton)).onPressed,
@@ -452,7 +450,7 @@ void main() {
     );
     await tester.pump();
     // Resend button must be present
-    expect(find.text('Resend'), findsOneWidget);
+    expect(find.text('Resend verification code'), findsOneWidget);
     // Countdown text must NOT appear when remaining == 0
     expect(find.textContaining('Resend in'), findsNothing);
   });
@@ -484,16 +482,14 @@ void main() {
     );
     // Only 5 digits
     final boxes = find.byType(TextField);
-    for (var i = 0; i < 5; i++) {
-      await tester.enterText(boxes.at(i), '$i');
-    }
+    await tester.enterText(boxes, '01234');
     await tester.pump();
     expect(
       tester.widget<FilledButton>(find.byType(FilledButton)).onPressed,
       isNull,
     );
     // 6th digit enables it
-    await tester.enterText(boxes.at(5), '5');
+    await tester.enterText(boxes, '012345');
     await tester.pump();
     expect(
       tester.widget<FilledButton>(find.byType(FilledButton)).onPressed,

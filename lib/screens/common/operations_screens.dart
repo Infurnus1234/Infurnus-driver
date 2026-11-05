@@ -659,6 +659,15 @@ class SafetySettingsScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(Ops.padding),
         children: [
+          const Padding(
+            padding: EdgeInsets.all(16),
+            child: Text(
+              'During an active ride, keep precise location and notifications enabled. '
+              'The ongoing location notification returns you to the app. '
+              'If your phone restricts background updates, review battery restrictions in App settings. '
+              'Force-stop prevents tracking until you reopen the app.',
+            ),
+          ),
           const OpsPanel(
             title: 'Emergency assistance',
             child: Text(

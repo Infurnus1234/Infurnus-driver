@@ -121,7 +121,13 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
       expect(find.byType(PersonalInformationScreen), findsOneWidget);
-      expect(find.byType(AccountDetailsCard), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(PersonalInformationScreen),
+          matching: find.byType(AccountDetailsCard),
+        ),
+        findsOneWidget,
+      );
 
       // Test legacy /profile-photo redirects away from /profile-photo to landingPath
       appRouter.go('/profile-photo');

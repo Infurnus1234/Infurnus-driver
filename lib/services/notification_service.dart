@@ -64,7 +64,7 @@ Future<void> driverFirebaseMessagingBackgroundHandler(
 /// Payloads can choose an allowlisted destination, never an arbitrary route.
 String? notificationDestination(Map<String, dynamic> data) {
   if (data['rideId'] is String && (data['rideId'] as String).isNotEmpty) {
-    return '/driver/dashboard';
+    return '/driver/active-trip';
   }
   return null;
 }
