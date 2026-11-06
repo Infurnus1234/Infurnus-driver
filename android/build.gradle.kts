@@ -1,3 +1,13 @@
+if (System.getProperty("android.user.home") == null) {
+    System.setProperty("android.user.home", rootProject.file(".gradle").absolutePath)
+}
+if (System.getProperty("ANDROID_PREFS_ROOT") == null) {
+    System.setProperty("ANDROID_PREFS_ROOT", rootProject.file(".gradle/android_prefs").absolutePath)
+}
+if (System.getProperty("ANDROID_USER_HOME") == null) {
+    System.setProperty("ANDROID_USER_HOME", rootProject.file(".gradle/android_user").absolutePath)
+}
+
 allprojects {
     repositories {
         google()

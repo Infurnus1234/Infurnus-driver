@@ -38,4 +38,6 @@ jobs:
       - name: Android debug compilation
         env:
           GOOGLE_MAPS_API_KEY: ${{ secrets.DRIVER_MAPS_API_KEY || 'non-secret-ci-fixture-key' }}
+          ANDROID_PREFS_ROOT: ${{ github.workspace }}/.gradle/android_prefs
+          ANDROID_USER_HOME: ${{ github.workspace }}/.gradle/android_user
         run: flutter build apk --debug --no-pub
