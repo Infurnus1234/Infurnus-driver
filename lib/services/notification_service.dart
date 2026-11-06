@@ -40,7 +40,7 @@ Future<void> driverFirebaseMessagingBackgroundHandler(
         body,
         const NotificationDetails(
           android: AndroidNotificationDetails(
-            'infurnus_driver_channel_v2',
+            'infurnus_driver_channel_v3',
             'Infurnus Driver Notifications',
             importance: Importance.max,
             priority: Priority.max,
@@ -123,11 +123,14 @@ class DriverNotificationService {
             AndroidFlutterLocalNotificationsPlugin
           >();
       await androidPlugin?.deleteNotificationChannel('infurnus_driver_channel');
+      await androidPlugin?.deleteNotificationChannel(
+        'infurnus_driver_channel_v2',
+      );
       await androidPlugin?.deleteNotificationChannel('infurnus_channel');
       await androidPlugin?.deleteNotificationChannel('infurnus_ride_requests');
       const AndroidNotificationChannel driverChannel =
           AndroidNotificationChannel(
-            'infurnus_driver_channel_v2',
+            'infurnus_driver_channel_v3',
             'Infurnus Driver Notifications',
             description:
                 'Audible alerts for new ride requests and trip updates',
@@ -215,9 +218,11 @@ class DriverNotificationService {
           }
         }),
       );
-    } catch (_) {
-      // No payloads, FCM tokens or provider details are logged.
-      debugPrint('Push notification setup unavailable.');
+    } catch (e, st) {
+      debugPrint('Push notification setup failed: ${e.runtimeType}: $e');
+      if (kDebugMode) {
+        debugPrint(st.toString());
+      }
     }
   }
 
@@ -252,8 +257,11 @@ class DriverNotificationService {
       if (result is Map && api.userId == owner) {
         _registeredId = result['id']?.toString();
       }
-    } catch (_) {
-      debugPrint('Device registration unavailable.');
+    } catch (e, st) {
+      debugPrint('Device registration failed: ${e.runtimeType}: $e');
+      if (kDebugMode) {
+        debugPrint(st.toString());
+      }
     }
   }
 
@@ -288,7 +296,7 @@ class DriverNotificationService {
         body,
         const NotificationDetails(
           android: AndroidNotificationDetails(
-            'infurnus_driver_channel_v2',
+            'infurnus_driver_channel_v3',
             'Infurnus Driver Notifications',
             importance: Importance.max,
             priority: Priority.high,

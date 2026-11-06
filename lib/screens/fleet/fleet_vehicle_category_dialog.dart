@@ -34,55 +34,6 @@ class _VehicleCategoryDialogState extends State<_VehicleCategoryDialog> {
     _catalog = widget.api.request('GET', '/provider/vehicle-catalog');
   }
 
-  Future<void> _addCustomType() async {
-    var enteredName = '';
-    final name = await showDialog<String>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Add custom vehicle type'),
-        content: TextField(
-          onChanged: (value) => enteredName = value,
-          maxLength: 100,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () {
-              final name = enteredName.trim();
-              if (name.isNotEmpty) Navigator.pop(dialogContext, name);
-            },
-            child: const Text('Create type'),
-          ),
-        ],
-      ),
-    );
-    if (name == null || !mounted) return;
-    try {
-      final created = await widget.api.request(
-        'POST',
-        '/provider/vehicle-catalog/custom',
-        body: {'sector': _sector, 'name': name},
-      ) as Map;
-      if (!mounted) return;
-      setState(() {
-        _type = created['code'] as String;
-        _error = null;
-        _catalog = widget.api.request('GET', '/provider/vehicle-catalog');
-      });
-    } catch (error) {
-      if (mounted) {
-        setState(
-          () => _error = error is ApiException
-              ? error.message
-              : 'Could not create this type. Please retry.',
-        );
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) => AlertDialog(
     title: const Text('Vehicle category and type'),
@@ -221,11 +172,6 @@ class _VehicleCategoryDialogState extends State<_VehicleCategoryDialog> {
                       'No approved Premium cities are configured. Retry configuration before saving.',
                     ),
                 ],
-                if (_sector != null && _sector != 'logistics')
-                  TextButton(
-                    onPressed: _addCustomType,
-                    child: const Text('Add custom vehicle type'),
-                  ),
                 if (_error != null) Text(_error!),
               ],
             ),

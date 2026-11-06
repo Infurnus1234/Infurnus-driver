@@ -103,104 +103,44 @@ void main() {
     },
   );
 
-  testWidgets(
-    'custom types remain available through a separate dialog outside Logistics',
-    (tester) async {
-      final types = <Map<String, dynamic>>[];
-      final calls = <String>[];
-      Map<String, String>? selected;
-      final api = ApiService(
-        client: MockClient((request) async {
-          calls.add('${request.method} ${request.url.path}');
-          if (request.method == 'POST') {
-            expect(jsonDecode(request.body), {
-              'sector': 'service',
-              'name': 'My Truck',
-            });
-            final item = {
-              'name': 'My Truck',
-              'code': 'custom_truck',
-              'sector': 'service',
-              'custom': true,
-            };
-            types.add(item);
-            return http.Response(
-              jsonEncode({'success': true, 'data': item}),
-              201,
-            );
-          }
-          return http.Response(
-            jsonEncode({
-              'success': true,
-              'data': {
-                'sectors': ['passenger', 'service'],
-                'types': types,
+  testWidgets('Custom vehicle type addition button is removed as per policy', (
+    tester,
+  ) async {
+    final api = ApiService(
+      client: MockClient((request) async {
+        return http.Response(
+          jsonEncode({
+            'success': true,
+            'data': {
+              'sectors': ['service'],
+              'types': [
+                {'name': 'Ambulance', 'code': 'ambulance', 'sector': 'service'},
+              ],
+            },
+          }),
+          200,
+        );
+      }),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(
+              onPressed: () async {
+                await selectFleetVehicleCategory(context, api);
               },
-            }),
-            200,
-          );
-        }),
-      );
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Builder(
-            builder: (context) => Scaffold(
-              body: TextButton(
-                onPressed: () async {
-                  selected = await selectFleetVehicleCategory(context, api);
-                },
-                child: const Text('Choose'),
-              ),
+              child: const Text('Choose'),
             ),
           ),
         ),
-      );
-      await tester.tap(find.text('Choose'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byType(DropdownButtonFormField<String>).first);
-      await tester.pumpAndSettle();
-      expect(find.text('passenger'), findsNothing);
-      await tester.tap(find.text('service').last);
-      await tester.pumpAndSettle();
-      expect(find.byType(TextField), findsNothing);
-      await tester.tap(find.text('Add custom vehicle type'));
-      await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField), 'My Truck');
-      await tester.ensureVisible(find.text('Create type'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Create type'));
-      await tester.pumpAndSettle();
-      expect(find.text('Vehicle category and type'), findsOneWidget);
-      expect(find.byType(AlertDialog), findsOneWidget);
-      expect(calls, [
-        'GET /provider/vehicle-catalog',
-        'POST /provider/vehicle-catalog/custom',
-        'GET /provider/vehicle-catalog',
-      ]);
-      await tester.tap(find.byType(DropdownButtonFormField<String>).last);
-      await tester.pumpAndSettle();
-      expect(find.text('My Truck'), findsNWidgets(2));
-      await tester.tap(find.text('My Truck').last);
-      await tester.pumpAndSettle();
-      expect(
-        tester
-            .widget<DropdownButtonFormField<String>>(
-              find.byType(DropdownButtonFormField<String>).last,
-            )
-            .initialValue,
-        'custom_truck',
-      );
-      await tester.tap(find.text('Continue'));
-      await tester.pumpAndSettle();
-      expect(selected, {'sector': 'service', 'category': 'custom_truck'});
-      expect(calls, [
-        'GET /provider/vehicle-catalog',
-        'POST /provider/vehicle-catalog/custom',
-        'GET /provider/vehicle-catalog',
-      ]);
-      api.dispose();
-    },
-  );
+      ),
+    );
+    await tester.tap(find.text('Choose'));
+    await tester.pumpAndSettle();
+    expect(find.text('Add custom vehicle type'), findsNothing);
+    api.dispose();
+  });
 
   test(
     'legacy catalog preserves models without making Passenger selectable',

@@ -215,9 +215,13 @@ class _BankAccountScreenState extends State<BankAccountScreen> {
         const Text(
           'Format checks do not verify ownership. Documentary review is manual; payouts remain disabled until bank ownership is verified through an authorized process.',
         ),
+        const SizedBox(height: 12),
         DropdownButtonFormField<String>(
           initialValue: _accountType,
-          decoration: const InputDecoration(labelText: 'Account type'),
+          decoration: const InputDecoration(
+            labelText: 'Account type',
+            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+          ),
           items: const [
             DropdownMenuItem(value: 'SAVINGS', child: Text('Savings')),
             DropdownMenuItem(value: 'CURRENT', child: Text('Current')),
@@ -225,9 +229,13 @@ class _BankAccountScreenState extends State<BankAccountScreen> {
           ],
           onChanged: _busy ? null : (v) => setState(() => _accountType = v!),
         ),
+        const SizedBox(height: 16),
         DropdownButtonFormField<String>(
           initialValue: _ownershipType,
-          decoration: const InputDecoration(labelText: 'Account ownership'),
+          decoration: const InputDecoration(
+            labelText: 'Account ownership',
+            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+          ),
           items: const [
             DropdownMenuItem(value: 'INDIVIDUAL', child: Text('Individual')),
             DropdownMenuItem(
@@ -237,6 +245,7 @@ class _BankAccountScreenState extends State<BankAccountScreen> {
           ],
           onChanged: _busy ? null : (v) => setState(() => _ownershipType = v!),
         ),
+        const SizedBox(height: 12),
         TextButton.icon(
           icon: const Icon(Icons.upload_file),
           label: const Text('Upload or replace one bank proof'),

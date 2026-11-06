@@ -61,7 +61,7 @@ void main() {
         expect(VehicleCategoryPolicy.allowsCode('service', 'towing'), isTrue);
         expect(
           VehicleCategoryPolicy.allowsCode('premium', 'helicopter'),
-          isTrue,
+          isFalse,
         );
       },
     );

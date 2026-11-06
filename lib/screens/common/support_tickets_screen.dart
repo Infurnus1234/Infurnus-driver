@@ -258,10 +258,8 @@ class _SupportTicketsScreenState extends State<SupportTicketsScreen>
                 color: Ops.textSecondary,
               ),
               onTap: () async {
-                final uri = Uri(
-                  scheme: 'mailto',
-                  path: kSupportEmail,
-                  queryParameters: {'subject': 'Infurnus Driver App Support'},
+                final uri = Uri.parse(
+                  'mailto:$kSupportEmail?subject=${Uri.encodeComponent('Infurnus Driver App Support')}',
                 );
                 try {
                   final launched = await launchUrl(uri);
