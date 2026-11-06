@@ -35,6 +35,16 @@ jobs:
         env:
           ANDROID_GOOGLE_SERVICES_JSON: ${{ secrets.DRIVER_ANDROID_GOOGLE_SERVICES_JSON }}
         run: node scripts/configure-ci-firebase.mjs
+      - name: Generate local.properties for CI
+        run: |
+          $flutterSdk = (Get-Command flutter).Source | Split-Path -Parent | Split-Path -Parent
+          echo "flutter.sdk=$flutterSdk" > android/local.properties
+          if ($env:ANDROID_SDK_ROOT) {
+            echo "sdk.dir=$env:ANDROID_SDK_ROOT" >> android/local.properties
+          } elseif ($env:ANDROID_HOME) {
+            echo "sdk.dir=$env:ANDROID_HOME" >> android/local.properties
+          }
+        shell: pwsh
       - name: Android debug compilation
         env:
           GOOGLE_MAPS_API_KEY: ${{ secrets.DRIVER_MAPS_API_KEY || 'non-secret-ci-fixture-key' }}
