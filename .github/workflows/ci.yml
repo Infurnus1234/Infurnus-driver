@@ -11,6 +11,8 @@ jobs:
     # Existing approved golden baselines were rendered on Windows.
     # Keep exact comparisons on that host; never relax pixel thresholds.
     runs-on: windows-latest
+    env:
+      ANDROID_USER_HOME: ${{ runner.temp }}/.android
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
@@ -35,7 +37,19 @@ jobs:
         env:
           ANDROID_GOOGLE_SERVICES_JSON: ${{ secrets.DRIVER_ANDROID_GOOGLE_SERVICES_JSON }}
         run: node scripts/configure-ci-firebase.mjs
+<<<<<<< HEAD
       - name: Verify and Generate local.properties for CI
+=======
+      - name: Print Android Environment Diagnostics
+        run: |
+          flutter --version
+          java -version
+          echo "ANDROID_HOME: $env:ANDROID_HOME"
+          echo "ANDROID_SDK_ROOT: $env:ANDROID_SDK_ROOT"
+          echo "ANDROID_USER_HOME: $env:ANDROID_USER_HOME"
+        shell: pwsh
+      - name: Generate local.properties for CI
+>>>>>>> 4ef2d95 (Add Gradle stacktrace diagnostic step and verify Android SDK path in CI)
         run: |
           Write-Host "Checking environment variables..."
           Write-Host "ANDROID_HOME: $env:ANDROID_HOME"
@@ -56,16 +70,41 @@ jobs:
 
           Write-Host "Verified Android SDK at: $sdkPath"
           $flutterSdk = (Get-Command flutter).Source | Split-Path -Parent | Split-Path -Parent
+<<<<<<< HEAD
 
           $sdkPathEscaped = $sdkPath -replace '\\', '/'
+=======
+          $sdkDir = if ($env:ANDROID_SDK_ROOT) { $env:ANDROID_SDK_ROOT } elseif ($env:ANDROID_HOME) { $env:ANDROID_HOME } else { "C:\Android\android-sdk" }
+          if (!(Test-Path $sdkDir)) {
+            if (Test-Path "C:\Android\Sdk") {
+              $sdkDir = "C:\Android\Sdk"
+            }
+          }
+          if (!(Test-Path "$sdkDir\platform-tools")) {
+            Write-Error "Android SDK platform-tools not found at $sdkDir\platform-tools"
+            exit 1
+          }
+          $sdkDirEscaped = $sdkDir -replace '\\', '/'
+>>>>>>> 4ef2d95 (Add Gradle stacktrace diagnostic step and verify Android SDK path in CI)
           $flutterSdkEscaped = $flutterSdk -replace '\\', '/'
 
           "flutter.sdk=$flutterSdkEscaped" | Out-File -FilePath android/local.properties -Encoding utf8
+<<<<<<< HEAD
           "sdk.dir=$sdkPathEscaped" | Out-File -FilePath android/local.properties -Append -Encoding utf8
 
+=======
+          "sdk.dir=$sdkDirEscaped" | Out-File -FilePath android/local.properties -Append -Encoding utf8
+>>>>>>> 4ef2d95 (Add Gradle stacktrace diagnostic step and verify Android SDK path in CI)
           Write-Host "Generated android/local.properties:"
           Get-Content android/local.properties
         shell: pwsh
+      - name: Gradle Stacktrace Diagnostics
+        run: |
+          cd android
+          .\gradlew.bat :app:assembleDebug --stacktrace --info
+        shell: pwsh
+        env:
+          GOOGLE_MAPS_API_KEY: ${{ secrets.DRIVER_MAPS_API_KEY || 'non-secret-ci-fixture-key' }}
       - name: Android debug compilation
         env:
           GOOGLE_MAPS_API_KEY: ${{ secrets.DRIVER_MAPS_API_KEY || 'non-secret-ci-fixture-key' }}
