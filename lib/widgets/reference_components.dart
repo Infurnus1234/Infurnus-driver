@@ -398,7 +398,7 @@ Future<void> showModeSwitcher(BuildContext context) async {
     context: context,
     isScrollControlled: true,
     builder: (sheet) => SafeArea(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
         child: Column(
           mainAxisSize: MainAxisSize.min,

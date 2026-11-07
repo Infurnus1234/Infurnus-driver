@@ -495,6 +495,10 @@ class AccountScreen extends StatelessWidget {
         : (upperStatus == 'REJECTED')
         ? InfurnusTheme.dangerRed
         : InfurnusTheme.warningAmber;
+    final canSwitchMode = session.api.hasDriverRole && session.api.hasFleetRole;
+    final currentMode = session.api.providerMode == 'fleet_owner'
+        ? 'Fleet Owner Mode'
+        : 'Driver Mode';
 
     return Scaffold(
       backgroundColor: InfurnusTheme.bgWhite,
@@ -510,6 +514,15 @@ class AccountScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
         children: [
+          if (canSwitchMode) ...[
+            SettingsTile(
+              icon: Icons.swap_horiz_rounded,
+              title: 'Account Mode',
+              subtitle: 'Current mode · $currentMode',
+              onTap: () => showModeSwitcher(context),
+            ),
+            const SizedBox(height: 12),
+          ],
           // Profile Header Card
           AppCard(
             onTap: () => context.push('/personal-details'),
