@@ -5,9 +5,11 @@ import 'package:geolocator/geolocator.dart';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/widgets.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:infurnus_driver/services/api_service.dart';
+import 'package:infurnus_driver/services/location_access.dart';
 import 'package:infurnus_driver/services/session_store.dart';
 import 'package:infurnus_driver/providers/driver_session.dart';
 
@@ -19,6 +21,10 @@ class ProductionFlowApi extends ApiService {
 }
 
 class DisabledGps extends GeolocatorPlatform {
+  @override
+  Future<LocationPermission> checkPermission() async =>
+      LocationPermission.whileInUse;
+
   @override
   Future<bool> isLocationServiceEnabled() async {
     return false;
@@ -64,6 +70,18 @@ http.Response ok(dynamic data) =>
     http.Response(jsonEncode({'success': true, 'data': data}), 200);
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  const channel = MethodChannel('infurnus/location_settings');
+  final messenger =
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+  setUp(
+    () => messenger.setMockMethodCallHandler(channel, (call) async {
+      if (call.method != 'isEnabled') return null;
+      return GeolocatorPlatform.instance.isLocationServiceEnabled();
+    }),
+  );
+  tearDown(() => messenger.setMockMethodCallHandler(channel, null));
+
   for (final initialFailure in [
     'DRIVER_LOCATION_OUT_OF_ORDER',
     'DRIVER_LOCATION_IMPLAUSIBLE',
@@ -265,88 +283,87 @@ void main() {
       expect(session.authenticated, true);
       expect(session.restorationNeedsRetry, false);
       expect(session.landingPath, '/driver/active-trip');
-      expect(session.locationWarning, contains('Enable GPS'));
+      expect(session.locationWarning, contains('Location is off'));
       expect(session.error, isNull);
       session.dispose();
       await tester.pump(const Duration(seconds: 1));
     },
   );
-  testWidgets(
-    'stationary location stays fresh and duplicate/older GPS samples are not resent',
-    (tester) async {
-      final previous = GeolocatorPlatform.instance;
-      final gps = WorkingGps();
-      GeolocatorPlatform.instance = gps;
-      final sent = <String>[];
-      addTearDown(() => GeolocatorPlatform.instance = previous);
-      final store = MemorySessionStore();
-      final token =
-          'x.${base64Url.encode(utf8.encode(jsonEncode({'role': 'driver'})))}.x';
-      await store.write(
-        jsonEncode({
-          'accessToken': token,
-          'userId': 'fixture',
-          'role': 'driver',
-          'providerMode': 'driver',
-          'cookies': <String, String>{},
-        }),
-      );
-      final api = ProductionFlowApi(
-        MockClient((r) async {
-          switch (r.url.path) {
-            case '/rides/driver/location':
-              sent.add(jsonDecode(r.body)['timestamp'] as String);
-              return ok(null);
-            case '/auth/refresh':
-              return ok({'accessToken': token});
-            case '/provider/enrolment':
-              return ok({'role': 'driver', 'dashboardAccessible': false});
-            case '/users/fixture':
-              return ok({'firstName': 'Fixture', 'lastName': 'Driver'});
-            case '/rides/driver/profile':
-              return ok({'id': 'fixture-profile'});
-            case '/rides/driver/current-trip':
-              return ok({'id': 'fixture-trip', 'status': 'driver_arriving'});
-            case '/rides/driver/assigned-vehicle':
-              return ok({'id': 'fixture-vehicle'});
-            default:
-              return ok({});
-          }
-        }),
-        store,
-      );
-      final session = DriverSession(
-        api: api,
-        onboardingDraftStore: MemorySessionStore(),
-      );
-      // A real stored session is revalidated before the GPS capability is attempted.
-      expect(await session.restore(), true);
-      expect(session.authenticated, true);
-      expect(session.restorationNeedsRetry, false);
-      expect(session.landingPath, '/driver/active-trip');
-      expect(sent.length, 1);
-      expect(gps.settings!.distanceFilter, 0);
-      expect(
-        (gps.settings as AndroidSettings).intervalDuration,
-        const Duration(seconds: 1),
-      );
-      expect(DriverSession.publishInterval, const Duration(seconds: 1));
-      gps.updates.add(sample(gps.at));
-      gps.updates.add(sample(gps.at.subtract(const Duration(seconds: 1))));
-      await tester.pump(const Duration(milliseconds: 10));
-      expect(sent.length, 1);
-      gps.updates.add(sample(gps.at.add(const Duration(seconds: 1))));
-      await tester.pump(const Duration(milliseconds: 10));
-      expect(sent.length, 2);
-      expect(
-        DateTime.parse(sent.last).isAfter(DateTime.parse(sent.first)),
-        true,
-      );
-      await gps.updates.close();
-      session.dispose();
-      await tester.pump(const Duration(seconds: 1));
-    },
-  );
+  test('stationary location stays fresh and duplicate/older GPS samples are not resent', () async {
+    final previous = GeolocatorPlatform.instance;
+    final gps = WorkingGps();
+    GeolocatorPlatform.instance = gps;
+    final sent = <String>[];
+    addTearDown(() => GeolocatorPlatform.instance = previous);
+    final store = MemorySessionStore();
+    final token =
+        'x.${base64Url.encode(utf8.encode(jsonEncode({'role': 'driver'})))}.x';
+    await store.write(
+      jsonEncode({
+        'accessToken': token,
+        'userId': 'fixture',
+        'role': 'driver',
+        'providerMode': 'driver',
+        'cookies': <String, String>{},
+      }),
+    );
+    final api = ProductionFlowApi(
+      MockClient((r) async {
+        switch (r.url.path) {
+          case '/rides/driver/location':
+            sent.add(jsonDecode(r.body)['timestamp'] as String);
+            return ok(null);
+          case '/auth/refresh':
+            return ok({'accessToken': token});
+          case '/provider/enrolment':
+            return ok({'role': 'driver', 'dashboardAccessible': false});
+          case '/users/fixture':
+            return ok({'firstName': 'Fixture', 'lastName': 'Driver'});
+          case '/rides/driver/profile':
+            return ok({'id': 'fixture-profile'});
+          case '/rides/driver/current-trip':
+            return ok({'id': 'fixture-trip', 'status': 'driver_arriving'});
+          case '/rides/driver/assigned-vehicle':
+            return ok({'id': 'fixture-vehicle'});
+          default:
+            return ok({});
+        }
+      }),
+      store,
+    );
+    final session = DriverSession(
+      api: api,
+      onboardingDraftStore: MemorySessionStore(),
+    );
+    // A real stored session is revalidated before the GPS capability is attempted.
+    expect(await session.restore(), true);
+    expect(session.authenticated, true);
+    expect(session.restorationNeedsRetry, false);
+    expect(session.landingPath, '/driver/active-trip');
+    expect(sent.length, 1);
+    expect(gps.settings!.distanceFilter, 0);
+    expect(
+      (gps.settings as AndroidSettings).intervalDuration,
+      const Duration(seconds: 1),
+    );
+    expect(DriverSession.publishInterval, const Duration(seconds: 1));
+    gps.updates.add(sample(gps.at));
+    gps.updates.add(sample(gps.at.subtract(const Duration(seconds: 1))));
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+    expect(sent.length, 1);
+    gps.updates.add(sample(gps.at.add(const Duration(seconds: 1))));
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+    expect(sent.length, 2);
+    expect(DateTime.parse(sent.last).isAfter(DateTime.parse(sent.first)), true);
+    session.error = 'Vehicle request failed';
+    await session.locationAccessChanged(LocationAccessIssue.servicesOff);
+    expect(session.locationWarning, LocationAccessIssue.servicesOff.message);
+    await session.locationAccessChanged(null);
+    expect(gps.streamStarts, 2);
+    expect(session.error, 'Vehicle request failed');
+    await gps.updates.close();
+    session.dispose();
+  });
   for (final role in ['driver', 'fleet_owner', 'driver_fleet_owner']) {
     test('$role is explicit when retrying an ambiguous OTP identity', () async {
       final api = ApiService(

@@ -1,9 +1,10 @@
+import 'support/active_catalog_fixture.dart';
+
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
-import 'package:http/testing.dart';
 import 'package:provider/provider.dart';
 import 'package:infurnus_driver/widgets/calendar_field.dart';
 import 'package:infurnus_driver/widgets/private_document_preview.dart';
@@ -24,7 +25,7 @@ void main() {
       var fail = true, posts = 0;
       final vehicles = <Map<String, dynamic>>[];
       final api = ApiService(
-        client: MockClient((r) async {
+        client: activeCatalogClient((r) async {
           if (r.method == 'POST' && r.url.path == '/partners/vehicles') {
             posts++;
             if (fail) {
@@ -85,7 +86,7 @@ void main() {
       await tester.tap(find.byType(DropdownButtonFormField<String>).first);
       await tester.pumpAndSettle();
       expect(find.text('passenger'), findsNothing);
-      await tester.tap(find.text('logistics').last);
+      await tester.tap(find.text('Logistics').last);
       await tester.pumpAndSettle();
       await tester.tap(find.byType(DropdownButtonFormField<String>).last);
       await tester.pumpAndSettle();
@@ -183,7 +184,7 @@ void main() {
     (tester) async {
       var posts = 0;
       final api = ApiService(
-        client: MockClient((r) async {
+        client: activeCatalogClient((r) async {
           if (r.method == 'GET') return ok(null);
           posts++;
           final data = jsonDecode(r.body) as Map;
@@ -251,7 +252,7 @@ void main() {
       Map? submitted;
       final session = DriverSession(
         api: ApiService(
-          client: MockClient((r) async {
+          client: activeCatalogClient((r) async {
             if (r.method == 'GET') return ok(null);
             submitted = jsonDecode(r.body) as Map;
             return ok({
@@ -308,7 +309,7 @@ void main() {
     (tester) async {
       var fail = true, calls = 0;
       final api = ApiService(
-        client: MockClient((r) async {
+        client: activeCatalogClient((r) async {
           calls++;
           if (fail) {
             return http.Response(

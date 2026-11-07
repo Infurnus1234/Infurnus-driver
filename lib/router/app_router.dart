@@ -24,6 +24,7 @@ import '../screens/auth/verification_status_screen.dart';
 import '../screens/auth/welcome_screen.dart';
 import '../screens/auth/role_selection_screen.dart';
 import '../screens/driver/operations_dashboard.dart';
+import '../screens/driver/driver_navigation_screen.dart';
 import '../screens/common/operations_screens.dart';
 
 import '../screens/fleet/provider_assets_screen.dart';
@@ -88,6 +89,9 @@ final appRouter = GoRouter(
       return session.authenticated ? session.landingPath : null;
     }
     if (path == '/otp') {
+      // Authentication clears its challenge before loading account/onboarding state.
+      // Keep this screen mounted until that operation chooses the final landing route.
+      if (session.busy) return null;
       return session.challengeId == null && session.signupId == null
           ? session.landingPath
           : null;
@@ -147,7 +151,7 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: '/driver/active-trip',
-      builder: (_, _) => const OperationsDashboard(),
+      builder: (_, _) => const DriverNavigationScreen(),
     ),
     GoRoute(
       path: '/driver/assignment',

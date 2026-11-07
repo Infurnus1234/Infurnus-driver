@@ -11,6 +11,9 @@ dependencies:
   flutter:
     sdk: flutter
 
+  driver_request_overlay:
+    path: packages/driver_request_overlay
+
   # Navigation & Routing
   go_router: ^14.2.0
 

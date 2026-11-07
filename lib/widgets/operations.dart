@@ -14,7 +14,7 @@ String inr(dynamic paise) {
       : NumberFormat.currency(
           locale: 'en_IN',
           symbol: '₹',
-          decimalDigits: 2,
+          decimalDigits: (amount / 100) == (amount / 100).truncateToDouble() ? 0 : 2,
         ).format(amount / 100);
 }
 
@@ -247,3 +247,8 @@ Future<bool> confirmOperation(
       ),
     ) ??
     false;
+
+/// Presentation only. Existing fractional records retain their actual amount.
+extension RupeeDisplay on num {
+  String get rupeeText => toStringAsFixed(this == truncateToDouble() ? 0 : 2);
+}

@@ -16,5 +16,5 @@ class VehicleCatalogItem {
     required this.payloadCapacity,
   });
 
-  String get fullName => '$brand $modelName';
+  String get fullName => '$brand $modelName'.trim();
 }

@@ -245,7 +245,10 @@ class _RideDetails extends StatelessWidget {
         Text('Destination · ${ride['destinationAddress'] ?? 'Not disclosed'}'),
         const SizedBox(height: 8),
         Text('Category · ${ride['vehicleCategory'] ?? 'Not provided'}'),
-        if (ride['sector'] == 'premium') const Text('Premium'),
+        if (ride['sector'] == 'premium')
+          Text(
+            rentalHours == null ? 'Premium' : 'Premium · $rentalHours hours',
+          ),
         if (ride['sector'] == 'rental')
           Text(rentalHours == null ? 'Rental' : 'Rental · $rentalHours hours'),
         if (fare != null)

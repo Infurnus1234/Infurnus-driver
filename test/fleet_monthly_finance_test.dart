@@ -56,8 +56,8 @@ void main() {
       expect(find.text('INR 123.45'), findsOneWidget);
       expect(find.text('Captured ride payments: INR 78.90'), findsOneWidget);
       expect(find.textContaining('44.55'), findsOneWidget);
-      expect(find.textContaining('89.00'), findsOneWidget);
-      expect(find.textContaining('45.00'), findsOneWidget);
+      expect(find.textContaining('₹89'), findsOneWidget);
+      expect(find.textContaining('₹45'), findsOneWidget);
       expect(find.textContaining('Estimates are excluded'), findsOneWidget);
       expect(months, hasLength(1));
       final date = DateTime.now().toUtc(),

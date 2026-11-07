@@ -1,3 +1,4 @@
+import 'package:infurnus_driver/widgets/operations.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -588,7 +589,7 @@ class SettlementBars extends StatelessWidget {
             Expanded(
               child: Tooltip(
                 message:
-                    '${visible[i]['day']}: ₹${(values[i] / 100).toStringAsFixed(2)}',
+                    '${visible[i]['day']}: ₹${(values[i] / 100).rupeeText}',
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [

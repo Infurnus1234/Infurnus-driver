@@ -419,13 +419,13 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(paths, ['/provider/earnings']);
-      expect(find.text('₹100.00'), findsWidgets);
-      expect(find.text('₹300.00'), findsNothing);
+      expect(find.text('₹100'), findsWidgets);
+      expect(find.text('₹300'), findsNothing);
       await tester.tap(find.byType(DropdownButtonFormField<String>));
       await tester.pumpAndSettle();
       await tester.tap(find.text('This month').last);
       await tester.pumpAndSettle();
-      expect(find.text('₹300.00'), findsOneWidget);
+      expect(find.text('₹300'), findsOneWidget);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
       session.dispose();

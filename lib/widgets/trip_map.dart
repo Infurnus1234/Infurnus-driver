@@ -17,7 +17,8 @@ import 'map_camera_queue.dart';
 
 class TripMap extends StatefulWidget {
   final bool compact;
-  const TripMap({super.key, this.compact = false});
+  final bool fullScreen;
+  const TripMap({super.key, this.compact = false, this.fullScreen = false});
   @override
   State<TripMap> createState() => _TripMapState();
 }
@@ -285,12 +286,236 @@ class _TripMapState extends State<TripMap> with SingleTickerProviderStateMixin {
         Polyline(
           polylineId: const PolylineId('road'),
           points: _route,
-          color: trip?['status'] == 'in_progress'
-              ? Ops.actionPrimary
-              : Ops.actionDark,
+          color: const Color(0xFF2168F5),
           width: 5,
         ),
     };
+    final nativeMap = Listener(
+      onPointerDown: (_) {
+        _follow = false;
+        _camera.cancel();
+      },
+      child: AnimatedBuilder(
+        animation: _motion,
+        builder: (context, _) => GoogleMap(
+          initialCameraPosition: CameraPosition(
+            target: current ?? pickup ?? const LatLng(25.5941, 85.1376),
+            zoom: 13,
+          ),
+          onMapCreated: (controller) {
+            _controller = controller;
+            _camera.controller = controller;
+            if (_route.length >= 2) {
+              _fit();
+            } else if (_follow) {
+              // Replay GPS received before native map initialization.
+              final fix = _motion.position ?? current;
+              if (fix != null) {
+                _camera.move(
+                  CameraUpdate.newCameraPosition(
+                    CameraPosition(
+                      target: fix,
+                      zoom: 17,
+                      tilt: 45,
+                      bearing: _motion.heading,
+                    ),
+                  ),
+                );
+              }
+            }
+          },
+          myLocationEnabled: false,
+          myLocationButtonEnabled: false,
+          mapToolbarEnabled: false,
+          zoomControlsEnabled: !widget.fullScreen,
+          padding: widget.fullScreen
+              ? const EdgeInsets.only(top: 160, bottom: 300)
+              : EdgeInsets.zero,
+          markers: {
+            if (current != null && _arrow != null)
+              Marker(
+                markerId: const MarkerId('driver'),
+                position: _motion.position ?? current,
+                rotation: _motion.heading,
+                flat: true,
+                anchor: const Offset(0.5, 0.5),
+                infoWindow: InfoWindow(
+                  title: stale || _gpsStale
+                      ? 'Last known GPS position (stale)'
+                      : 'GPS position',
+                  snippet: position!.timestamp.toIso8601String(),
+                ),
+                icon: _arrow!,
+              ),
+            if (pickup != null)
+              Marker(
+                markerId: const MarkerId('pickup'),
+                position: pickup,
+                infoWindow: const InfoWindow(title: 'Pickup'),
+                icon: BitmapDescriptor.defaultMarkerWithHue(
+                  BitmapDescriptor.hueGreen,
+                ),
+              ),
+            if (destination != null)
+              Marker(
+                markerId: const MarkerId('destination'),
+                position: destination,
+                infoWindow: const InfoWindow(title: 'Destination'),
+                icon: BitmapDescriptor.defaultMarkerWithHue(
+                  BitmapDescriptor.hueRed,
+                ),
+              ),
+          },
+          polylines: polylines,
+        ),
+      ),
+    );
+    if (widget.fullScreen) {
+      final address =
+          trip?[started ? 'destinationAddress' : 'pickupAddress']?.toString() ??
+          (started ? 'Destination' : 'Pickup');
+      final instruction =
+          _metrics?['navigationInstruction']?['instructions']?.toString() ??
+          (started ? 'Continue to destination' : 'Head to pickup');
+      return Stack(
+        fit: StackFit.expand,
+        children: [
+          if (_configured == true)
+            nativeMap
+          else
+            Container(
+              color: Ops.mapSurface,
+              alignment: Alignment.center,
+              child: Text(
+                _configured == null
+                    ? 'Loading map…'
+                    : 'Map configuration unavailable',
+                style: const TextStyle(color: Ops.textSecondary),
+              ),
+            ),
+          Positioned(
+            top: 102,
+            left: 16,
+            right: 16,
+            child: Material(
+              color: Colors.white,
+              elevation: 5,
+              shadowColor: Colors.black26,
+              borderRadius: BorderRadius.circular(16),
+              child: Padding(
+                padding: const EdgeInsets.all(15),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.navigation_rounded,
+                      size: 30,
+                      color: Color(0xFF16233D),
+                    ),
+                    const SizedBox(width: 15),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            instruction,
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            address,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: Ops.textSecondary,
+                            ),
+                          ),
+                          if (_metrics != null)
+                            Text(
+                              '${((_metrics!['distanceMeters'] as num) / 1000).toStringAsFixed(1)} km · ${((_metrics!['durationSeconds'] as num) / 60).ceil()} min',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Ops.textSecondary,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            right: 16,
+            bottom: 385,
+            child: FloatingActionButton.small(
+              heroTag: 'driver-route-fit',
+              tooltip: 'Show entire route',
+              backgroundColor: Colors.white,
+              foregroundColor: Ops.textPrimary,
+              onPressed: _route.length < 2
+                  ? null
+                  : () {
+                      _follow = false;
+                      _fit();
+                    },
+              child: const Icon(Icons.zoom_out_map),
+            ),
+          ),
+          Positioned(
+            right: 16,
+            bottom: 325,
+            child: FloatingActionButton.small(
+              heroTag: 'driver-follow',
+              backgroundColor: Colors.white,
+              foregroundColor: Ops.textPrimary,
+              tooltip: 'Recenter / follow',
+              onPressed: () async {
+                _follow = true;
+                final ok = await session.locate();
+                if (ok && session.position != null) {
+                  _camera.move(
+                    CameraUpdate.newLatLng(
+                      LatLng(
+                        session.position!.latitude,
+                        session.position!.longitude,
+                      ),
+                    ),
+                  );
+                }
+              },
+              child: const Icon(Icons.my_location),
+            ),
+          ),
+          if (_gpsStale || session.locationWarning != null || _error != null)
+            Positioned(
+              left: 16,
+              right: 80,
+              bottom: 325,
+              child: Material(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                child: Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Text(
+                    _error ??
+                        session.locationWarning ??
+                        'Waiting for a fresh GPS location.',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Ops.textSecondary,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      );
+    }
     final content = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -327,84 +552,7 @@ class _TripMapState extends State<TripMap> with SingleTickerProviderStateMixin {
             height: widget.compact ? 330 : 280,
             child: ClipRRect(
               borderRadius: BorderRadius.circular(12),
-              child: Listener(
-                onPointerDown: (_) {
-                  _follow = false;
-                  _camera.cancel();
-                },
-                child: AnimatedBuilder(
-                  animation: _motion,
-                  builder: (context, _) => GoogleMap(
-                    initialCameraPosition: CameraPosition(
-                      target:
-                          current ?? pickup ?? const LatLng(25.5941, 85.1376),
-                      zoom: 13,
-                    ),
-                    onMapCreated: (controller) {
-                      _controller = controller;
-                      _camera.controller = controller;
-                      if (_route.length >= 2) {
-                        _fit();
-                      } else if (_follow) {
-                        // Replay GPS received before native map initialization.
-                        final fix = _motion.position ?? current;
-                        if (fix != null) {
-                          _camera.move(
-                            CameraUpdate.newCameraPosition(
-                              CameraPosition(
-                                target: fix,
-                                zoom: 17,
-                                tilt: 45,
-                                bearing: _motion.heading,
-                              ),
-                            ),
-                          );
-                        }
-                      }
-                    },
-                    myLocationEnabled: false,
-                    myLocationButtonEnabled: false,
-                    mapToolbarEnabled: false,
-                    zoomControlsEnabled: true,
-                    markers: {
-                      if (current != null && _arrow != null)
-                        Marker(
-                          markerId: const MarkerId('driver'),
-                          position: _motion.position ?? current,
-                          rotation: _motion.heading,
-                          flat: true,
-                          anchor: const Offset(0.5, 0.5),
-                          infoWindow: InfoWindow(
-                            title: stale || _gpsStale
-                                ? 'Last known GPS position (stale)'
-                                : 'GPS position',
-                            snippet: position!.timestamp.toIso8601String(),
-                          ),
-                          icon: _arrow!,
-                        ),
-                      if (pickup != null && !started)
-                        Marker(
-                          markerId: const MarkerId('pickup'),
-                          position: pickup,
-                          infoWindow: const InfoWindow(title: 'Pickup'),
-                          icon: BitmapDescriptor.defaultMarkerWithHue(
-                            BitmapDescriptor.hueRed,
-                          ),
-                        ),
-                      if (destination != null)
-                        Marker(
-                          markerId: const MarkerId('destination'),
-                          position: destination,
-                          infoWindow: const InfoWindow(title: 'Destination'),
-                          icon: BitmapDescriptor.defaultMarkerWithHue(
-                            BitmapDescriptor.hueGreen,
-                          ),
-                        ),
-                    },
-                    polylines: polylines,
-                  ),
-                ),
-              ),
+              child: nativeMap,
             ),
           ),
         if (_gpsStale)

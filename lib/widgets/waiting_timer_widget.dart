@@ -1,3 +1,4 @@
+import 'package:infurnus_driver/widgets/operations.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -124,7 +125,7 @@ class _WaitingTimerWidgetState extends State<WaitingTimerWidget>
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
-                '+₹${accruedCharge.toStringAsFixed(2)}',
+                '+₹${accruedCharge.rupeeText}',
                 style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,

@@ -1,118 +1,56 @@
-import 'dart:async';
-
 import '../models/vehicle_catalog_model.dart';
+import '../services/api_service.dart';
 
 class VehicleCatalogRepository {
-  // Catalog for the legacy searchable vehicle-entry flow.
-  static const List<VehicleCatalogItem> _catalog = [
-    // Passenger Rides
-    VehicleCatalogItem(
-      id: 'CAT-PASS-1',
-      brand: 'Maruti Suzuki',
-      modelName: 'WagonR (Mini Cab)',
-      category: 'Passenger',
-      fuelType: 'Petrol/CNG',
-      payloadCapacity: '350 kg',
-    ),
-    VehicleCatalogItem(
-      id: 'CAT-PASS-2',
-      brand: 'Toyota',
-      modelName: 'Etios (Sedan)',
-      category: 'Passenger',
-      fuelType: 'Diesel',
-      payloadCapacity: '450 kg',
-    ),
-    VehicleCatalogItem(
-      id: 'CAT-PASS-3',
-      brand: 'Toyota',
-      modelName: 'Fortuner (SUV)',
-      category: 'Passenger',
-      fuelType: 'Diesel',
-      payloadCapacity: '650 kg',
-    ),
-    // Trip Vehicle
-    VehicleCatalogItem(
-      id: 'CAT-LOG-1',
-      brand: 'Tata',
-      modelName: '207 Heavy',
-      category: 'Logistics',
-      fuelType: 'Diesel',
-      payloadCapacity: '1100 kg',
-    ),
-    VehicleCatalogItem(
-      id: 'CAT-LOG-2',
-      brand: 'Piaggio',
-      modelName: '3-Wheeler (Goods)',
-      category: 'Logistics',
-      fuelType: 'CNG/Electric',
-      payloadCapacity: '500 kg',
-    ),
-    VehicleCatalogItem(
-      id: 'CAT-LOG-3',
-      brand: 'Tata',
-      modelName: '407 Cargo',
-      category: 'Logistics',
-      fuelType: 'Diesel',
-      payloadCapacity: '2200 kg',
-    ),
-    VehicleCatalogItem(
-      id: 'CAT-LOG-4',
-      brand: 'Tata',
-      modelName: 'Mini Truck (Tata Ace)',
-      category: 'Logistics',
-      fuelType: 'Diesel/Electric',
-      payloadCapacity: '750 kg',
-    ),
-    VehicleCatalogItem(
-      id: 'CAT-LOG-5',
-      brand: 'Tata',
-      modelName: 'Tata 407',
-      category: 'Logistics',
-      fuelType: 'Diesel',
-      payloadCapacity: '2500 kg',
-    ),
+  final ApiService api;
+  VehicleCatalogRepository({required this.api});
 
-    // Service Vehicles
-    VehicleCatalogItem(
-      id: 'CAT-SERV-1',
-      brand: 'Force',
-      modelName: 'Ambulance',
-      category: 'Service',
-      fuelType: 'Diesel',
-      payloadCapacity: '1000 kg',
-    ),
-
-    // Premium & Rentals
-    VehicleCatalogItem(
-      id: 'CAT-PREM-1',
-      brand: 'Mahindra',
-      modelName: 'Mahindra Thar',
-      category: 'Premium',
-      fuelType: 'Diesel/Petrol',
-      payloadCapacity: '500 kg',
-    ),
-  ];
-
-  static List<VehicleCatalogItem> get allVehicles =>
-      List.unmodifiable(_catalog);
-
-  /// Asynchronous search with simulated network latency & debouncing support.
-  Future<List<VehicleCatalogItem>> searchVehicles(String query) async {
-    final cleanQuery = query.trim().toLowerCase();
-
-    // Simulate slight async lookup delay
-    await Future.delayed(const Duration(milliseconds: 150));
-
-    if (cleanQuery.isEmpty) {
-      return _catalog;
+  /// Each Add Vehicle opening fetches the authoritative backend selection catalog.
+  /// Old servers without this contract fail closed rather than resurfacing legacy lists.
+  Future<Map<String, dynamic>> loadCatalog() async {
+    final raw = await api.request('GET', '/provider/vehicle-catalog');
+    if (raw is! Map ||
+        raw['selectionCatalogVersion'] != 2 ||
+        raw['types'] is! List ||
+        raw['sectors'] is! List) {
+      throw const FormatException(
+        'The vehicle selection catalog requires a backend update.',
+      );
     }
+    final types = (raw['types'] as List)
+        .cast<Map>()
+        .where(
+          (type) =>
+              type['catalogVisible'] == true &&
+              type['registrationActive'] == true,
+        )
+        .toList();
+    return {...Map<String, dynamic>.from(raw), 'types': types};
+  }
 
-    return _catalog.where((item) {
-      final brandMatch = item.brand.toLowerCase().contains(cleanQuery);
-      final modelMatch = item.modelName.toLowerCase().contains(cleanQuery);
-      final fullNameMatch = item.fullName.toLowerCase().contains(cleanQuery);
-      final categoryMatch = item.category.toLowerCase().contains(cleanQuery);
-      return brandMatch || modelMatch || fullNameMatch || categoryMatch;
-    }).toList();
+  Future<List<VehicleCatalogItem>> searchVehicles(String query) async {
+    final data = await loadCatalog();
+    final term = query.trim().toLowerCase();
+    final seen = <String>{};
+    return (data['types'] as List)
+        .cast<Map>()
+        .where((type) => type['catalogVisible'] == true)
+        .where((type) => seen.add('${type['sector']}:${type['code']}'))
+        .where(
+          (type) => '${type['name']} ${type['sector']} ${type['code']}'
+              .toLowerCase()
+              .contains(term),
+        )
+        .map(
+          (type) => VehicleCatalogItem(
+            id: type['id'].toString(),
+            brand: '',
+            modelName: type['name'].toString(),
+            category: type['sector'].toString(),
+            fuelType: '',
+            payloadCapacity: '',
+          ),
+        )
+        .toList();
   }
 }

@@ -8,13 +8,25 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import 'api_service.dart';
+import 'background_ride_request.dart';
 import 'notification_timing.dart';
 
 @pragma('vm:entry-point')
 Future<void> driverFirebaseMessagingBackgroundHandler(
   RemoteMessage message,
 ) async {
-  await Firebase.initializeApp();
+  try {
+    await Firebase.initializeApp();
+  } catch (_) {
+    /* Native fallback does not require the UI Firebase instance. */
+  }
+  if (isDriverOffer(message.data)) {
+    try {
+      if (await presentBackgroundOffer(message.data)) return;
+    } catch (_) {
+      /* Audible fallback below. */
+    }
+  }
   if (message.notification == null && message.data.isNotEmpty) {
     try {
       final title = message.data['title']?.toString() ?? 'Infurnus Driver';
@@ -64,7 +76,7 @@ Future<void> driverFirebaseMessagingBackgroundHandler(
 /// Payloads can choose an allowlisted destination, never an arbitrary route.
 String? notificationDestination(Map<String, dynamic> data) {
   if (data['rideId'] is String && (data['rideId'] as String).isNotEmpty) {
-    return '/driver/active-trip';
+    return isDriverOffer(data) ? '/driver/dashboard' : '/driver/active-trip';
   }
   return null;
 }
@@ -170,16 +182,12 @@ class DriverNotificationService {
           /* Ignore malformed payload. */
         }
       }
-      final settings = await FirebaseMessaging.instance.requestPermission(
+      await FirebaseMessaging.instance.requestPermission(
         alert: true,
         badge: true,
         sound: true,
       );
       if (_disposed) return;
-      if (settings.authorizationStatus != AuthorizationStatus.authorized &&
-          settings.authorizationStatus != AuthorizationStatus.provisional) {
-        return;
-      }
       final token = await FirebaseMessaging.instance.getToken();
       if (_disposed) return;
       if (token != null) await registerDeviceToken(token);
@@ -201,7 +209,7 @@ class DriverNotificationService {
           final id =
               message.data['notificationId']?.toString() ?? message.messageId;
           final notification = message.notification;
-          if (notification != null) {
+          if (notification != null && !isDriverOffer(message.data)) {
             unawaited(
               showNotification(
                 id:

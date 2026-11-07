@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:infurnus_driver/providers/driver_session.dart';
-import 'package:infurnus_driver/screens/driver/operations_dashboard.dart';
+import 'package:infurnus_driver/screens/driver/driver_navigation_screen.dart';
 import 'package:provider/provider.dart';
 
 void main() {
@@ -22,7 +22,7 @@ void main() {
       await tester.pumpWidget(
         ChangeNotifierProvider<DriverSession>.value(
           value: session,
-          child: const MaterialApp(home: OperationsDashboard()),
+          child: const MaterialApp(home: DriverNavigationScreen()),
         ),
       );
 
@@ -57,7 +57,7 @@ void main() {
       await tester.pumpWidget(
         ChangeNotifierProvider<DriverSession>.value(
           value: session,
-          child: const MaterialApp(home: OperationsDashboard()),
+          child: const MaterialApp(home: DriverNavigationScreen()),
         ),
       );
 
@@ -97,7 +97,7 @@ void main() {
     await tester.pumpWidget(
       ChangeNotifierProvider<DriverSession>.value(
         value: session,
-        child: const MaterialApp(home: OperationsDashboard()),
+        child: const MaterialApp(home: DriverNavigationScreen()),
       ),
     );
 

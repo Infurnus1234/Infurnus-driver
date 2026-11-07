@@ -1,3 +1,4 @@
+import '../services/location_access.dart';
 import '../models/provider_public_id.dart';
 
 import 'dart:async';
@@ -14,6 +15,7 @@ import 'package:socket_io_client/socket_io_client.dart' as io;
 
 import '../services/api_service.dart';
 import '../services/notification_service.dart';
+import '../services/ride_request_presentation.dart';
 import '../models/onboarding_rules.dart';
 import '../models/provider_status.dart';
 import '../models/ride_customer_contact.dart';
@@ -122,10 +124,10 @@ class DriverSession extends ChangeNotifier {
     if (!canRequestCustomerContact ||
         currentTrip?['id'] != id ||
         contact?.rideId != id ||
-        contact?.phone == null) {
+        contact?.callingNumber == null) {
       return null;
     }
-    return Uri(scheme: scheme, path: contact!.phone);
+    return Uri(scheme: scheme, path: contact!.callingNumber);
   }
 
   Map<String, dynamic>? assignedVehicle;
@@ -274,11 +276,35 @@ class DriverSession extends ChangeNotifier {
   bool _sendingLocation = false;
   bool _rideEventRefreshPending = false;
   StreamSubscription<Position>? _positions;
+  int _locationEpoch = 0;
   io.Socket? _socket;
   Timer? _poll;
   Timer? _expiry;
   DriverNotificationService? _notifications;
   String? pendingNotificationRoute;
+  String? driverPhotoUrl;
+  String? _photoDocumentId;
+  DateTime? _photoValidUntil;
+  Map<String, dynamic>? todaySummary;
+  String? todaySummaryError;
+  Future<void> refreshTodaySummary() async {
+    if (!authenticated ||
+        !api.hasDriverRole ||
+        api.providerMode == 'fleet_owner' ||
+        isPreview) {
+      return;
+    }
+    try {
+      todaySummary = Map<String, dynamic>.from(
+        await api.request('GET', '/rides/driver/today-summary') as Map,
+      );
+      todaySummaryError = null;
+    } catch (_) {
+      todaySummary = null;
+      todaySummaryError = 'Today’s summary is temporarily unavailable.';
+    }
+  }
+
   bool get authenticated => _accountVerified && api.accessToken != null;
   List<DocumentRule> get missingUploads => documentRules.where((rule) {
     if (!rule.required) return false;
@@ -992,6 +1018,28 @@ class DriverSession extends ChangeNotifier {
     profile = nextProfile;
     assignedVehicle = nextVehicle;
     documents = nextDocuments;
+    final photoDoc = OnboardingRules.documentFor(
+      'profile_photo',
+      nextDocuments,
+    );
+    final photoId = photoDoc?['id']?.toString();
+    if (photoId != null &&
+        (_photoDocumentId != photoId ||
+            _photoValidUntil == null ||
+            DateTime.now().isAfter(_photoValidUntil!))) {
+      try {
+        final data = await api.request(
+          'GET',
+          '/rides/driver/documents/${Uri.encodeComponent(photoId)}/access-url',
+        ) as Map;
+        driverPhotoUrl = data['accessUrl']?.toString();
+        _photoDocumentId = photoId;
+        _photoValidUntil = DateTime.now().add(const Duration(minutes: 4));
+      } catch (_) {
+        driverPhotoUrl = null;
+      }
+    }
+
     partnerDocuments = nextPartnerDocuments;
     approvals = nextApprovals;
     applications = nextApplications;
@@ -1046,6 +1094,7 @@ class DriverSession extends ChangeNotifier {
         )
         .toList();
     await refreshCustomerContact();
+    await refreshTodaySummary();
     if (api.accessToken != _socket?.auth['token']) _connect();
     _joinTrip();
     if ((online || currentTrip != null) && _positions == null) {
@@ -1307,24 +1356,49 @@ class DriverSession extends ChangeNotifier {
       error = 'Submission received. Some details could not refresh; retry from Profile.';
     }
   });
-  Future<void> _permission() async {
-    if (!await Geolocator.isLocationServiceEnabled()) {
-      throw const ApiException('Enable GPS location services on your device.');
+  Future<void> _permission({bool retry = false}) async {
+    final issue = await locationAccess.check(
+      retry: retry,
+      interactive: !restoring,
+    );
+    if (issue != null) throw ApiException(issue.message);
+  }
+
+  Future<void> locationAccessChanged(LocationAccessIssue? issue) async {
+    if (_disposed || !authenticated || (!online && currentTrip == null)) {
+      return;
     }
-    var permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
+    if (issue != null) {
+      _locationEpoch++;
+      final positions = _positions;
+      _positions = null;
+      locationWarning = issue.message;
+      _notify();
+      await positions?.cancel();
+      return;
     }
-    if (permission == LocationPermission.denied ||
-        permission == LocationPermission.deniedForever) {
-      throw const ApiException(
-        'Location permission is required. Enable it in app settings.',
-      );
+
+    final epoch = _locationEpoch;
+    try {
+      await _locationStart;
+    } catch (_) {
+      // An interrupted start can be retried once access is restored.
     }
+    if (_disposed || !authenticated || (!online && currentTrip == null) ||
+        epoch != _locationEpoch || _positions != null) {
+      return;
+    }
+    try {
+      await _resumeLocation();
+    } on ApiException catch (error) {
+      if (api.accessToken == null) _clear();
+      locationWarning = error.message;
+    }
+    _notify();
   }
 
   Future<bool> locate() => run(() async {
-    await _permission();
+    await _permission(retry: true);
     position = await Geolocator.getCurrentPosition(
       locationSettings: const LocationSettings(
         accuracy: LocationAccuracy.high,
@@ -1356,14 +1430,14 @@ class DriverSession extends ChangeNotifier {
   DateTime? _lastPublishAttempt;
 
   Future<void>? _locationStart;
-  Future<void> _startLocation() {
+  Future<void> _startLocation({bool retry = false}) {
     if (_positions != null) return Future.value();
-    return _locationStart ??= _startLocationOnce().whenComplete(
+    return _locationStart ??= _startLocationOnce(retry: retry).whenComplete(
       () => _locationStart = null,
     );
   }
 
-  Future<void> _startLocationOnce() async {
+  Future<void> _startLocationOnce({required bool retry}) async {
     final lifecycle = WidgetsBinding.instance.lifecycleState;
     if (!kIsWeb &&
         defaultTargetPlatform == TargetPlatform.android &&
@@ -1372,15 +1446,20 @@ class DriverSession extends ChangeNotifier {
       return;
     }
 
-    await _permission();
-    position = await Geolocator.getCurrentPosition(
+    await _permission(retry: retry);
+    final epoch = _locationEpoch;
+    final fix = await Geolocator.getCurrentPosition(
       locationSettings: const LocationSettings(
         accuracy: LocationAccuracy.high,
         timeLimit: Duration(seconds: 30),
       ),
     );
+    if (_disposed || !authenticated || epoch != _locationEpoch) {
+      throw const ApiException('Location access changed. Try again.');
+    }
+    position = fix;
     try {
-      await _sendLocation(position!, preferRest: true);
+      await _sendLocation(fix, preferRest: true);
     } on ApiException catch (e) {
       if (e.status == 401 || e.status == 403) rethrow;
       // Cached fixes can survive a process restart while the server already
@@ -1394,8 +1473,10 @@ class DriverSession extends ChangeNotifier {
         locationWarning = e.message;
       }
     }
-    if (_disposed || !authenticated) return;
     await _positions?.cancel();
+    if (_disposed || !authenticated || epoch != _locationEpoch) {
+      throw const ApiException('Location access changed. Try again.');
+    }
     _positions =
         Geolocator.getPositionStream(
           locationSettings: defaultTargetPlatform == TargetPlatform.iOS
@@ -1530,7 +1611,7 @@ class DriverSession extends ChangeNotifier {
         'Complete backend approval and vehicle assignment before going online.',
       );
     }
-    if (value) await _startLocation();
+    if (value) await _startLocation(retry: true);
     try {
       await api.request(
         'PATCH',
@@ -1583,6 +1664,7 @@ class DriverSession extends ChangeNotifier {
       throw const ApiException('This offer has expired. Refresh the offers.');
     }
     await api.request('POST', '/rides/${Uri.encodeComponent(id)}/accept');
+    await RideRequestBridge().dismiss();
     await _load();
   });
   Future<bool> decline(String id) => run(() async {
@@ -1852,6 +1934,13 @@ class DriverSession extends ChangeNotifier {
     }
   });
   void _clear({bool persist = true}) {
+    _locationEpoch++;
+    todaySummary = null;
+    todaySummaryError = null;
+    driverPhotoUrl = null;
+    _photoDocumentId = null;
+    _photoValidUntil = null;
+    unawaited(RideRequestBridge().clear());
     _invalidateCustomerContact();
     _notifications?.dispose();
     _notifications = null;

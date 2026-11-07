@@ -1,11 +1,15 @@
+import 'dart:async';
+
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'providers/app_state.dart';
+import 'widgets/driver_request_host.dart';
 import 'providers/driver_session.dart';
 import 'router/app_router.dart';
 import 'core/operations_theme.dart';
+import 'services/location_access.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -36,14 +40,25 @@ class InfurnusApp extends StatefulWidget {
 }
 
 class _InfurnusAppState extends State<InfurnusApp> with WidgetsBindingObserver {
+  StreamSubscription<LocationAccessIssue?>? _locationSubscription;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _locationSubscription = locationAccess.changes.listen((issue) {
+      if (mounted) {
+        unawaited(context.read<DriverSession>().locationAccessChanged(issue));
+      }
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) locationAccess.start();
+    });
   }
 
   @override
   void dispose() {
+    _locationSubscription?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -78,6 +93,12 @@ class _InfurnusAppState extends State<InfurnusApp> with WidgetsBindingObserver {
       debugShowCheckedModeBanner: false,
       theme: Ops.theme,
       routerConfig: appRouter,
+      builder: (context, child) => Overlay.wrap(
+        child: DriverRequestHost(
+          navigate: appRouter.go,
+          child: child ?? const SizedBox.shrink(),
+        ),
+      ),
     );
   }
 }

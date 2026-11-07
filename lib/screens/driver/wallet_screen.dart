@@ -1,3 +1,4 @@
+import 'package:infurnus_driver/widgets/operations.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -50,7 +51,7 @@ class WalletScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      '₹ ${appState.walletBalance.toStringAsFixed(2)}',
+                      '₹ ${appState.walletBalance.rupeeText}',
                       style: const TextStyle(
                         color: InfurnusTheme.textDark,
                         fontSize: 32,

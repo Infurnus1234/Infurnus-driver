@@ -1,3 +1,4 @@
+import 'package:infurnus_driver/widgets/operations.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -385,7 +386,7 @@ class DriverDashboardScreen extends StatelessWidget {
                 ),
               ),
               Text(
-                'Earning: ₹ ${booking.driverNetEarning.toStringAsFixed(2)}',
+                'Earning: ₹ ${booking.driverNetEarning.rupeeText}',
                 style: const TextStyle(
                   color: InfurnusTheme.primaryGreen,
                   fontSize: 16,
@@ -459,7 +460,7 @@ class DriverDashboardScreen extends StatelessWidget {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text(
-                          'Accepted Booking #${booking.id}! Driver Payout: ₹${booking.driverNetEarning.toStringAsFixed(2)}',
+                          'Accepted Booking #${booking.id}! Driver Payout: ₹${booking.driverNetEarning.rupeeText}',
                         ),
                       ),
                     );
@@ -523,7 +524,7 @@ class DriverDashboardScreen extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            'Your Payout: ₹ ${booking.driverNetEarning.toStringAsFixed(2)}',
+            'Your Payout: ₹ ${booking.driverNetEarning.rupeeText}',
             style: const TextStyle(
               color: InfurnusTheme.primaryGreen,
               fontSize: 13,

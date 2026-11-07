@@ -1,3 +1,4 @@
+import 'package:infurnus_driver/widgets/operations.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -39,7 +40,7 @@ class TripCompletedScreen extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               Text(
-                '₹ ${booking.driverNetEarning.toStringAsFixed(2)}',
+                '₹ ${booking.driverNetEarning.rupeeText}',
                 style: const TextStyle(
                   color: InfurnusTheme.primaryGreen,
                   fontSize: 36,
@@ -60,17 +61,17 @@ class TripCompletedScreen extends StatelessWidget {
                   children: [
                     _fareRow(
                       'Base Fare',
-                      '₹ ${booking.baseFare.toStringAsFixed(2)}',
+                      '₹ ${booking.baseFare.rupeeText}',
                     ),
                     const SizedBox(height: 10),
                     _fareRow(
                       'Distance (${booking.distanceKm} km)',
-                      '₹ ${(booking.baseFare * 0.35).toStringAsFixed(2)}',
+                      '₹ ${(booking.baseFare * 0.35).rupeeText}',
                     ),
                     const Divider(color: Colors.white24, height: 24),
                     _fareRow(
                       'Total Driver Earnings (90%)',
-                      '₹ ${booking.driverNetEarning.toStringAsFixed(2)}',
+                      '₹ ${booking.driverNetEarning.rupeeText}',
                       isBold: true,
                     ),
                   ],

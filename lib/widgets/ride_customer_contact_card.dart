@@ -3,10 +3,16 @@ import 'package:provider/provider.dart';
 
 import '../providers/driver_session.dart';
 import '../services/customer_contact_launcher.dart';
+import '../services/ride_request_presentation.dart' show driverDropAddress;
 
 class RideCustomerContactCard extends StatefulWidget {
   final Future<bool> Function(Uri)? launcher;
-  const RideCustomerContactCard({super.key, this.launcher});
+  final bool compact;
+  const RideCustomerContactCard({
+    super.key,
+    this.launcher,
+    this.compact = false,
+  });
 
   @override
   State<RideCustomerContactCard> createState() =>
@@ -82,7 +88,56 @@ class _RideCustomerContactCardState extends State<RideCustomerContactCard>
         !session.busy &&
         !session.customerContactLoading &&
         !_launching &&
-        contact?.phone != null;
+        contact?.callingNumber != null;
+    if (widget.compact) {
+      return Row(
+        children: [
+          const CircleAvatar(
+            radius: 23,
+            backgroundColor: Color(0xFFE8EDF5),
+            child: Icon(Icons.person, color: Color(0xFF16233D)),
+          ),
+          const SizedBox(width: 11),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  contact?.name ?? 'Passenger Pickup',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                if (session.currentTrip?['bookingId'] != null)
+                  Text("Booking ID: ${session.currentTrip!['bookingId']}", style: const TextStyle(fontSize: 12)),
+                const SizedBox(height: 3),
+                Text(
+                  session.currentTrip?['sector'] == 'logistics'
+                      ? driverDropAddress(session.currentTrip!) ??
+                            'Available after PIN verification'
+                      : session.currentTrip?['pickupAddress']?.toString() ??
+                            'Pickup',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 12, color: Colors.black54),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            tooltip: 'Call',
+            onPressed: enabled ? () => _open('tel') : null,
+            icon: const Icon(Icons.call_outlined),
+          ),
+          IconButton(
+            tooltip: 'Message',
+            onPressed: enabled ? () => _open('sms') : null,
+            icon: const Icon(Icons.chat_bubble_outline),
+          ),
+        ],
+      );
+    }
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 12),
       child: Column(
@@ -108,10 +163,8 @@ class _RideCustomerContactCardState extends State<RideCustomerContactCard>
           ] else if (contact != null) ...[
             Text(contact.name.isEmpty ? 'Customer' : contact.name),
             const SizedBox(height: 4),
-            if (contact.phone != null)
-              SelectableText(contact.phone!)
-            else
-              const Text('No phone number is available for this customer.'),
+            if (session.currentTrip?['bookingId'] != null)
+              SelectableText("Booking ID: ${session.currentTrip!['bookingId']}"),
           ] else
             const Text(
               'Customer contact is not available. Refresh the ride to retry.',

@@ -1,7 +1,9 @@
+import '../../services/ride_request_presentation.dart' show driverDropAddress;
+
 import 'dart:async';
 
-import '../../widgets/assigned_vehicle_card.dart';
-import '../../widgets/ride_pin_dialog.dart';
+import 'driver_home_screen.dart';
+import '../../widgets/incoming_ride_request_card.dart';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -9,329 +11,13 @@ import 'package:provider/provider.dart';
 
 import '../../core/operations_theme.dart';
 import '../../providers/driver_session.dart';
-import '../../widgets/driver_bottom_nav.dart';
 import '../../widgets/operations.dart';
-import '../../widgets/trip_map.dart';
 import '../../widgets/reference_components.dart';
-import '../../widgets/ride_customer_contact_card.dart';
 
 class OperationsDashboard extends StatelessWidget {
   const OperationsDashboard({super.key});
-  Future<void> _next(
-    BuildContext context,
-    DriverSession session,
-    String status,
-  ) async {
-    if (status == 'in_progress') {
-      await showModalBottomSheet<void>(
-        context: context,
-        isScrollControlled: true,
-        useSafeArea: true,
-        isDismissible: false,
-        enableDrag: false,
-        backgroundColor: Colors.white,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        builder: (_) => RidePinDialog(session: session),
-      );
-      return;
-    }
-    if (status == 'completed') {
-      if (!await confirmOperation(
-        context,
-        'Complete this trip?',
-        'Confirm that the passenger or shipment has reached the destination.',
-      )) {
-        return;
-      }
-    }
-    await session.transition(status);
-  }
-
   @override
-  Widget build(BuildContext context) {
-    final session = context.watch<DriverSession>();
-    final trip = session.currentTrip;
-    const nextStatus = {
-      'driver_assigned': 'driver_arriving',
-      'driver_arriving': 'driver_arrived',
-      'driver_arrived': 'in_progress',
-      'in_progress': 'completed',
-    };
-    const labels = {
-      'driver_arriving': 'Start toward pickup',
-      'driver_arrived': 'Arrived at pickup',
-      'in_progress': 'Verify PIN & start trip',
-      'completed': 'Complete Ride',
-    };
-    final next = nextStatus[trip?['status']];
-    final name =
-        session.account?['firstName'] ??
-        session.profile?['firstName'] ??
-        'Driver';
-    return Scaffold(
-      appBar: AppBar(
-        centerTitle: false,
-        title: InfurnusBrand(name: name.toString()),
-        actions: [
-          IconButton(
-            tooltip: 'Notifications',
-            onPressed: () => context.push('/notifications'),
-            icon: const Icon(Icons.notifications_outlined),
-          ),
-        ],
-      ),
-      bottomNavigationBar: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (trip != null && next != null) ...[
-            // Logistics: block start until upfront payment is PAID_VERIFIED
-            if (trip['sector'] == 'logistics' &&
-                next == 'in_progress' &&
-                trip['upfrontPaymentStatus'] != 'PAID_VERIFIED')
-              _LogisticsPaymentBanner(
-                status: trip['upfrontPaymentStatus']?.toString(),
-              ),
-            SafeArea(
-              top: false,
-              bottom: false,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    style: next == 'completed' ? null : Ops.darkButton,
-                    onPressed:
-                        (session.busy ||
-                            (trip['sector'] == 'logistics' &&
-                                next == 'in_progress' &&
-                                trip['upfrontPaymentStatus'] !=
-                                    'PAID_VERIFIED'))
-                        ? null
-                        : () => _next(context, session, next),
-                    child: Text(
-                      session.busy ? 'Updating trip…' : labels[next]!,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-          const DriverBottomNav(currentIndex: 0),
-        ],
-      ),
-      body: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: () async {
-            await session.refresh();
-          },
-          child: ListView(
-            padding: const EdgeInsets.all(Ops.padding),
-            physics: const AlwaysScrollableScrollPhysics(),
-            children: [
-              if (session.busy)
-                const LinearProgressIndicator(
-                  semanticsLabel: 'Updating operational state',
-                ),
-              if (session.isPreview)
-                const OpsPanel(
-                  title: 'TEST PREVIEW — NOT AUTHENTICATED',
-                  child: Text(
-                    'Sample data is enabled only in this debug preview.',
-                  ),
-                ),
-              if (session.api.isTestOnboarding)
-                const OpsPanel(
-                  title: 'Development session',
-                  child: Text(
-                    'This session does not verify production readiness.',
-                  ),
-                ),
-              if (session.error != null)
-                OpsError(
-                  'We couldn\'t load this information. Please try again.',
-                  retry: session.refresh,
-                ),
-              if (session.refreshWarning != null)
-                OpsError(session.refreshWarning!, retry: session.refresh),
-              if (session.api.hasFleetRole && trip == null)
-                const ModeSelector(),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 2,
-                ),
-                decoration: BoxDecoration(
-                  color: session.online || trip != null
-                      ? Ops.actionPrimary
-                      : const Color(0xFF7D847F),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      session.online
-                          ? Icons.check_circle_outline
-                          : Icons.power_settings_new,
-                      color: Colors.white,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        trip != null
-                            ? "On a trip"
-                            : session.online
-                            ? "You're Online"
-                            : "You're Offline",
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                    Tooltip(
-                      message: session.busy
-                          ? 'Updating availability'
-                          : session.online
-                          ? 'Go offline'
-                          : 'Go online',
-                      child: Switch.adaptive(
-                        value: session.online,
-                        activeTrackColor: const Color(0xFF007C3C),
-                        onChanged: session.busy ? null : session.setOnline,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 8),
-              if (session.online && trip == null)
-                const Padding(
-                  padding: EdgeInsets.only(bottom: 10),
-                  child: Text(
-                    'Searching for rides nearby…',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Ops.textSecondary, fontSize: 12),
-                  ),
-                ),
-              AssignedVehicleCard(
-                vehicle: session.assignedVehicle,
-                loading:
-                    session.assignedVehicleLoading ||
-                    (session.busy && !session.assignedVehicleLoaded),
-                error: session.assignedVehicleError,
-                canManage: trip == null && !session.online,
-                retry: session.refresh,
-              ),
-              if (!session.isPreview)
-                const TripMap(key: ValueKey('driver-map'), compact: true),
-              if (session.isPreview)
-                const OpsEmpty(
-                  'Maps require an authenticated device session.',
-                  icon: Icons.map_outlined,
-                ),
-              if (!session.online && trip == null)
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        const Icon(
-                          Icons.directions_car_outlined,
-                          size: 36,
-                          color: Ops.textPrimary,
-                        ),
-                        const SizedBox(height: 8),
-                        const Text(
-                          "You're Offline",
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontWeight: FontWeight.w700,
-                            fontSize: 17,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        const Text(
-                          'Go online to receive new ride requests.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(color: Ops.textSecondary),
-                        ),
-                        const SizedBox(height: 14),
-                        FilledButton(
-                          onPressed: session.busy
-                              ? null
-                              : () => session.setOnline(true),
-                          child: const Text('Go Online'),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              if (trip != null)
-                OpsPanel(
-                  title: trip['status'] == 'in_progress'
-                      ? 'On Ride'
-                      : trip['status'] == 'driver_arrived'
-                      ? 'At the pickup'
-                      : 'Navigate to Pickup',
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      if (trip['sector'] == 'logistics')
-                        LogisticsUpfrontPaymentCard(
-                          trip: trip,
-                          session: session,
-                        ),
-                      RideDetails(ride: trip),
-                      const RideCustomerContactCard(),
-                      Row(
-                        children: [
-                          TextButton.icon(
-                            style: TextButton.styleFrom(
-                              foregroundColor: Ops.error,
-                            ),
-                            onPressed: () => context.push('/safety'),
-                            icon: const Icon(
-                              Icons.health_and_safety_outlined,
-                              size: 18,
-                            ),
-                            label: const Text('Safety'),
-                          ),
-                          const SizedBox(width: 8),
-                          TextButton.icon(
-                            onPressed: () => context.push('/support-tickets'),
-                            icon: const Icon(Icons.support_agent, size: 18),
-                            label: const Text('Support'),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              if (trip == null && session.error == null) ...[
-                Text(
-                  'Ride offers',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                if (session.rides.isEmpty)
-                  OpsEmpty(
-                    session.online
-                        ? 'No ride offers right now.'
-                        : 'You are offline.',
-                  ),
-                for (final ride in session.rides)
-                  RideOfferCard(key: ValueKey(ride['id']), ride: ride),
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => const DriverHomeScreen();
 }
 
 class RideDetails extends StatelessWidget {
@@ -345,6 +31,8 @@ class RideDetails extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (ride['bookingId'] != null)
+          SelectableText("Booking ID: ${ride['bookingId']}"),
         ListTile(
           contentPadding: EdgeInsets.zero,
           dense: true,
@@ -374,8 +62,11 @@ class RideDetails extends StatelessWidget {
             style: TextStyle(fontSize: 11, color: Ops.textSecondary),
           ),
           subtitle: Text(
-            ride['pinVerified'] == true &&
-                    ['in_progress', 'completed'].contains(ride['status'])
+            ride['sector'] == 'logistics'
+                ? driverDropAddress(ride) ??
+                      'Available after passenger PIN verification'
+                : ride['pinVerified'] == true &&
+                      ['in_progress', 'completed'].contains(ride['status'])
                 ? ride['destinationAddress']?.toString() ?? 'Not provided'
                 : ride['sector'] == 'service'
                 ? 'Available after customer PIN verification'
@@ -418,8 +109,7 @@ class RideDetails extends StatelessWidget {
             subtitle: Text(
               [
                 ride['vehicleCategory'] ?? 'Vehicle',
-                if (ride['sector'] == 'rental' &&
-                    ride['rentalDetails'] is Map &&
+                if (ride['rentalDetails'] is Map &&
                     (ride['rentalDetails'] as Map)['hours'] != null)
                   "${(ride['rentalDetails'] as Map)['hours']} hours",
               ].join(' · '),
@@ -446,7 +136,7 @@ class RideDetails extends StatelessWidget {
               title: Text(
                 'Category: ${ride['vehicleCategory'] ?? 'Not provided'}',
               ),
-              subtitle: SelectableText('Ride ${ride['id']}'),
+              subtitle: SelectableText(ride['bookingId'] == null ? 'Booking ID unavailable' : 'Booking ID: ${ride['bookingId']}'),
             ),
           ],
         ),
@@ -512,48 +202,16 @@ class _RideOfferCardState extends State<RideOfferCard> {
     final now =
         _serverAnchor?.add(localNow.difference(_localAnchor)) ?? localNow;
     final remaining = expiry?.difference(now).inMilliseconds;
-    final seconds = remaining == null || remaining <= 0
-        ? 0
-        : (remaining / 1000).ceil();
-    final expired = expiry == null || seconds <= 0;
-    return OpsPanel(
-      title: expired ? 'Offer expired' : 'New Ride Request',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          RideDetails(ride: ride),
-          Text(
-            'Trip To ${ride['destinationAddress'] ?? 'Destination available after PIN verification'}',
-          ),
-          Text(
-            expiry == null
-                ? 'Offer deadline unavailable'
-                : 'Time remaining: ${seconds ~/ 60}:${(seconds % 60).toString().padLeft(2, '0')}',
-          ),
-          Row(
-            children: [
-              Expanded(
-                child: FilledButton(
-                  style: Ops.criticalButton,
-                  onPressed: session.busy || expired
-                      ? null
-                      : () => session.decline(ride['id'] as String),
-                  child: const Text('Reject'),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: FilledButton(
-                  onPressed: session.busy || expired
-                      ? null
-                      : () => session.accept(ride['id'] as String),
-                  child: const Text('Accept'),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
+    return IncomingRideRequestCard(
+      ride: ride,
+      remaining: Duration(milliseconds: remaining ?? 0),
+      busy: session.busy,
+      reject: () => session.decline(ride['id'] as String),
+      accept: () async {
+        if (await session.accept(ride['id'] as String) && context.mounted) {
+          context.go('/driver/active-trip');
+        }
+      },
     );
   }
 }
@@ -588,56 +246,6 @@ class ServerRideRequestsScreen extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 // Logistics payment banner shown to driver while waiting for customer payment
 // ─────────────────────────────────────────────────────────────────────────────
-class _LogisticsPaymentBanner extends StatelessWidget {
-  final String? status;
-  const _LogisticsPaymentBanner({this.status});
-
-  @override
-  Widget build(BuildContext context) {
-    final isFailed = status == 'FAILED';
-    final color = isFailed ? Colors.red.shade400 : Colors.amber.shade600;
-    final icon = isFailed
-        ? Icons.error_outline_rounded
-        : Icons.hourglass_top_rounded;
-    final msg = isFailed
-        ? 'Customer payment failed. Ask them to retry.'
-        : 'Waiting for customer\'s 40% upfront payment...';
-
-    return SafeArea(
-      top: false,
-      bottom: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: color.withValues(alpha: 0.5)),
-          ),
-          child: Row(
-            children: [
-              Icon(icon, color: color, size: 18),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  msg,
-                  style: TextStyle(
-                    color: color,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 12,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class LogisticsUpfrontPaymentCard extends StatelessWidget {
   final Map trip;
   final DriverSession session;
@@ -680,8 +288,11 @@ class LogisticsUpfrontPaymentCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 6,
             children: [
               const Text(
                 'Logistics 40% Upfront Payment',

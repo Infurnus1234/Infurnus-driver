@@ -216,6 +216,8 @@ class _BankAccountScreenState extends State<BankAccountScreen> {
           'Format checks do not verify ownership. Documentary review is manual; payouts remain disabled until bank ownership is verified through an authorized process.',
         ),
         DropdownButtonFormField<String>(
+          isExpanded: true,
+          itemHeight: null,
           initialValue: _accountType,
           decoration: const InputDecoration(labelText: 'Account type'),
           items: const [
@@ -226,6 +228,8 @@ class _BankAccountScreenState extends State<BankAccountScreen> {
           onChanged: _busy ? null : (v) => setState(() => _accountType = v!),
         ),
         DropdownButtonFormField<String>(
+          isExpanded: true,
+          itemHeight: null,
           initialValue: _ownershipType,
           decoration: const InputDecoration(labelText: 'Account ownership'),
           items: const [

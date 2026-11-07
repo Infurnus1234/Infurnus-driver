@@ -18,10 +18,10 @@ import 'support/golden_fonts.dart';
 import 'package:infurnus_driver/core/operations_theme.dart';
 
 const ride = '11111111-1111-4111-8111-111111111111';
-http.Response contact([String? phone = '+919876543210']) => http.Response(
+http.Response contact([String? phone = '+919153787859']) => http.Response(
   jsonEncode({
     'success': true,
-    'data': {'rideId': ride, 'name': 'Actual Customer', 'phone': phone},
+    'data': {'rideId': ride, 'name': 'Actual Customer', 'phone': '+919876543210', 'callingNumber': phone},
   }),
   200,
 );
@@ -53,11 +53,11 @@ void main() {
   test(
     'legacy national customer numbers retain their dialling meaning',
     () async {
-      final session = _Session(MockClient((_) async => contact('9876543210')));
+      final session = _Session(MockClient((_) async => contact()));
       addTearDown(session.dispose);
       expect(
         (await session.customerContactUri('tel')).toString(),
-        'tel:9876543210',
+        'tel:+919153787859',
       );
     },
   );
@@ -89,14 +89,14 @@ void main() {
         ),
       );
       expect(find.text('Actual Customer'), findsOneWidget);
-      expect(find.text('+919876543210'), findsOneWidget);
+      expect(find.text('+919876543210'), findsNothing);
       for (final label in ['Call', 'Message']) {
         await tester.tap(find.text(label));
         await tester.pumpAndSettle();
       }
       expect(opened.map((uri) => uri.toString()), [
-        'tel:+919876543210',
-        'sms:+919876543210',
+        'tel:+919153787859',
+        'sms:+919153787859',
       ]);
       expect(
         requests,
@@ -125,8 +125,8 @@ void main() {
       await pending;
       await tester.pumpAndSettle();
       expect(
-        find.text('No phone number is available for this customer.'),
-        findsOneWidget,
+        find.text('+919876543210'),
+        findsNothing,
       );
       expect(
         tester

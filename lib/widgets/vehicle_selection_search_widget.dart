@@ -1,3 +1,7 @@
+import 'package:provider/provider.dart';
+
+import '../providers/driver_session.dart';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -24,20 +28,22 @@ class VehicleSelectionSearchWidget extends StatefulWidget {
 class _VehicleSelectionSearchWidgetState
     extends State<VehicleSelectionSearchWidget> {
   final _searchController = TextEditingController();
-  final _repository = VehicleCatalogRepository();
+  late final VehicleCatalogRepository _repository;
   Timer? _debounceTimer;
 
   List<VehicleCatalogItem> _suggestions = [];
   bool _isLoading = false;
+  int _searchRequest = 0;
+  String? _catalogError;
   VehicleCatalogItem? _selectedItem;
 
   @override
   void initState() {
     super.initState();
-    _selectedItem =
-        widget.initialSelection?.category.toLowerCase() == 'passenger'
-        ? null
-        : widget.initialSelection;
+    _repository = VehicleCatalogRepository(
+      api: context.read<DriverSession>().api,
+    );
+    _selectedItem = widget.initialSelection;
     _performSearch('');
   }
 
@@ -59,14 +65,25 @@ class _VehicleSelectionSearchWidgetState
   }
 
   Future<void> _performSearch(String query) async {
-    final results = await _repository.searchVehicles(query);
-    if (mounted) {
-      setState(() {
-        _suggestions = results
-            .where((item) => item.category.toLowerCase() != 'passenger')
-            .toList();
-        _isLoading = false;
-      });
+    final request = ++_searchRequest;
+    try {
+      final results = await _repository.searchVehicles(query);
+      if (mounted && request == _searchRequest) {
+        setState(() {
+          _suggestions = results;
+          _catalogError = null;
+          _isLoading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted && request == _searchRequest) {
+        setState(() {
+          _suggestions = [];
+          _catalogError =
+              'Unable to load the vehicle catalog. Search again to retry.';
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -167,6 +184,7 @@ class _VehicleSelectionSearchWidgetState
           onChanged: _onSearchChanged,
           style: const TextStyle(color: InfurnusTheme.textDark),
           decoration: InputDecoration(
+            errorText: _catalogError,
             labelText:
                 'Search Vehicle Model (e.g. Alto, Fortuner, Tata Ace)...',
             hintText: 'Type vehicle name or brand',

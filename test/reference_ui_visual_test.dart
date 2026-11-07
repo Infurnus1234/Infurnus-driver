@@ -1,3 +1,4 @@
+import 'support/active_catalog_fixture.dart';
 import 'support/golden_fonts.dart';
 
 import 'dart:convert';
@@ -6,12 +7,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
-import 'package:http/testing.dart';
 import 'package:provider/provider.dart';
 import 'package:infurnus_driver/core/operations_theme.dart';
 import 'package:infurnus_driver/providers/driver_session.dart';
 import 'package:infurnus_driver/services/api_service.dart';
 import 'package:infurnus_driver/screens/driver/operations_dashboard.dart';
+import 'package:infurnus_driver/screens/driver/driver_navigation_screen.dart';
 import 'package:infurnus_driver/screens/common/operations_screens.dart';
 import 'package:infurnus_driver/screens/common/notification_inbox_screen.dart';
 import 'package:infurnus_driver/screens/common/notification_preferences_screen.dart';
@@ -106,8 +107,15 @@ void main() {
   for (final caseId in cases) {
     final large = caseId.endsWith('-large');
     final name = caseId.replaceFirst('-large', '');
-    testWidgets('reference UI $caseId', (tester) async {
-      tester.view.physicalSize = large
+    final auditWidth = double.parse(const String.fromEnvironment('UI_AUDIT_WIDTH',defaultValue:'0'));
+    final auditScale = double.parse(const String.fromEnvironment('UI_AUDIT_SCALE',defaultValue:'0'));
+    testWidgets('reference UI $caseId width=$auditWidth scale=$auditScale', (tester) async {
+      final originalErrorHandler = FlutterError.onError;
+      if (auditWidth > 0) {
+        FlutterError.onError = (details) { debugPrint(details.toString()); originalErrorHandler?.call(details); };
+        addTearDown(() => FlutterError.onError = originalErrorHandler);
+      }
+      tester.view.physicalSize = auditWidth > 0 ? Size(auditWidth, 844) : large
           ? const Size(320, 780)
           : const Size(390, 844);
       tester.view.devicePixelRatio = 1;
@@ -149,7 +157,7 @@ void main() {
       ];
       final api =
           ApiService(
-              client: MockClient((r) async {
+              client: activeCatalogClient((r) async {
                 dynamic data;
                 switch (r.url.path) {
                   case '/provider/account':
@@ -353,6 +361,7 @@ void main() {
             ..accessToken = 'fixture-token'
             ..role = 'driver_fleet_owner';
       final session = VisualSession(api);
+      if (auditWidth > 0) session.account = {'firstName':'Niranjan Bhardwaj Kumar', 'lastName':'Singh Long Driver Name'};
       addTearDown(session.dispose);
       Widget screen = const OperationsDashboard();
       if (name.startsWith('fleet-') ||
@@ -382,6 +391,14 @@ void main() {
           name == 'pin-verification') {
         session.currentTrip = {
           'id': 'fixture-trip',
+          'bookingId': name == 'pickup' ? '4400382' : '1100382',
+          if (name == 'pickup') ...{
+            'sector': 'logistics',
+            'upfrontPaymentStatus': 'PENDING',
+            'upfrontPaymentMethod': 'online',
+            'upfrontAmount': 114.4,
+            'remainingAmount': 171.6,
+          },
           'status': name == 'pickup'
               ? 'driver_arriving'
               : name == 'pin-verification'
@@ -393,6 +410,16 @@ void main() {
           'vehicleCategory': 'SEDAN',
           'fareEstimate': 286,
         };
+      }
+      if (['pickup', 'active-trip', 'pin-verification'].contains(name)) {
+        screen = const DriverNavigationScreen();
+      }
+      if (name == 'ride-offer') {
+        screen = Scaffold(
+          body: SingleChildScrollView(
+            child: RideOfferCard(ride: session.rides.single),
+          ),
+        );
       }
       switch (name) {
         case 'trips':
@@ -444,7 +471,7 @@ void main() {
             debugShowCheckedModeBanner: false,
             builder: (context, child) => MediaQuery(
               data: MediaQuery.of(context)
-                  .copyWith(textScaler: TextScaler.linear(large ? 1.8 : 1)),
+                  .copyWith(textScaler: TextScaler.linear(auditScale > 0 ? auditScale : large ? 1.8 : 1)),
               child: child!,
             ),
             theme: Ops.theme,
@@ -493,25 +520,20 @@ void main() {
         await tester.pumpAndSettle();
       }
       if (name == 'pin-verification') {
-        await tester.tap(find.text('Verify PIN & start trip'));
-        await tester.pumpAndSettle();
+        expect(find.text('Enter PIN to Start Ride'), findsOneWidget);
       }
       if (name == 'confirmation') {
         await tester.tap(find.text('Review completion'));
         await tester.pumpAndSettle();
       }
-      if (['ride-offer', 'pickup', 'active-trip'].contains(name)) {
-        final target = name == 'ride-offer'
-            ? find.text('New Ride Request')
-            : find.text(
-                name == 'active-trip' ? 'On Ride' : 'Navigate to Pickup',
-              );
-        await tester.scrollUntilVisible(
-          target,
-          180,
-          scrollable: find.byType(Scrollable).first,
-        );
-        await tester.pumpAndSettle();
+      if (name == 'ride-offer') {
+        expect(find.text('New Ride Request'), findsOneWidget);
+      }
+      if (name == 'pickup') {
+        expect(find.text('Arrived at pickup'), findsOneWidget);
+      }
+      if (name == 'active-trip') {
+        expect(find.text('Complete Ride'), findsOneWidget);
       }
       expect(
         unknown,
@@ -551,7 +573,7 @@ void main() {
         await tester.tap(categoryDropdown);
         await tester.pumpAndSettle();
         expect(find.text('passenger'), findsNothing);
-        await tester.tap(find.text('logistics').last);
+        await tester.tap(find.text('Logistics').last);
         await tester.pumpAndSettle();
         await tester.tap(find.byType(DropdownButtonFormField<String>).last);
         await tester.pumpAndSettle();

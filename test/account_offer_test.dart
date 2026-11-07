@@ -1,3 +1,5 @@
+import 'support/active_catalog_fixture.dart';
+
 import 'package:infurnus_driver/screens/fleet/fleet_vehicle_category_dialog.dart';
 import 'package:infurnus_driver/providers/provider_assets.dart';
 import 'package:infurnus_driver/repositories/vehicle_catalog_repository.dart';
@@ -7,7 +9,6 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
-import 'package:http/testing.dart';
 import 'package:provider/provider.dart';
 import 'package:infurnus_driver/providers/driver_session.dart';
 import 'package:infurnus_driver/services/api_service.dart';
@@ -18,10 +19,10 @@ void main() {
   testWidgets(
     'Logistics exposes server-configured types and labels Passenger inventory as Rental',
     (tester) async {
-      Map<String, String>? selected;
+      Map<String, dynamic>? selected;
       final calls = <String>[];
       final api = ApiService(
-        client: MockClient((r) async {
+        client: activeCatalogClient((r) async {
           calls.add('${r.method} ${r.url.path}');
           return http.Response(
             jsonEncode({
@@ -81,7 +82,7 @@ void main() {
       await tester.tap(find.byType(DropdownButtonFormField<String>).first);
       await tester.pumpAndSettle();
       expect(find.text('passenger'), findsNothing);
-      await tester.tap(find.text('logistics').last);
+      await tester.tap(find.text('Logistics').last);
       await tester.pumpAndSettle();
       await tester.tap(find.byType(DropdownButtonFormField<String>).last);
       await tester.pumpAndSettle();
@@ -104,36 +105,35 @@ void main() {
   );
 
   testWidgets(
-    'custom types remain available through a separate dialog outside Logistics',
+    'Admin-published options appear after reopening and Fleet cannot create catalog types',
     (tester) async {
-      final types = <Map<String, dynamic>>[];
+      final types = <Map<String, dynamic>>[
+        {
+          'id': 'existing',
+          'code': 'ambulance',
+          'name': 'Ambulance',
+          'sector': 'service',
+          'active': true,
+        },
+        {
+          'id': 'inactive',
+          'code': 'inactive',
+          'name': 'Inactive service',
+          'catalogVisible': false,
+          'sector': 'service',
+          'active': false,
+        },
+      ];
       final calls = <String>[];
-      Map<String, String>? selected;
+      Map<String, dynamic>? selected;
       final api = ApiService(
-        client: MockClient((request) async {
+        client: activeCatalogClient((request) async {
           calls.add('${request.method} ${request.url.path}');
-          if (request.method == 'POST') {
-            expect(jsonDecode(request.body), {
-              'sector': 'service',
-              'name': 'My Truck',
-            });
-            final item = {
-              'name': 'My Truck',
-              'code': 'custom_truck',
-              'sector': 'service',
-              'custom': true,
-            };
-            types.add(item);
-            return http.Response(
-              jsonEncode({'success': true, 'data': item}),
-              201,
-            );
-          }
           return http.Response(
             jsonEncode({
               'success': true,
               'data': {
-                'sectors': ['passenger', 'service'],
+                'sectors': ['service'],
                 'types': types,
               },
             }),
@@ -155,47 +155,40 @@ void main() {
           ),
         ),
       );
-      await tester.tap(find.text('Choose'));
+      Future<void> open() async {
+        await tester.tap(find.text('Choose'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byType(DropdownButtonFormField<String>).first);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Service').last);
+        await tester.pumpAndSettle();
+        expect(find.text('Add custom vehicle type'), findsNothing);
+        await tester.tap(find.byType(DropdownButtonFormField<String>).at(1));
+        await tester.pumpAndSettle();
+        expect(find.text('Inactive service'), findsNothing);
+      }
+
+      await open();
+      await tester.tap(find.text('Ambulance').last);
       await tester.pumpAndSettle();
-      await tester.tap(find.byType(DropdownButtonFormField<String>).first);
-      await tester.pumpAndSettle();
-      expect(find.text('passenger'), findsNothing);
-      await tester.tap(find.text('service').last);
-      await tester.pumpAndSettle();
-      expect(find.byType(TextField), findsNothing);
-      await tester.tap(find.text('Add custom vehicle type'));
-      await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField), 'My Truck');
-      await tester.ensureVisible(find.text('Create type'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Create type'));
-      await tester.pumpAndSettle();
-      expect(find.text('Vehicle category and type'), findsOneWidget);
-      expect(find.byType(AlertDialog), findsOneWidget);
-      expect(calls, [
-        'GET /provider/vehicle-catalog',
-        'POST /provider/vehicle-catalog/custom',
-        'GET /provider/vehicle-catalog',
-      ]);
-      await tester.tap(find.byType(DropdownButtonFormField<String>).last);
-      await tester.pumpAndSettle();
-      expect(find.text('My Truck'), findsNWidgets(2));
-      await tester.tap(find.text('My Truck').last);
-      await tester.pumpAndSettle();
-      expect(
-        tester
-            .widget<DropdownButtonFormField<String>>(
-              find.byType(DropdownButtonFormField<String>).last,
-            )
-            .initialValue,
-        'custom_truck',
-      );
       await tester.tap(find.text('Continue'));
       await tester.pumpAndSettle();
-      expect(selected, {'sector': 'service', 'category': 'custom_truck'});
+      expect(selected, {'sector': 'service', 'category': 'ambulance'});
+      types.add({
+        'id': 'new',
+        'code': 'new_admin_service',
+        'name': 'New Admin service',
+        'sector': 'service',
+        'active': true,
+      });
+      await open();
+      await tester.tap(find.text('New Admin service').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Continue'));
+      await tester.pumpAndSettle();
+      expect(selected, {'sector': 'service', 'category': 'new_admin_service'});
       expect(calls, [
         'GET /provider/vehicle-catalog',
-        'POST /provider/vehicle-catalog/custom',
         'GET /provider/vehicle-catalog',
       ]);
       api.dispose();
@@ -203,11 +196,35 @@ void main() {
   );
 
   test(
-    'legacy catalog preserves models without making Passenger selectable',
+    'search consumes the backend catalog and preserves inventory identifiers',
     () async {
-      final results = await VehicleCatalogRepository().searchVehicles('WagonR');
-      expect(results.single.modelName, 'WagonR (Mini Cab)');
-      expect(results.single.category, 'Passenger');
+      final api = ApiService(
+        client: activeCatalogClient(
+          (request) async => http.Response(
+            jsonEncode({
+              'success': true,
+              'data': {
+                'types': [
+                  {
+                    'id': 'mini-id',
+                    'code': 'mini',
+                    'name': 'Mini',
+                    'sector': 'passenger',
+                    'active': true,
+                  },
+                ],
+              },
+            }),
+            200,
+          ),
+        ),
+      );
+      final results = await VehicleCatalogRepository(api: api)
+          .searchVehicles('Mini');
+      expect(results.single.modelName, 'Mini');
+      expect(results.single.category, 'passenger');
+      expect(results.single.id, 'mini-id');
+      api.dispose();
     },
   );
 
@@ -216,7 +233,7 @@ void main() {
     () async {
       var requests = 0;
       final api = ApiService(
-        client: MockClient((request) async {
+        client: activeCatalogClient((request) async {
           requests++;
           return http.Response('{}', 500);
         }),
@@ -235,7 +252,7 @@ void main() {
     (tester) async {
       final session = DriverSession(
         api: ApiService(
-          client: MockClient(
+          client: activeCatalogClient(
             (r) async => r.method == 'PATCH'
                 ? http.Response(
                     jsonEncode({
@@ -307,7 +324,7 @@ void main() {
       };
       final session = DriverSession(
         api: ApiService(
-          client: MockClient((r) async {
+          client: activeCatalogClient((r) async {
             calls.add('${r.method} ${r.url.path}');
             if (r.method == 'PATCH') {
               saved = {...saved, ...jsonDecode(r.body) as Map<String, dynamic>};
@@ -361,7 +378,7 @@ void main() {
     (tester) async {
       final session = DriverSession(
         api: ApiService(
-          client: MockClient((_) async => http.Response('{}', 200)),
+          client: activeCatalogClient((_) async => http.Response('{}', 200)),
         ),
       );
       var clock = DateTime.utc(2030);
@@ -391,7 +408,7 @@ void main() {
       );
       await tester.pumpWidget(screen());
       expect(find.text('Time remaining: 0:03'), findsOneWidget);
-      expect(find.text('Estimated fare'), findsOneWidget);
+      expect(find.text('Ride Price'), findsOneWidget);
       clock = clock.add(const Duration(seconds: 2));
       await tester.pump(const Duration(seconds: 2));
       await tester.pumpWidget(screen());

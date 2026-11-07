@@ -11,7 +11,7 @@ import 'package:infurnus_driver/providers/driver_session.dart';
 import 'package:infurnus_driver/services/api_service.dart';
 import 'package:infurnus_driver/services/notification_service.dart';
 import 'package:infurnus_driver/screens/driver/operations_dashboard.dart';
-import 'package:infurnus_driver/widgets/operations.dart';
+import 'package:infurnus_driver/services/ride_request_presentation.dart';
 
 // Onboarding/GPS/socket SDK setup is independent of this handler unit test.
 // Registration + actual socket receipt are covered by the backend E2E test.
@@ -74,10 +74,7 @@ void main() {
       );
       await tester.pump();
       expect(find.text('Accept'), findsOneWidget);
-      expect(
-        find.text(inrRupees(row['rideInformation']['fare']['amount'])),
-        findsOneWidget,
-      );
+      expect(find.text(nativeOffer(row)['fare'] as String), findsOneWidget);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
     },

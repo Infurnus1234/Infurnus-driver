@@ -112,7 +112,7 @@ void main() {
         final map = tester.widget<GoogleMap>(find.byType(GoogleMap));
         expect(
           map.markers.any((m) => m.markerId.value == 'pickup'),
-          status != 'in_progress',
+          isTrue,
         );
         expect(map.markers.any((m) => m.markerId.value == 'driver'), isTrue);
         expect(

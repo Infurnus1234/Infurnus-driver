@@ -414,11 +414,11 @@ class TripsScreen extends StatelessWidget {
                                 dense: true,
                                 tilePadding: EdgeInsets.zero,
                                 title: const Text(
-                                  'Trip reference',
+                                  'Booking ID',
                                   style: TextStyle(fontSize: 11),
                                 ),
                                 children: [
-                                  SelectableText('Ride ${ride['id']}'),
+                                  SelectableText(ride['bookingId']?.toString() ?? 'Not available'),
                                 ],
                               ),
                             ],
@@ -685,7 +685,7 @@ class SafetySettingsScreen extends StatelessWidget {
             OpsPanel(
               title: 'Current trip',
               child: Text(
-                'Ride ${session.currentTrip!['id']}\n${session.currentTrip!['pickupAddress'] ?? ''}\n${session.currentTrip!['destinationAddress'] ?? ''}',
+                'Booking ID: ${session.currentTrip!['bookingId'] ?? 'Not available'}\n${session.currentTrip!['pickupAddress'] ?? ''}\n${session.currentTrip!['destinationAddress'] ?? ''}',
               ),
             ),
           OutlinedButton.icon(

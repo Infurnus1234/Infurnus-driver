@@ -334,8 +334,14 @@ class ApiService {
   }
 
   String _userFacingError(String? code, int status) {
+    if (code == 'INVALID_VEHICLE_CATEGORY') {
+      return 'This vehicle option is inactive or unavailable. Refresh the catalog and choose an active option.';
+    }
     if (code == 'MAP_RATE_LIMITED') {
       return 'Wait before refreshing the map.';
+    }
+    if (code == 'INVALID_PIN') {
+      return 'Incorrect PIN. Check the four digits with the passenger and try again.';
     }
     if (code == 'DUPLICATE_VEHICLE') {
       return 'This vehicle is already registered. Check the registration details.';

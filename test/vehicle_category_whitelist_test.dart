@@ -1,9 +1,11 @@
+import 'support/premium_location_fixture.dart';
+import 'support/active_catalog_fixture.dart';
+
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
-import 'package:http/testing.dart';
 import 'package:provider/provider.dart';
 
 import 'package:infurnus_driver/core/operations_theme.dart';
@@ -23,6 +25,7 @@ http.Response _ok(dynamic data) =>
     http.Response(jsonEncode({'success': true, 'data': data}), 200);
 
 void main() {
+  setUp(configureOperatingMap);
   group('VehicleCategoryPolicy & Registration Dialog Tests', () {
     test('Allows all 8 approved sector and code combinations', () {
       expect(
@@ -81,7 +84,7 @@ void main() {
 
         final api =
             ApiService(
-                client: MockClient((r) async {
+                client: activeCatalogClient((r) async {
                   final path = r.url.path;
                   if (path == '/partners/me') {
                     return _ok({
@@ -196,7 +199,7 @@ void main() {
         };
 
         final api = ApiService(
-          client: MockClient((request) async {
+          client: activeCatalogClient((request) async {
             if (request.url.path.endsWith('/provider/vehicle-catalog')) {
               return _ok(catalogData);
             }
@@ -228,7 +231,7 @@ void main() {
         ];
 
         for (final pair in pairs) {
-          Map<String, String>? selectedResult;
+          Map<String, dynamic>? selectedResult;
 
           await tester.pumpWidget(
             MaterialApp(
@@ -242,6 +245,8 @@ void main() {
                         initial: {
                           'sector': pair['sector'],
                           'category': pair['code'],
+                          if (pair['sector'] == 'premium')
+                            'operatingLocation': testOperatingLocation,
                         },
                       );
                     },
@@ -263,21 +268,14 @@ void main() {
           await tester.tap(find.text(pair['name']!).last);
           await tester.pumpAndSettle();
 
-          if (pair['sector'] == 'premium') {
-            await tester.tap(
-              find.byType(DropdownButtonFormField<String>).at(2),
-            );
-            await tester.pumpAndSettle();
-            await tester.tap(find.text('Patna').last);
-            await tester.pumpAndSettle();
-          }
           await tester.tap(find.text('Continue'));
           await tester.pumpAndSettle();
 
           expect(selectedResult, {
             'sector': pair['sector']!,
             'category': pair['code']!,
-            if (pair['sector'] == 'premium') 'operatingCityId': 'patna',
+            if (pair['sector'] == 'premium')
+              'operatingLocation': testOperatingLocation,
           });
           await tester.pumpWidget(const SizedBox());
         }
@@ -288,7 +286,7 @@ void main() {
       'Verify premium/thar and rental/thar remain independent in dialog',
       (tester) async {
         final api = ApiService(
-          client: MockClient((request) async {
+          client: activeCatalogClient((request) async {
             if (request.url.path.endsWith('/provider/vehicle-catalog')) {
               return _ok({
                 'sectors': ['premium', 'rental'],
@@ -310,7 +308,7 @@ void main() {
           }),
         );
 
-        Map<String, String> selectedResult = {};
+        Map<String, dynamic> selectedResult = {};
 
         await tester.pumpWidget(
           MaterialApp(
@@ -321,7 +319,11 @@ void main() {
                     final res = await selectFleetVehicleCategory(
                       context,
                       api,
-                      initial: {'sector': 'rental', 'category': 'thar'},
+                      initial: {
+                        'sector': 'rental',
+                        'category': 'thar',
+                        'operatingLocation': testOperatingLocation,
+                      },
                     );
                     if (res != null) selectedResult = res;
                   },
