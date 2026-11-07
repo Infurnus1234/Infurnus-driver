@@ -370,6 +370,10 @@ void main() {
     );
     expect(notificationDestination({'type': 'PAYOUT_UPDATED'}), isNull);
     expect(notificationDestination({'rideId': ''}), isNull);
+    expect(
+      notificationDestination({'type': 'ride.created', 'rideId': 'offer/id'}),
+      '/driver/ride-requests?offer=offer%2Fid',
+    );
   });
   testWidgets(
     'earnings uses ledger API and period filter changes displayed data',

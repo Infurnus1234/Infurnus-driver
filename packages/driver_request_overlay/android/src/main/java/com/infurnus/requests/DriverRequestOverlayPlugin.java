@@ -83,18 +83,42 @@ public class DriverRequestOverlayPlugin implements FlutterPlugin, MethodChannel.
      if(activity==null){result.success(false);break;}
      activity.startActivity(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,Uri.parse("package:"+context.getPackageName())));result.success(true);break;
     case "notificationPermission":
-     if(activity!=null&&Build.VERSION.SDK_INT>=33)activity.requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS},903);
+     if(activity!=null)requestNotificationAccess();
      result.success(null);break;
     case "ready":ready=true;if(activity!=null)receive(activity.getIntent());result.success(null);break;
     case "takeAction":
      String pending=prefs().getString("pending_action",null);prefs().edit().remove("pending_action").apply();
      result.success(pending);break;
     case "present": result.success(present(new JSONObject((Map<?,?>)call.arguments)));break;
+    case "notifyOffer":
+     JSONObject offer=new JSONObject((Map<?,?>)call.arguments);
+     if(offer.optLong("deadline")>System.currentTimeMillis())fallback(offer,false);
+     result.success(true);break;
     case "dismiss": hide();if(shownNotification!=0)notifications().cancel(shownNotification);result.success(null);break;
     case "clear":hide();for(String k:prefs().getAll().keySet())if(k.startsWith("notification_"))try{notifications().cancel(Integer.parseInt(k.substring(13)));}catch(Exception ignored){}prefs().edit().clear().apply();result.success(null);break;
     default:result.notImplemented();
    }
   }catch(Exception e){result.error("REQUEST_PRESENTATION_UNAVAILABLE","Ride request presentation is unavailable",null);}
+ }
+ private void requestNotificationAccess(){
+  if(Build.VERSION.SDK_INT>=33 && activity.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED
+     && (!prefs().getBoolean("notification_permission_requested",false)
+         || activity.shouldShowRequestPermissionRationale(Manifest.permission.POST_NOTIFICATIONS))){
+   prefs().edit().putBoolean("notification_permission_requested",true).apply();
+   activity.requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS},903);
+   return;
+  }
+  Intent settings;
+  if(Build.VERSION.SDK_INT>=26){
+   channels();
+   settings=new Intent(notifications().areNotificationsEnabled()
+       ? Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS : Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+       .putExtra(Settings.EXTRA_APP_PACKAGE,context.getPackageName())
+       .putExtra(Settings.EXTRA_CHANNEL_ID,CHANNEL);
+  }else{
+   settings=new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,Uri.parse("package:"+context.getPackageName()));
+  }
+  activity.startActivity(settings);
  }
  private static void channels(){
   if(Build.VERSION.SDK_INT<26)return;
@@ -122,7 +146,9 @@ public class DriverRequestOverlayPlugin implements FlutterPlugin, MethodChannel.
  }
  private static void fallback(JSONObject d,boolean quiet){
   Intent intent=action(d,"review");if(intent==null)return;
-  int id=text(d,"key", "").hashCode()&0x7fffffff;shownNotification=id;
+  int id=text(d,"key", "").hashCode()&0x7fffffff;
+  if(shownNotification!=0 && shownNotification!=id)notifications().cancel(shownNotification);
+  shownNotification=id;
   prefs().edit().putBoolean("notification_"+id,true).apply();
   PendingIntent open=PendingIntent.getActivity(context,id,intent,PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);
   Notification.Builder builder=Build.VERSION.SDK_INT>=26?new Notification.Builder(context,quiet?QUIET_CHANNEL:CHANNEL):new Notification.Builder(context);
@@ -145,7 +171,7 @@ public class DriverRequestOverlayPlugin implements FlutterPlugin, MethodChannel.
    for(Map.Entry<String,?> e:prefs().getAll().entrySet())if(e.getKey().startsWith("seen_")&&e.getValue() instanceof Long&&(Long)e.getValue()<System.currentTimeMillis())edit.remove(e.getKey());
    edit.putLong("seen_"+key,deadline).apply();
   }
-  if(foreground){hide();if(fresh)playSound();return true;}
+  if(foreground){hide();if(shownNotification!=0)notifications().cancel(shownNotification);if(fresh)playAlert();return true;}
   if(key.equals(shownKey)&&overlay!=null)return true;
   if(prefs().getBoolean("dismissed_"+key,false))return true;
   if(!overlayAllowed()){fallback(d,false);return true;}
@@ -155,13 +181,23 @@ public class DriverRequestOverlayPlugin implements FlutterPlugin, MethodChannel.
    WindowManager.LayoutParams params=new WindowManager.LayoutParams(Math.min(dp(430),context.getResources().getDisplayMetrics().widthPixels-dp(24)),WindowManager.LayoutParams.WRAP_CONTENT,Build.VERSION.SDK_INT>=26?WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY:WindowManager.LayoutParams.TYPE_PHONE,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE|WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL|WindowManager.LayoutParams.FLAG_DIM_BEHIND,PixelFormat.TRANSLUCENT);
    params.gravity=Gravity.CENTER;params.dimAmount=.18f;
    ((WindowManager)context.getSystemService(Context.WINDOW_SERVICE)).addView(card,params);overlay=card;
-   fallback(d,true);if(fresh)playSound();
+   fallback(d,true);if(fresh)playAlert();
    expiryTask=()->{hide();notifications().cancel(shownNotification);};handler.postDelayed(expiryTask,deadline-System.currentTimeMillis());
    return true;
   }catch(Exception ignored){hide();fallback(d,false);return true;}
  }
- private static void playSound(){
-  if(Build.VERSION.SDK_INT>=26){NotificationChannel c=notifications().getNotificationChannel(CHANNEL);if(c!=null&&(c.getImportance()==NotificationManager.IMPORTANCE_NONE||c.getSound()==null))return;}
+ private static void playAlert(){
+  if(Build.VERSION.SDK_INT>=24 && !notifications().areNotificationsEnabled())return;
+  NotificationChannel alertChannel=Build.VERSION.SDK_INT>=26?notifications().getNotificationChannel(CHANNEL):null;
+  if(alertChannel!=null && alertChannel.getImportance()==NotificationManager.IMPORTANCE_NONE)return;
+  if(alertChannel==null || alertChannel.shouldVibrate()){
+   Vibrator vibrator=(Vibrator)context.getSystemService(Context.VIBRATOR_SERVICE);
+   if(vibrator!=null && vibrator.hasVibrator()){
+    if(Build.VERSION.SDK_INT>=26)vibrator.vibrate(VibrationEffect.createOneShot(250,VibrationEffect.DEFAULT_AMPLITUDE));
+    else vibrator.vibrate(250);
+   }
+  }
+  if(alertChannel!=null && alertChannel.getSound()==null)return;
   int raw=context.getResources().getIdentifier("infurnus_alert","raw",context.getPackageName());
   if(raw==0)return;
   try{if(sound!=null){sound.release();sound=null;}sound=MediaPlayer.create(context,raw);if(sound!=null){sound.setOnCompletionListener(p->{p.release();if(sound==p)sound=null;});sound.start();}}catch(Exception ignored){}

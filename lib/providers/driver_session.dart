@@ -468,7 +468,13 @@ class DriverSession extends ChangeNotifier {
     return '/verification-status';
   }
 
-  bool get online => profile?['availabilityStatus'] == 'available';
+  bool get online =>
+      profile?['onlinePreference'] as bool? ??
+      const [
+        'available',
+        'stale',
+        'busy',
+      ].contains(profile?['availabilityStatus']);
 
   void _notify() {
     if (!_disposed) notifyListeners();
@@ -1604,7 +1610,9 @@ class DriverSession extends ChangeNotifier {
   }
 
   Future<bool> setOnline(bool value) => run(() async {
+    if (value == online) return;
     if (isPreview) {
+      profile?['onlinePreference'] = value;
       profile?['availabilityStatus'] = value ? 'available' : 'unavailable';
       return;
     }
@@ -1627,6 +1635,7 @@ class DriverSession extends ChangeNotifier {
       }
       rethrow;
     }
+    profile?['onlinePreference'] = value;
     if (!value && currentTrip == null) {
       await _positions?.cancel();
       _positions = null;
@@ -1865,7 +1874,8 @@ class DriverSession extends ChangeNotifier {
       _joinTrip();
       _notify();
       // Reconcile missed events with the authoritative API after reconnecting.
-      if (!busy && authenticated) unawaited(refresh());
+      _rideEventRefreshPending = true;
+      _drainRideEventRefresh();
     });
     _socket!.onDisconnect((_) {
       realtimeStatus = 'Disconnected';
@@ -1919,13 +1929,6 @@ class DriverSession extends ChangeNotifier {
         await _notifications?.unregister();
       } catch (_) {
         // Logout must still clear local credentials when token cleanup is offline.
-      }
-      if (online) {
-        await api.request(
-          'PATCH',
-          '/rides/driver/availability',
-          body: {'status': 'unavailable'},
-        );
       }
     } finally {
       try {

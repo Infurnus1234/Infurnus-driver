@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/driver_session.dart';
@@ -12,10 +13,12 @@ class DriverRequestHost extends StatefulWidget {
   final Widget child;
   final RideRequestBridge? bridge;
   final void Function(String) navigate;
+  final GoRouter? router;
   const DriverRequestHost({
     super.key,
     required this.child,
     this.bridge,
+    this.router,
     required this.navigate,
   });
   @override
@@ -29,6 +32,7 @@ class _DriverRequestHostState extends State<DriverRequestHost>
   DriverSession? _session;
   Timer? _timer;
   String? _presented, _trip;
+  String? _routePath;
   Map<String, dynamic>? _offer;
   bool _scheduled = false, _acting = false, _foreground = true;
   @override
@@ -36,6 +40,8 @@ class _DriverRequestHostState extends State<DriverRequestHost>
     super.initState();
     _bridge = widget.bridge ?? RideRequestBridge();
     WidgetsBinding.instance.addObserver(this);
+    _routePath = _currentRoutePath;
+    widget.router?.routerDelegate.addListener(_routeChanged);
     _foreground =
         WidgetsBinding.instance.lifecycleState != AppLifecycleState.paused;
     unawaited(_bridge.initialize(_schedule));
@@ -56,10 +62,25 @@ class _DriverRequestHostState extends State<DriverRequestHost>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    widget.router?.routerDelegate.removeListener(_routeChanged);
     _session?.removeListener(_schedule);
     _timer?.cancel();
     super.dispose();
   }
+
+  String? get _currentRoutePath => widget
+      .router
+      ?.routerDelegate
+      .currentConfiguration
+      .matches
+      .lastOrNull
+      ?.matchedLocation;
+
+  void _routeChanged() => scheduleMicrotask(() {
+    if (!mounted) return;
+    final path = _currentRoutePath;
+    if (path != _routePath) setState(() => _routePath = path);
+  });
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
@@ -142,7 +163,7 @@ class _DriverRequestHostState extends State<DriverRequestHost>
                 widget.navigate('/driver/dashboard');
               }
             } else {
-              widget.navigate('/driver/dashboard');
+              widget.navigate(rideRequestRoute(id));
             }
           }
         } finally {
@@ -171,11 +192,10 @@ class _DriverRequestHostState extends State<DriverRequestHost>
     }
     final key = next == null ? null : offerKey(next);
     if (key != _presented) {
+      if (_presented != null || next == null) await _bridge.dismiss();
       _presented = key;
       if (next != null) {
         await _bridge.present(next);
-      } else {
-        await _bridge.dismiss();
       }
     }
     if (mounted) setState(() => _offer = next);
@@ -210,7 +230,9 @@ class _DriverRequestHostState extends State<DriverRequestHost>
     fit: StackFit.expand,
     children: [
       widget.child,
-      if (_foreground && _offer != null)
+      if (_foreground &&
+          _offer != null &&
+          _routePath != '/driver/ride-requests')
         Positioned.fill(
           child: Material(
             color: const Color(0x55000000),

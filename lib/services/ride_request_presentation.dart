@@ -18,6 +18,10 @@ Duration offerRemaining(Map ride, {DateTime? now}) {
 }
 
 String offerKey(Map ride) => '${ride['id']}:${ride['dispatchExpiresAt']}';
+String rideRequestRoute(String rideId) => Uri(
+  path: '/driver/ride-requests',
+  queryParameters: {'offer': rideId},
+).toString();
 String requestSector(Map ride) =>
     const {
       'passenger': 'Rental',
@@ -111,6 +115,17 @@ class RideRequestBridge {
 
   Future<bool> present(Map<String, dynamic> ride) async =>
       await _call<bool>('present', nativeOffer(ride)) ?? false;
+  Future<bool> notifyOffer(String rideId, String expiresAt) async {
+    final deadline = DateTime.tryParse(expiresAt);
+    if (deadline == null || !deadline.isAfter(DateTime.now())) return true;
+    return await _call<bool>('notifyOffer', {
+          'key': '$rideId:$expiresAt',
+          'rideId': rideId,
+          'deadline': deadline.millisecondsSinceEpoch,
+        }) ??
+        false;
+  }
+
   Future<void> dismiss() async {
     await _call('dismiss');
   }

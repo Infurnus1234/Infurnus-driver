@@ -96,6 +96,7 @@ class _InfurnusAppState extends State<InfurnusApp> with WidgetsBindingObserver {
       builder: (context, child) => Overlay.wrap(
         child: DriverRequestHost(
           navigate: appRouter.go,
+          router: appRouter,
           child: child ?? const SizedBox.shrink(),
         ),
       ),

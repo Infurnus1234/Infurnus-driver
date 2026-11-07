@@ -20,8 +20,9 @@ class DriverHomeScreen extends StatelessWidget {
     await showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
+      isScrollControlled: true,
       builder: (sheet) => SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -49,7 +50,11 @@ class DriverHomeScreen extends StatelessWidget {
                 onPressed: () async {
                   await bridge.requestNotificationPermission();
                 },
-                child: const Text('Allow request notifications'),
+                child: Text(
+                  status?['notifications'] == true
+                      ? 'Request sound and vibration settings'
+                      : 'Allow request notifications',
+                ),
               ),
               TextButton(
                 onPressed: () => Navigator.pop(sheet),
@@ -117,7 +122,7 @@ class DriverHomeScreen extends StatelessWidget {
                 title: const Text('Ride requests'),
                 onTap: () {
                   Navigator.pop(context);
-                  context.push('/driver/requests');
+                  context.push('/driver/ride-requests');
                 },
               ),
               ListTile(
@@ -383,7 +388,11 @@ class DriverHomeScreen extends StatelessWidget {
                   const SizedBox(height: 7),
                   Text(
                     session.online
-                        ? 'Waiting for ride requests…'
+                        ? session.locationWarning != null
+                              ? 'Online preference saved. Check location to receive requests.'
+                              : session.realtimeStatus == 'Connected'
+                              ? 'Waiting for ride requests…'
+                              : 'Online preference saved. Reconnecting to live requests…'
                         : 'Go online to receive ride requests.',
                     textAlign: TextAlign.center,
                     style: const TextStyle(

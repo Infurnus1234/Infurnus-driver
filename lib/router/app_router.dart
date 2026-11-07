@@ -32,7 +32,9 @@ import '../screens/fleet/guided_provider_setup.dart';
 import '../screens/admin/provider_review_screen.dart';
 import '../screens/common/support_tickets_screen.dart';
 
-final appRouter = GoRouter(
+final appRouter = createAppRouter();
+
+GoRouter createAppRouter() => GoRouter(
   initialLocation: '/login',
   redirect: (context, state) {
     final session = context.read<DriverSession>(), path = state.uri.path;
@@ -250,7 +252,13 @@ final appRouter = GoRouter(
     GoRoute(path: '/driver/profile', builder: (_, _) => const AccountScreen()),
     GoRoute(
       path: '/driver/ride-requests',
-      builder: (_, _) => const ServerRideRequestsScreen(),
+      builder: (_, state) => ServerRideRequestsScreen(
+        requestedRideId: state.uri.queryParameters['offer'],
+      ),
+    ),
+    GoRoute(
+      path: '/driver/requests',
+      redirect: (_, _) => '/driver/ride-requests',
     ),
     GoRoute(
       path: '/driver/navigate-pickup',

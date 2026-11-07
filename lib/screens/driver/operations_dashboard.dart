@@ -220,13 +220,39 @@ class _RideOfferCardState extends State<RideOfferCard> {
   }
 }
 
-class ServerRideRequestsScreen extends StatelessWidget {
-  const ServerRideRequestsScreen({super.key});
+class ServerRideRequestsScreen extends StatefulWidget {
+  final String? requestedRideId;
+  const ServerRideRequestsScreen({super.key, this.requestedRideId});
+
+  @override
+  State<ServerRideRequestsScreen> createState() =>
+      _ServerRideRequestsScreenState();
+}
+
+class _ServerRideRequestsScreenState extends State<ServerRideRequestsScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) context.read<DriverSession>().refresh();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final session = context.watch<DriverSession>();
-    return Scaffold(
-      appBar: AppBar(title: const Text('Ride offers')),
+    final requestedId = widget.requestedRideId;
+    final requested = requestedId == null
+        ? null
+        : session.rides.where((ride) => ride['id'] == requestedId).firstOrNull;
+    final standaloneAlert = requestedId != null && !context.canPop();
+    final screen = Scaffold(
+      appBar: AppBar(
+        title: const Text('Ride requests'),
+        leading: standaloneAlert
+            ? BackButton(onPressed: () => context.go('/driver/dashboard'))
+            : null,
+      ),
       body: RefreshIndicator(
         onRefresh: () async {
           await session.refresh();
@@ -237,12 +263,34 @@ class ServerRideRequestsScreen extends StatelessWidget {
           children: [
             if (session.error != null)
               OpsError(session.error!, retry: session.refresh),
-            if (session.rides.isEmpty) const OpsEmpty('No current offers.'),
+            if (session.busy && session.rides.isEmpty)
+              const Center(child: CircularProgressIndicator()),
+            if (!session.busy &&
+                session.error == null &&
+                requestedId != null &&
+                requested == null)
+              const OpsEmpty('This offer is no longer available.'),
+            if (!session.busy &&
+                session.error == null &&
+                requestedId == null &&
+                session.rides.isEmpty)
+              const OpsEmpty('No current offers.'),
+            if (requested != null)
+              RideOfferCard(key: ValueKey(requestedId), ride: requested),
             for (final ride in session.rides)
-              RideOfferCard(key: ValueKey(ride['id']), ride: ride),
+              if (ride['id'] != requestedId)
+                RideOfferCard(key: ValueKey(ride['id']), ride: ride),
           ],
         ),
       ),
+    );
+    if (!standaloneAlert) return screen;
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) context.go('/driver/dashboard');
+      },
+      child: screen,
     );
   }
 }

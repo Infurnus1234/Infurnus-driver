@@ -10,6 +10,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'api_service.dart';
 import 'background_ride_request.dart';
 import 'notification_timing.dart';
+import 'ride_request_presentation.dart';
 
 @pragma('vm:entry-point')
 Future<void> driverFirebaseMessagingBackgroundHandler(
@@ -21,10 +22,19 @@ Future<void> driverFirebaseMessagingBackgroundHandler(
     /* Native fallback does not require the UI Firebase instance. */
   }
   if (isDriverOffer(message.data)) {
+    if (notificationOfferExpired(message.data)) return;
     try {
       if (await presentBackgroundOffer(message.data)) return;
     } catch (_) {
-      /* Audible fallback below. */
+      /* A notification can still lead to authenticated review. */
+    }
+    final bridge = RideRequestBridge();
+    if (bridge.supported &&
+        await bridge.notifyOffer(
+          message.data['rideId'] as String,
+          message.data['expiresAt']?.toString() ?? '',
+        )) {
+      return;
     }
   }
   if (message.notification == null && message.data.isNotEmpty) {
@@ -76,7 +86,9 @@ Future<void> driverFirebaseMessagingBackgroundHandler(
 /// Payloads can choose an allowlisted destination, never an arbitrary route.
 String? notificationDestination(Map<String, dynamic> data) {
   if (data['rideId'] is String && (data['rideId'] as String).isNotEmpty) {
-    return isDriverOffer(data) ? '/driver/dashboard' : '/driver/active-trip';
+    return isDriverOffer(data)
+        ? rideRequestRoute(data['rideId'] as String)
+        : '/driver/active-trip';
   }
   return null;
 }

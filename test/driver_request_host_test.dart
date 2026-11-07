@@ -62,6 +62,50 @@ class BackgroundBridge extends RideRequestBridge {
 }
 
 void main() {
+  testWidgets('drawer opens requests and the separate alert settings sheet', (
+    tester,
+  ) async {
+    final session = RequestSession()
+      ..restoring = false
+      ..roleEnrolment = {'dashboardAccessible': true};
+    final router = createAppRouter();
+    addTearDown(session.dispose);
+    addTearDown(router.dispose);
+    await tester.pumpWidget(
+      ChangeNotifierProvider<DriverSession>.value(
+        value: session,
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    );
+    await tester.pumpAndSettle();
+    router.go('/driver/dashboard');
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Open navigation menu'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Ride requests'));
+    await tester.pumpAndSettle();
+    expect(find.text('Ride requests'), findsOneWidget);
+    expect(find.text('No current offers.'), findsOneWidget);
+    router.pop();
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Open navigation menu'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Ride request alerts'));
+    await tester.pumpAndSettle();
+    expect(find.text('Display over other apps'), findsOneWidget);
+    expect(find.text('Allow request notifications'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.tap(find.text('Not now'));
+    await tester.pumpAndSettle();
+    router.go(rideRequestRoute('expired-offer'));
+    await tester.pumpAndSettle();
+    expect(find.text('This offer is no longer available.'), findsOneWidget);
+    await tester.tap(find.byType(BackButton));
+    await tester.pumpAndSettle();
+    expect(find.text('Today’s Ride Summary'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets(
     'paused socket receipt reaches native bridge without rendering a frame',
     (tester) async {
