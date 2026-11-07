@@ -35,19 +35,38 @@ jobs:
         env:
           ANDROID_GOOGLE_SERVICES_JSON: ${{ secrets.DRIVER_ANDROID_GOOGLE_SERVICES_JSON }}
         run: node scripts/configure-ci-firebase.mjs
-      - name: Generate local.properties for CI
+      - name: Verify and Generate local.properties for CI
         run: |
-          $flutterSdk = (Get-Command flutter).Source | Split-Path -Parent | Split-Path -Parent
-          echo "flutter.sdk=$flutterSdk" > android/local.properties
-          if ($env:ANDROID_SDK_ROOT) {
-            echo "sdk.dir=$env:ANDROID_SDK_ROOT" >> android/local.properties
-          } elseif ($env:ANDROID_HOME) {
-            echo "sdk.dir=$env:ANDROID_HOME" >> android/local.properties
+          Write-Host "Checking environment variables..."
+          Write-Host "ANDROID_HOME: $env:ANDROID_HOME"
+          Write-Host "ANDROID_SDK_ROOT: $env:ANDROID_SDK_ROOT"
+          flutter doctor -v
+
+          $sdkPath = if ($env:ANDROID_SDK_ROOT) { $env:ANDROID_SDK_ROOT } elseif ($env:ANDROID_HOME) { $env:ANDROID_HOME } else { "" }
+          if (-not $sdkPath -or !(Test-Path "$sdkPath\platform-tools")) {
+            if (Test-Path "C:\Android\Sdk\platform-tools") {
+              $sdkPath = "C:\Android\Sdk"
+            }
           }
+
+          if (-not $sdkPath -or !(Test-Path "$sdkPath\platform-tools")) {
+            Write-Error "CRITICAL: Valid Android SDK with platform-tools could not be verified on runner."
+            exit 1
+          }
+
+          Write-Host "Verified Android SDK at: $sdkPath"
+          $flutterSdk = (Get-Command flutter).Source | Split-Path -Parent | Split-Path -Parent
+
+          $sdkPathEscaped = $sdkPath -replace '\\', '/'
+          $flutterSdkEscaped = $flutterSdk -replace '\\', '/'
+
+          "flutter.sdk=$flutterSdkEscaped" | Out-File -FilePath android/local.properties -Encoding utf8
+          "sdk.dir=$sdkPathEscaped" | Out-File -FilePath android/local.properties -Append -Encoding utf8
+
+          Write-Host "Generated android/local.properties:"
+          Get-Content android/local.properties
         shell: pwsh
       - name: Android debug compilation
         env:
           GOOGLE_MAPS_API_KEY: ${{ secrets.DRIVER_MAPS_API_KEY || 'non-secret-ci-fixture-key' }}
-          ANDROID_PREFS_ROOT: ${{ github.workspace }}/.gradle/android_prefs
-          ANDROID_USER_HOME: ${{ github.workspace }}/.gradle/android_user
         run: flutter build apk --debug --no-pub
