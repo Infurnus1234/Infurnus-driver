@@ -43,7 +43,6 @@ jobs:
         env:
           ANDROID_GOOGLE_SERVICES_JSON: ${{ secrets.DRIVER_ANDROID_GOOGLE_SERVICES_JSON }}
         run: node scripts/configure-ci-firebase.mjs
-<<<<<<< HEAD
       - name: Configure Android SDK path
         shell: pwsh
         run: |
@@ -58,41 +57,21 @@ jobs:
           "ANDROID_HOME=$sdk" >> $env:GITHUB_ENV
           "ANDROID_SDK_ROOT=$sdk" >> $env:GITHUB_ENV
           flutter doctor -v
-=======
-      - name: Generate local.properties for CI
-        run: |
-          $flutterSdk = (Get-Command flutter).Source | Split-Path -Parent | Split-Path -Parent
-          $sdkDir = if ($env:ANDROID_SDK_ROOT) { $env:ANDROID_SDK_ROOT } elseif ($env:ANDROID_HOME) { $env:ANDROID_HOME } else { "" }
-          if (-not $sdkDir -or !(Test-Path "$sdkDir\platform-tools")) {
-            if (Test-Path "C:\Android\android-sdk\platform-tools") {
-              $sdkDir = "C:\Android\android-sdk"
-            } elseif (Test-Path "C:\Android\Sdk\platform-tools") {
-              $sdkDir = "C:\Android\Sdk"
-            }
-          }
-          if (-not $sdkDir -or !(Test-Path "$sdkDir\platform-tools")) {
-            Write-Error "Android SDK directory with platform-tools not found"
-            exit 1
-          }
-          $sdkDirEscaped = $sdkDir -replace '\\', '/'
-          $flutterSdkEscaped = $flutterSdk -replace '\\', '/'
-          "flutter.sdk=$flutterSdkEscaped" | Out-File -FilePath android/local.properties -Encoding utf8
-          "sdk.dir=$sdkDirEscaped" | Out-File -FilePath android/local.properties -Append -Encoding utf8
-          Write-Host "Generated android/local.properties successfully:"
-          Get-Content android/local.properties
-        shell: pwsh
-      - name: Gradle Stacktrace Diagnostics
-        continue-on-error: true
-        run: |
-          cd android
-          .\gradlew.bat :app:assembleDebug --stacktrace --info
-        shell: pwsh
-        env:
-          GOOGLE_MAPS_API_KEY: ${{ secrets.DRIVER_MAPS_API_KEY || 'non-secret-ci-fixture-key' }}
-          ANDROID_PREFS_ROOT: ""
->>>>>>> daf5a48 (Fix AGP AndroidLocationsException by clearing ANDROID_PREFS_ROOT env and removing custom JVM user home overrides)
       - name: Android debug compilation
+        id: android_build
+        shell: pwsh
         env:
           GOOGLE_MAPS_API_KEY: ${{ secrets.DRIVER_MAPS_API_KEY || 'non-secret-ci-fixture-key' }}
-          ANDROID_PREFS_ROOT: ""
-        run: flutter build apk --debug --no-pub
+        run: |
+          Remove-Item Env:ANDROID_PREFS_ROOT -ErrorAction SilentlyContinue
+          flutter build apk --debug --no-pub
+      - name: Gradle stacktrace on Android build failure
+        if: failure() && steps.android_build.conclusion == 'failure'
+        continue-on-error: true
+        shell: pwsh
+        env:
+          GOOGLE_MAPS_API_KEY: ${{ secrets.DRIVER_MAPS_API_KEY || 'non-secret-ci-fixture-key' }}
+        run: |
+          Remove-Item Env:ANDROID_PREFS_ROOT -ErrorAction SilentlyContinue
+          Set-Location android
+          .\gradlew.bat :app:assembleDebug --stacktrace
