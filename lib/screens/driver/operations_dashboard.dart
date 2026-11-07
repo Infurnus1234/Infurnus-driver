@@ -136,7 +136,11 @@ class RideDetails extends StatelessWidget {
               title: Text(
                 'Category: ${ride['vehicleCategory'] ?? 'Not provided'}',
               ),
-              subtitle: SelectableText(ride['bookingId'] == null ? 'Booking ID unavailable' : 'Booking ID: ${ride['bookingId']}'),
+              subtitle: SelectableText(
+                ride['bookingId'] == null
+                    ? 'Booking ID unavailable'
+                    : 'Booking ID: ${ride['bookingId']}',
+              ),
             ),
           ],
         ),

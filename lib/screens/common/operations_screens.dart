@@ -418,7 +418,10 @@ class TripsScreen extends StatelessWidget {
                                   style: TextStyle(fontSize: 11),
                                 ),
                                 children: [
-                                  SelectableText(ride['bookingId']?.toString() ?? 'Not available'),
+                                  SelectableText(
+                                    ride['bookingId']?.toString() ??
+                                        'Not available',
+                                  ),
                                 ],
                               ),
                             ],

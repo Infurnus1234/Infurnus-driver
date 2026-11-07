@@ -52,7 +52,7 @@ Future<void> driverFirebaseMessagingBackgroundHandler(
         body,
         const NotificationDetails(
           android: AndroidNotificationDetails(
-            'infurnus_driver_channel_v2',
+            'infurnus_driver_channel_v3',
             'Infurnus Driver Notifications',
             importance: Importance.max,
             priority: Priority.max,
@@ -129,7 +129,7 @@ class DriverNotificationService {
       FirebaseMessaging.onBackgroundMessage(
         driverFirebaseMessagingBackgroundHandler,
       );
-      // Delete v1 channel so old installs get the new sound on the v2 channel.
+      // Use a new channel for the updated alert; existing channel sounds are immutable.
       final androidPlugin = _plugin
           .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin
@@ -139,7 +139,7 @@ class DriverNotificationService {
       await androidPlugin?.deleteNotificationChannel('infurnus_ride_requests');
       const AndroidNotificationChannel driverChannel =
           AndroidNotificationChannel(
-            'infurnus_driver_channel_v2',
+            'infurnus_driver_channel_v3',
             'Infurnus Driver Notifications',
             description:
                 'Audible alerts for new ride requests and trip updates',
@@ -149,6 +149,16 @@ class DriverNotificationService {
             enableVibration: true,
           );
       await androidPlugin?.createNotificationChannel(driverChannel);
+      // Server notifications for older clients still target this channel.
+      await androidPlugin?.createNotificationChannel(
+        const AndroidNotificationChannel(
+          'infurnus_driver_channel_v2',
+          'Infurnus Driver Updates',
+          importance: Importance.high,
+          sound: RawResourceAndroidNotificationSound('infurnus_alert'),
+          enableVibration: true,
+        ),
+      );
       await _plugin.initialize(
         const InitializationSettings(
           android: AndroidInitializationSettings('@mipmap/launcher_icon'),
@@ -224,7 +234,6 @@ class DriverNotificationService {
         }),
       );
     } catch (_) {
-      // No payloads, FCM tokens or provider details are logged.
       debugPrint('Push notification setup unavailable.');
     }
   }
@@ -296,7 +305,7 @@ class DriverNotificationService {
         body,
         const NotificationDetails(
           android: AndroidNotificationDetails(
-            'infurnus_driver_channel_v2',
+            'infurnus_driver_channel_v3',
             'Infurnus Driver Notifications',
             importance: Importance.max,
             priority: Priority.high,

@@ -110,7 +110,10 @@ class _RideCustomerContactCardState extends State<RideCustomerContactCard>
                   ),
                 ),
                 if (session.currentTrip?['bookingId'] != null)
-                  Text("Booking ID: ${session.currentTrip!['bookingId']}", style: const TextStyle(fontSize: 12)),
+                  Text(
+                    "Booking ID: ${session.currentTrip!['bookingId']}",
+                    style: const TextStyle(fontSize: 12),
+                  ),
                 const SizedBox(height: 3),
                 Text(
                   session.currentTrip?['sector'] == 'logistics'
@@ -164,7 +167,9 @@ class _RideCustomerContactCardState extends State<RideCustomerContactCard>
             Text(contact.name.isEmpty ? 'Customer' : contact.name),
             const SizedBox(height: 4),
             if (session.currentTrip?['bookingId'] != null)
-              SelectableText("Booking ID: ${session.currentTrip!['bookingId']}"),
+              SelectableText(
+                "Booking ID: ${session.currentTrip!['bookingId']}",
+              ),
           ] else
             const Text(
               'Customer contact is not available. Refresh the ride to retry.',

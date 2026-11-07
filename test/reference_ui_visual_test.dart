@@ -107,15 +107,26 @@ void main() {
   for (final caseId in cases) {
     final large = caseId.endsWith('-large');
     final name = caseId.replaceFirst('-large', '');
-    final auditWidth = double.parse(const String.fromEnvironment('UI_AUDIT_WIDTH',defaultValue:'0'));
-    final auditScale = double.parse(const String.fromEnvironment('UI_AUDIT_SCALE',defaultValue:'0'));
-    testWidgets('reference UI $caseId width=$auditWidth scale=$auditScale', (tester) async {
+    final auditWidth = double.parse(
+      const String.fromEnvironment('UI_AUDIT_WIDTH', defaultValue: '0'),
+    );
+    final auditScale = double.parse(
+      const String.fromEnvironment('UI_AUDIT_SCALE', defaultValue: '0'),
+    );
+    testWidgets('reference UI $caseId width=$auditWidth scale=$auditScale', (
+      tester,
+    ) async {
       final originalErrorHandler = FlutterError.onError;
       if (auditWidth > 0) {
-        FlutterError.onError = (details) { debugPrint(details.toString()); originalErrorHandler?.call(details); };
+        FlutterError.onError = (details) {
+          debugPrint(details.toString());
+          originalErrorHandler?.call(details);
+        };
         addTearDown(() => FlutterError.onError = originalErrorHandler);
       }
-      tester.view.physicalSize = auditWidth > 0 ? Size(auditWidth, 844) : large
+      tester.view.physicalSize = auditWidth > 0
+          ? Size(auditWidth, 844)
+          : large
           ? const Size(320, 780)
           : const Size(390, 844);
       tester.view.devicePixelRatio = 1;
@@ -361,7 +372,12 @@ void main() {
             ..accessToken = 'fixture-token'
             ..role = 'driver_fleet_owner';
       final session = VisualSession(api);
-      if (auditWidth > 0) session.account = {'firstName':'Niranjan Bhardwaj Kumar', 'lastName':'Singh Long Driver Name'};
+      if (auditWidth > 0) {
+        session.account = {
+          'firstName': 'Niranjan Bhardwaj Kumar',
+          'lastName': 'Singh Long Driver Name',
+        };
+      }
       addTearDown(session.dispose);
       Widget screen = const OperationsDashboard();
       if (name.startsWith('fleet-') ||
@@ -470,8 +486,15 @@ void main() {
           child: MaterialApp(
             debugShowCheckedModeBanner: false,
             builder: (context, child) => MediaQuery(
-              data: MediaQuery.of(context)
-                  .copyWith(textScaler: TextScaler.linear(auditScale > 0 ? auditScale : large ? 1.8 : 1)),
+              data: MediaQuery.of(context).copyWith(
+                textScaler: TextScaler.linear(
+                  auditScale > 0
+                      ? auditScale
+                      : large
+                      ? 1.8
+                      : 1,
+                ),
+              ),
               child: child!,
             ),
             theme: Ops.theme,

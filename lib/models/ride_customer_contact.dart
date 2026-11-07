@@ -16,7 +16,9 @@ class RideCustomerContact {
     }
     // Never retain a peer phone returned by an outdated backend.
     final callingNumber = data['callingNumber'];
-    if (callingNumber != null && (callingNumber is! String || !RegExp(r'^\+[1-9]\d{7,14}$').hasMatch(callingNumber))) {
+    if (callingNumber != null &&
+        (callingNumber is! String ||
+            !RegExp(r'^\+[1-9]\d{7,14}$').hasMatch(callingNumber))) {
       throw const FormatException('Invalid calling configuration');
     }
     return RideCustomerContact(

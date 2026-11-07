@@ -21,7 +21,12 @@ const ride = '11111111-1111-4111-8111-111111111111';
 http.Response contact([String? phone = '+919153787859']) => http.Response(
   jsonEncode({
     'success': true,
-    'data': {'rideId': ride, 'name': 'Actual Customer', 'phone': '+919876543210', 'callingNumber': phone},
+    'data': {
+      'rideId': ride,
+      'name': 'Actual Customer',
+      'phone': '+919876543210',
+      'callingNumber': phone,
+    },
   }),
   200,
 );
@@ -124,10 +129,7 @@ void main() {
       response.complete(contact(null));
       await pending;
       await tester.pumpAndSettle();
-      expect(
-        find.text('+919876543210'),
-        findsNothing,
-      );
+      expect(find.text('+919876543210'), findsNothing);
       expect(
         tester
             .widget<OutlinedButton>(

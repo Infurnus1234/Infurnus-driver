@@ -59,10 +59,7 @@ class TripCompletedScreen extends StatelessWidget {
                 ),
                 child: Column(
                   children: [
-                    _fareRow(
-                      'Base Fare',
-                      '₹ ${booking.baseFare.rupeeText}',
-                    ),
+                    _fareRow('Base Fare', '₹ ${booking.baseFare.rupeeText}'),
                     const SizedBox(height: 10),
                     _fareRow(
                       'Distance (${booking.distanceKm} km)',

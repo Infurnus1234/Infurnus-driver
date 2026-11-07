@@ -110,10 +110,7 @@ void main() {
         await tester.pump(const Duration(milliseconds: 500));
         await tester.pump();
         final map = tester.widget<GoogleMap>(find.byType(GoogleMap));
-        expect(
-          map.markers.any((m) => m.markerId.value == 'pickup'),
-          isTrue,
-        );
+        expect(map.markers.any((m) => m.markerId.value == 'pickup'), isTrue);
         expect(map.markers.any((m) => m.markerId.value == 'driver'), isTrue);
         expect(
           map.markers.any((m) => m.markerId.value == 'destination'),

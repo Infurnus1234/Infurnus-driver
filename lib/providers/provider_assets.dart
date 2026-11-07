@@ -137,10 +137,12 @@ class ProviderAssets extends ChangeNotifier {
   }
 
   Future<List<DocumentRule>> vehicleRules(Map<String, dynamic> vehicle) async {
+    final sector = vehicle['sector']?.toString() ?? '';
+    final category = vehicle['category']?.toString() ?? '';
     final rows = _rows(
       await api.request(
         'GET',
-        '/provider/document-requirements?category=${Uri.encodeQueryComponent(vehicle['category'] as String)}',
+        '/provider/document-requirements?sector=${Uri.encodeQueryComponent(sector)}&category=${Uri.encodeQueryComponent(category)}',
       ),
     );
     final merged = <String, DocumentRule>{};

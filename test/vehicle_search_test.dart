@@ -3,7 +3,9 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
+
 import 'support/active_catalog_fixture.dart';
+
 import 'package:provider/provider.dart';
 import 'package:infurnus_driver/repositories/vehicle_catalog_repository.dart';
 import 'package:infurnus_driver/widgets/vehicle_selection_search_widget.dart';

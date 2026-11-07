@@ -39,7 +39,7 @@ public class DriverRequestOverlayPlugin implements FlutterPlugin, MethodChannel.
  private static int shownNotification;
  private static MediaPlayer sound;
  private static Runnable expiryTask;
- private static final String CHANNEL="infurnus_driver_channel_v2";
+ private static final String CHANNEL="infurnus_driver_channel_v3";
  private static final String QUIET_CHANNEL="infurnus_driver_overlay_backup";
  private static android.content.SharedPreferences prefs(){return context.getSharedPreferences("ride_request_presentation",Context.MODE_PRIVATE);}
  private static int dp(float v){return Math.round(v*context.getResources().getDisplayMetrics().density);}

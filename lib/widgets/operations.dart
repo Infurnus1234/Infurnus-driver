@@ -14,7 +14,9 @@ String inr(dynamic paise) {
       : NumberFormat.currency(
           locale: 'en_IN',
           symbol: '₹',
-          decimalDigits: (amount / 100) == (amount / 100).truncateToDouble() ? 0 : 2,
+          decimalDigits: (amount / 100) == (amount / 100).truncateToDouble()
+              ? 0
+              : 2,
         ).format(amount / 100);
 }
 

@@ -16,11 +16,19 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: 22
+      - name: Setup Java for Android
+        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3
+        with:
+          distribution: temurin
+          java-version: '17'
       - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
         with:
           flutter-version: '3.47.4'
           channel: stable
           cache: true
+      - name: Select Android Java toolchain
+        shell: pwsh
+        run: flutter config --jdk-dir="$env:JAVA_HOME"
       - name: Secret and private-artifact scan
         run: node scripts/check-source-secrets.js
       - name: Resolve locked dependencies
@@ -35,6 +43,20 @@ jobs:
         env:
           ANDROID_GOOGLE_SERVICES_JSON: ${{ secrets.DRIVER_ANDROID_GOOGLE_SERVICES_JSON }}
         run: node scripts/configure-ci-firebase.mjs
+      - name: Configure Android SDK path
+        shell: pwsh
+        run: |
+          $candidates = @($env:ANDROID_HOME, $env:ANDROID_SDK_ROOT, 'C:\Android\android-sdk', 'C:\Android\Sdk')
+          $sdk = $candidates | Where-Object { $_ -and (Test-Path (Join-Path $_ 'platform-tools')) } | Select-Object -First 1
+          if (!$sdk) { throw 'Android SDK with platform-tools was not found.' }
+          $flutterSdk = (Get-Command flutter).Source | Split-Path -Parent | Split-Path -Parent
+          $sdkProperty = $sdk -replace '\\', '/'
+          $flutterProperty = $flutterSdk -replace '\\', '/'
+          $lines = @("sdk.dir=$sdkProperty", "flutter.sdk=$flutterProperty")
+          Set-Content -Path android/local.properties -Value $lines -Encoding ascii
+          "ANDROID_HOME=$sdk" >> $env:GITHUB_ENV
+          "ANDROID_SDK_ROOT=$sdk" >> $env:GITHUB_ENV
+          flutter doctor -v
       - name: Android debug compilation
         env:
           GOOGLE_MAPS_API_KEY: ${{ secrets.DRIVER_MAPS_API_KEY || 'non-secret-ci-fixture-key' }}

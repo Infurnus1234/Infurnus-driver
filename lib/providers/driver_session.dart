@@ -1384,8 +1384,11 @@ class DriverSession extends ChangeNotifier {
     } catch (_) {
       // An interrupted start can be retried once access is restored.
     }
-    if (_disposed || !authenticated || (!online && currentTrip == null) ||
-        epoch != _locationEpoch || _positions != null) {
+    if (_disposed ||
+        !authenticated ||
+        (!online && currentTrip == null) ||
+        epoch != _locationEpoch ||
+        _positions != null) {
       return;
     }
     try {
@@ -1432,9 +1435,8 @@ class DriverSession extends ChangeNotifier {
   Future<void>? _locationStart;
   Future<void> _startLocation({bool retry = false}) {
     if (_positions != null) return Future.value();
-    return _locationStart ??= _startLocationOnce(retry: retry).whenComplete(
-      () => _locationStart = null,
-    );
+    return _locationStart ??= _startLocationOnce(retry: retry)
+        .whenComplete(() => _locationStart = null);
   }
 
   Future<void> _startLocationOnce({required bool retry}) async {
