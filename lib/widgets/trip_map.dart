@@ -1,6 +1,7 @@
 import 'ride_map_phase.dart';
 
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -18,7 +19,15 @@ import 'map_camera_queue.dart';
 class TripMap extends StatefulWidget {
   final bool compact;
   final bool fullScreen;
-  const TripMap({super.key, this.compact = false, this.fullScreen = false});
+  final double bottomInset;
+  final VoidCallback? onMapTap;
+  const TripMap({
+    super.key,
+    this.compact = false,
+    this.fullScreen = false,
+    this.bottomInset = 0,
+    this.onMapTap,
+  });
   @override
   State<TripMap> createState() => _TripMapState();
 }
@@ -179,7 +188,25 @@ class _TripMapState extends State<TripMap> with SingleTickerProviderStateMixin {
     if (widget.compact && _configured == false) {
       return const SizedBox.shrink();
     }
-    final session = context.watch<DriverSession>();
+    context.select((DriverSession s) {
+      final trip = s.currentTrip;
+      final navigation = s.liveNavigation;
+      return (
+        trip?['id'],
+        trip?['status'],
+        _point(trip?['pickup']),
+        _point(trip?['destination']),
+        trip?['pickupAddress'],
+        trip?['destinationAddress'],
+        s.position,
+        s.locationWarning,
+        navigation?['segment'],
+        navigation?['routeVersion'],
+        widget.fullScreen ? null : s.busy,
+        widget.fullScreen || widget.compact ? null : s.lastLocationSent,
+      );
+    });
+    final session = context.read<DriverSession>();
     final trip = session.currentTrip;
     final started = rideHasStarted(trip?['status']?.toString());
     final pickup = _point(trip?['pickup']);
@@ -274,12 +301,20 @@ class _TripMapState extends State<TripMap> with SingleTickerProviderStateMixin {
     if (navigation?['rideId'] == trip?['id'] &&
         navigation?['segment'] == segment &&
         (navigation?['routeVersion'] as num? ?? -1) > _routeVersion) {
-      final route = navigation!['route'] as Map;
+      final route = navigation!['route'];
       _routeVersion = (navigation['routeVersion'] as num).toInt();
-      _route = decodeRoutePolyline(route['encodedPolyline']?.toString() ?? '')
-          .map((p) => LatLng(p[0], p[1]))
-          .toList();
-      _metrics = route;
+      if (route is Map &&
+          route['distanceMeters'] is num &&
+          route['durationSeconds'] is num) {
+        try {
+          _route = decodeRoutePolyline(
+            route['encodedPolyline']?.toString() ?? '',
+          ).map((p) => LatLng(p[0], p[1])).toList();
+          _metrics = route;
+        } on FormatException {
+          // Keep the current route if a socket update has unusable geometry.
+        }
+      }
     }
     final polylines = <Polyline>{
       if (_route.isNotEmpty)
@@ -290,85 +325,100 @@ class _TripMapState extends State<TripMap> with SingleTickerProviderStateMixin {
           width: 5,
         ),
     };
-    final nativeMap = Listener(
-      onPointerDown: (_) {
-        _follow = false;
-        _camera.cancel();
-      },
-      child: AnimatedBuilder(
-        animation: _motion,
-        builder: (context, _) => GoogleMap(
-          initialCameraPosition: CameraPosition(
-            target: current ?? pickup ?? const LatLng(25.5941, 85.1376),
-            zoom: 13,
-          ),
-          onMapCreated: (controller) {
-            _controller = controller;
-            _camera.controller = controller;
-            if (_route.length >= 2) {
-              _fit();
-            } else if (_follow) {
-              // Replay GPS received before native map initialization.
-              final fix = _motion.position ?? current;
-              if (fix != null) {
-                _camera.move(
-                  CameraUpdate.newCameraPosition(
-                    CameraPosition(
-                      target: fix,
-                      zoom: 17,
-                      tilt: 45,
-                      bearing: _motion.heading,
+    final nativeMap = LayoutBuilder(
+      builder: (context, bounds) {
+        final top = widget.fullScreen
+            ? math.min(
+                MediaQuery.paddingOf(context).top + 146,
+                bounds.maxHeight / 2,
+              )
+            : 0.0;
+        final bottom = math.min(
+          widget.bottomInset + 12,
+          math.max(0.0, bounds.maxHeight - top - 48),
+        );
+        return Listener(
+          onPointerDown: (_) {
+            _follow = false;
+            _camera.cancel();
+          },
+          child: AnimatedBuilder(
+            animation: _motion,
+            builder: (context, _) => GoogleMap(
+              initialCameraPosition: CameraPosition(
+                target: current ?? pickup ?? const LatLng(25.5941, 85.1376),
+                zoom: 13,
+              ),
+              onMapCreated: (controller) {
+                _controller = controller;
+                _camera.controller = controller;
+                if (_route.length >= 2) {
+                  _fit();
+                } else if (_follow) {
+                  // Replay GPS received before native map initialization.
+                  final fix = _motion.position ?? current;
+                  if (fix != null) {
+                    _camera.move(
+                      CameraUpdate.newCameraPosition(
+                        CameraPosition(
+                          target: fix,
+                          zoom: 17,
+                          tilt: 45,
+                          bearing: _motion.heading,
+                        ),
+                      ),
+                    );
+                  }
+                }
+              },
+              myLocationEnabled: false,
+              myLocationButtonEnabled: false,
+              mapToolbarEnabled: false,
+              zoomControlsEnabled: !widget.fullScreen,
+              onTap: (_) => widget.onMapTap?.call(),
+              padding: widget.fullScreen
+                  ? EdgeInsets.only(top: top, bottom: bottom)
+                  : EdgeInsets.zero,
+              markers: {
+                if (current != null && _arrow != null)
+                  Marker(
+                    markerId: const MarkerId('driver'),
+                    position: _motion.position ?? current,
+                    rotation: _motion.heading,
+                    flat: true,
+                    anchor: const Offset(0.5, 0.5),
+                    infoWindow: InfoWindow(
+                      title: stale || _gpsStale
+                          ? 'Last known GPS position (stale)'
+                          : 'GPS position',
+                      snippet: position!.timestamp.toIso8601String(),
+                    ),
+                    icon: _arrow!,
+                  ),
+                if (pickup != null)
+                  Marker(
+                    markerId: const MarkerId('pickup'),
+                    position: pickup,
+                    infoWindow: const InfoWindow(title: 'Pickup'),
+                    icon: BitmapDescriptor.defaultMarkerWithHue(
+                      BitmapDescriptor.hueGreen,
                     ),
                   ),
-                );
-              }
-            }
-          },
-          myLocationEnabled: false,
-          myLocationButtonEnabled: false,
-          mapToolbarEnabled: false,
-          zoomControlsEnabled: !widget.fullScreen,
-          padding: widget.fullScreen
-              ? const EdgeInsets.only(top: 160, bottom: 300)
-              : EdgeInsets.zero,
-          markers: {
-            if (current != null && _arrow != null)
-              Marker(
-                markerId: const MarkerId('driver'),
-                position: _motion.position ?? current,
-                rotation: _motion.heading,
-                flat: true,
-                anchor: const Offset(0.5, 0.5),
-                infoWindow: InfoWindow(
-                  title: stale || _gpsStale
-                      ? 'Last known GPS position (stale)'
-                      : 'GPS position',
-                  snippet: position!.timestamp.toIso8601String(),
-                ),
-                icon: _arrow!,
-              ),
-            if (pickup != null)
-              Marker(
-                markerId: const MarkerId('pickup'),
-                position: pickup,
-                infoWindow: const InfoWindow(title: 'Pickup'),
-                icon: BitmapDescriptor.defaultMarkerWithHue(
-                  BitmapDescriptor.hueGreen,
-                ),
-              ),
-            if (destination != null)
-              Marker(
-                markerId: const MarkerId('destination'),
-                position: destination,
-                infoWindow: const InfoWindow(title: 'Destination'),
-                icon: BitmapDescriptor.defaultMarkerWithHue(
-                  BitmapDescriptor.hueRed,
-                ),
-              ),
-          },
-          polylines: polylines,
-        ),
-      ),
+                if (destination != null)
+                  Marker(
+                    markerId: const MarkerId('destination'),
+                    position: destination,
+                    infoWindow: const InfoWindow(title: 'Destination'),
+                    icon: BitmapDescriptor.defaultMarkerWithHue(
+                      BitmapDescriptor.hueRed,
+                    ),
+                  ),
+              },
+              polylines: polylines,
+            ),
+          ),
+        );
+      },
     );
     if (widget.fullScreen) {
       final address =
@@ -377,143 +427,159 @@ class _TripMapState extends State<TripMap> with SingleTickerProviderStateMixin {
       final instruction =
           _metrics?['navigationInstruction']?['instructions']?.toString() ??
           (started ? 'Continue to destination' : 'Head to pickup');
-      return Stack(
-        fit: StackFit.expand,
-        children: [
-          if (_configured == true)
-            nativeMap
-          else
-            Container(
-              color: Ops.mapSurface,
-              alignment: Alignment.center,
-              child: Text(
-                _configured == null
-                    ? 'Loading map…'
-                    : 'Map configuration unavailable',
-                style: const TextStyle(color: Ops.textSecondary),
-              ),
-            ),
-          Positioned(
-            top: 102,
-            left: 16,
-            right: 16,
-            child: Material(
-              color: Colors.white,
-              elevation: 5,
-              shadowColor: Colors.black26,
-              borderRadius: BorderRadius.circular(16),
-              child: Padding(
-                padding: const EdgeInsets.all(15),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.navigation_rounded,
-                      size: 30,
-                      color: Color(0xFF16233D),
+      return LayoutBuilder(
+        builder: (context, bounds) {
+          final top = MediaQuery.paddingOf(context).top + 72;
+          final showControls =
+              bounds.maxHeight - widget.bottomInset - top >= 200;
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              if (_configured == true)
+                nativeMap
+              else
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: widget.onMapTap,
+                  child: Container(
+                    color: Ops.mapSurface,
+                    alignment: Alignment.center,
+                    child: Text(
+                      _configured == null
+                          ? 'Loading map…'
+                          : 'Map configuration unavailable',
+                      style: const TextStyle(color: Ops.textSecondary),
                     ),
-                    const SizedBox(width: 15),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            instruction,
-                            style: const TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            address,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              color: Ops.textSecondary,
-                            ),
-                          ),
-                          if (_metrics != null)
-                            Text(
-                              '${((_metrics!['distanceMeters'] as num) / 1000).toStringAsFixed(1)} km · ${((_metrics!['durationSeconds'] as num) / 60).ceil()} min',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: Ops.textSecondary,
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
-            ),
-          ),
-          Positioned(
-            right: 16,
-            bottom: 385,
-            child: FloatingActionButton.small(
-              heroTag: 'driver-route-fit',
-              tooltip: 'Show entire route',
-              backgroundColor: Colors.white,
-              foregroundColor: Ops.textPrimary,
-              onPressed: _route.length < 2
-                  ? null
-                  : () {
-                      _follow = false;
-                      _fit();
-                    },
-              child: const Icon(Icons.zoom_out_map),
-            ),
-          ),
-          Positioned(
-            right: 16,
-            bottom: 325,
-            child: FloatingActionButton.small(
-              heroTag: 'driver-follow',
-              backgroundColor: Colors.white,
-              foregroundColor: Ops.textPrimary,
-              tooltip: 'Recenter / follow',
-              onPressed: () async {
-                _follow = true;
-                final ok = await session.locate();
-                if (ok && session.position != null) {
-                  _camera.move(
-                    CameraUpdate.newLatLng(
-                      LatLng(
-                        session.position!.latitude,
-                        session.position!.longitude,
-                      ),
-                    ),
-                  );
-                }
-              },
-              child: const Icon(Icons.my_location),
-            ),
-          ),
-          if (_gpsStale || session.locationWarning != null || _error != null)
-            Positioned(
-              left: 16,
-              right: 80,
-              bottom: 325,
-              child: Material(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(10),
-                child: Padding(
-                  padding: const EdgeInsets.all(8),
-                  child: Text(
-                    _error ??
-                        session.locationWarning ??
-                        'Waiting for a fresh GPS location.',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Ops.textSecondary,
+              Positioned(
+                top: top,
+                left: 16,
+                right: 16,
+                child: Material(
+                  color: Colors.white,
+                  elevation: 5,
+                  shadowColor: Colors.black26,
+                  borderRadius: BorderRadius.circular(16),
+                  child: Padding(
+                    padding: const EdgeInsets.all(15),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.navigation_rounded,
+                          size: 30,
+                          color: Color(0xFF16233D),
+                        ),
+                        const SizedBox(width: 15),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                instruction,
+                                style: const TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                address,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  color: Ops.textSecondary,
+                                ),
+                              ),
+                              if (_metrics != null)
+                                Text(
+                                  '${((_metrics!['distanceMeters'] as num) / 1000).toStringAsFixed(1)} km · ${((_metrics!['durationSeconds'] as num) / 60).ceil()} min',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Ops.textSecondary,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
               ),
-            ),
-        ],
+              if (showControls)
+                Positioned(
+                  right: 16,
+                  bottom: widget.bottomInset + 66,
+                  child: FloatingActionButton.small(
+                    heroTag: 'driver-route-fit',
+                    tooltip: 'Show entire route',
+                    backgroundColor: Colors.white,
+                    foregroundColor: Ops.textPrimary,
+                    onPressed: _route.length < 2
+                        ? null
+                        : () {
+                            _follow = false;
+                            _fit();
+                          },
+                    child: const Icon(Icons.zoom_out_map),
+                  ),
+                ),
+              if (showControls)
+                Positioned(
+                  right: 16,
+                  bottom: widget.bottomInset + 16,
+                  child: FloatingActionButton.small(
+                    heroTag: 'driver-follow',
+                    backgroundColor: Colors.white,
+                    foregroundColor: Ops.textPrimary,
+                    tooltip: 'Recenter / follow',
+                    onPressed: () async {
+                      _follow = true;
+                      final ok = await session.locate();
+                      if (ok && session.position != null) {
+                        _camera.move(
+                          CameraUpdate.newLatLng(
+                            LatLng(
+                              session.position!.latitude,
+                              session.position!.longitude,
+                            ),
+                          ),
+                        );
+                      }
+                    },
+                    child: const Icon(Icons.my_location),
+                  ),
+                ),
+              if (showControls &&
+                  (_gpsStale ||
+                      session.locationWarning != null ||
+                      _error != null))
+                Positioned(
+                  left: 16,
+                  right: 80,
+                  bottom: widget.bottomInset + 16,
+                  child: Material(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(10),
+                    child: Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: Text(
+                        _error ??
+                            session.locationWarning ??
+                            'Waiting for a fresh GPS location.',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Ops.textSecondary,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          );
+        },
       );
     }
     final content = Column(

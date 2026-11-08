@@ -26,6 +26,7 @@ void main() {
         ),
       );
 
+      await _expandRideDetails(tester);
       await tester.scrollUntilVisible(
         find.text('Logistics 40% Upfront Payment'),
         240,
@@ -61,6 +62,7 @@ void main() {
         ),
       );
 
+      await _expandRideDetails(tester);
       await tester.scrollUntilVisible(
         find.text('Logistics 40% Upfront Payment'),
         240,
@@ -101,6 +103,7 @@ void main() {
       ),
     );
 
+    await _expandRideDetails(tester);
     await tester.scrollUntilVisible(
       find.text('Confirm 40% Cash Received'),
       240,
@@ -130,4 +133,12 @@ void main() {
       expect(session.currentTrip?['status'], 'in_progress');
     },
   );
+}
+
+Future<void> _expandRideDetails(WidgetTester tester) async {
+  final handle = find.byKey(const ValueKey('ride-details-handle'));
+  await tester.tap(handle);
+  await tester.pumpAndSettle();
+  await tester.tap(handle);
+  await tester.pumpAndSettle();
 }

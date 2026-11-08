@@ -393,13 +393,18 @@ class LogisticsUpfrontPaymentCard extends StatelessWidget {
                   backgroundColor: Ops.actionPrimary,
                   foregroundColor: Colors.white,
                 ),
-                onPressed: session.busy
+                onPressed: session.busy || session.paymentRefreshing
                     ? null
                     : () => session.payLogisticsUpfrontOnline(
                         trip['id'].toString(),
                       ),
                 icon: const Icon(Icons.payment, size: 18),
                 label: const Text('Refresh online payment status'),
+              ),
+            if (session.paymentRefreshError case final message?)
+              Text(
+                message,
+                style: const TextStyle(color: Ops.textSecondary, fontSize: 12),
               ),
             const SizedBox(height: 6),
             const Text(

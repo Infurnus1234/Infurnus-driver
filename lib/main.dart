@@ -72,14 +72,33 @@ class _InfurnusAppState extends State<InfurnusApp> with WidgetsBindingObserver {
       if (session.restorationNeedsRetry) {
         session.restore();
       } else if (session.authenticated) {
-        session.refresh();
+        session.refresh(automatic: session.currentTrip != null);
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final session = context.watch<DriverSession>();
+    // Only auth and routing state can change the app shell.
+    context.select(
+      (DriverSession s) => (
+        s.authenticated,
+        s.restoring,
+        s.restorationNeedsRetry,
+        s.roleEnrolment != null,
+        s.landingPath,
+        s.dashboardAllowed,
+        s.api.role,
+        s.api.providerMode,
+        s.api.isTestOnboarding,
+        s.isPreview,
+        s.busy,
+        s.challengeId,
+        s.signupId,
+        s.pendingNotificationRoute,
+      ),
+    );
+    final session = context.read<DriverSession>();
     final notificationRoute = session.pendingNotificationRoute;
     if (notificationRoute != null && session.authenticated) {
       session.pendingNotificationRoute = null;

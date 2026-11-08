@@ -81,14 +81,34 @@ class _RideCustomerContactCardState extends State<RideCustomerContactCard>
 
   @override
   Widget build(BuildContext context) {
-    final session = context.watch<DriverSession>();
-    if (!session.canRequestCustomerContact) return const SizedBox.shrink();
-    final contact = session.customerContact;
-    final enabled =
-        !session.busy &&
-        !session.customerContactLoading &&
-        !_launching &&
-        contact?.callingNumber != null;
+    final (
+      allowed,
+      name,
+      callingNumber,
+      bookingId,
+      address,
+      loading,
+      error,
+      busy,
+    ) = context.select((DriverSession s) {
+      final trip = s.currentTrip;
+      final contact = s.activeCustomerContact;
+      return (
+        s.canRequestCustomerContact,
+        contact?.name,
+        contact?.callingNumber,
+        trip?['bookingId'],
+        trip?['sector'] == 'logistics' && trip != null
+            ? driverDropAddress(trip) ?? 'Available after PIN verification'
+            : trip?['pickupAddress']?.toString() ?? 'Pickup',
+        s.customerContactLoading && contact == null,
+        s.customerContactError,
+        s.busy,
+      );
+    });
+    if (!allowed) return const SizedBox.shrink();
+    final session = context.read<DriverSession>();
+    final enabled = !busy && !_launching && callingNumber != null;
     if (widget.compact) {
       return Row(
         children: [
@@ -103,24 +123,20 @@ class _RideCustomerContactCardState extends State<RideCustomerContactCard>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  contact?.name ?? 'Passenger Pickup',
+                  name == null || name.isEmpty ? 'Customer' : name,
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-                if (session.currentTrip?['bookingId'] != null)
+                if (bookingId != null)
                   Text(
-                    "Booking ID: ${session.currentTrip!['bookingId']}",
+                    "Booking ID: $bookingId",
                     style: const TextStyle(fontSize: 12),
                   ),
                 const SizedBox(height: 3),
                 Text(
-                  session.currentTrip?['sector'] == 'logistics'
-                      ? driverDropAddress(session.currentTrip!) ??
-                            'Available after PIN verification'
-                      : session.currentTrip?['pickupAddress']?.toString() ??
-                            'Pickup',
+                  address,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontSize: 12, color: Colors.black54),
@@ -148,14 +164,14 @@ class _RideCustomerContactCardState extends State<RideCustomerContactCard>
         children: [
           const Text('Customer', style: TextStyle(fontWeight: FontWeight.w700)),
           const SizedBox(height: 6),
-          if (session.customerContactLoading) ...[
+          if (loading) ...[
             const LinearProgressIndicator(
               semanticsLabel: 'Verifying customer contact',
             ),
             const SizedBox(height: 6),
             const Text('Verifying customer contact…'),
-          ] else if (session.customerContactError != null) ...[
-            Text(session.customerContactError!),
+          ] else if (error != null) ...[
+            Text(error),
             Align(
               alignment: Alignment.centerLeft,
               child: TextButton(
@@ -163,13 +179,10 @@ class _RideCustomerContactCardState extends State<RideCustomerContactCard>
                 child: const Text('Retry customer contact'),
               ),
             ),
-          ] else if (contact != null) ...[
-            Text(contact.name.isEmpty ? 'Customer' : contact.name),
+          ] else if (name != null) ...[
+            Text(name.isEmpty ? 'Customer' : name),
             const SizedBox(height: 4),
-            if (session.currentTrip?['bookingId'] != null)
-              SelectableText(
-                "Booking ID: ${session.currentTrip!['bookingId']}",
-              ),
+            if (bookingId != null) SelectableText("Booking ID: $bookingId"),
           ] else
             const Text(
               'Customer contact is not available. Refresh the ride to retry.',

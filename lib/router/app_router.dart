@@ -47,7 +47,14 @@ GoRouter createAppRouter() => GoRouter(
     if (session.authenticated && session.roleEnrolment != null) {
       final landing = session.landingPath;
       if (landing == '/driver/active-trip') {
-        return path == landing ? null : landing;
+        return {
+              landing,
+              '/driver/dashboard',
+              '/safety',
+              '/support-tickets',
+            }.contains(path)
+            ? null
+            : landing;
       }
       if ((path == '/onboarding' || path == '/verification-status') &&
           {'/role-selection', '/role-onboarding'}.contains(landing)) {

@@ -34,12 +34,20 @@ class DriverSession extends ChangeNotifier {
   String? customerContactError;
   int _contactGeneration = 0;
   Future<void>? _contactRequest;
-  String? _contactRideId;
+  String? _contactRideId, _contactUserId;
+
+  RideCustomerContact? get activeCustomerContact =>
+      canRequestCustomerContact &&
+          customerContact?.rideId == currentTrip?['id'] &&
+          _contactUserId == api.userId
+      ? customerContact
+      : null;
 
   bool get canRequestCustomerContact =>
       authenticated &&
       !isPreview &&
       api.hasDriverRole &&
+      api.providerMode == 'driver' &&
       currentTrip?['id'] is String &&
       const [
         'driver_assigned',
@@ -54,11 +62,21 @@ class DriverSession extends ChangeNotifier {
     customerContactError = null;
     customerContactLoading = false;
     _contactRideId = null;
+    _contactUserId = null;
     _contactRequest = null;
   }
 
   void hideCustomerContact() {
+    final contact = activeCustomerContact;
+    if (contact == null && _contactRequest == null) return;
     _invalidateCustomerContact();
+    if (contact != null) {
+      _contactUserId = api.userId;
+      customerContact = RideCustomerContact(
+        rideId: contact.rideId,
+        name: contact.name,
+      );
+    }
     _notify();
   }
 
@@ -69,13 +87,17 @@ class DriverSession extends ChangeNotifier {
       return Future.value();
     }
     final id = currentTrip!['id'] as String;
-    if (_contactRideId == id && _contactRequest != null) {
+    if (_contactRideId == id &&
+        _contactUserId == api.userId &&
+        _contactRequest != null) {
       return _contactRequest!;
     }
-    _invalidateCustomerContact();
+    if (activeCustomerContact == null) _invalidateCustomerContact();
     final generation = _contactGeneration;
     final userId = api.userId;
     _contactRideId = id;
+    _contactUserId = userId;
+    customerContactError = null;
     customerContactLoading = true;
     final request = _fetchCustomerContact(id, userId, generation);
     _contactRequest = request;
@@ -100,10 +122,26 @@ class DriverSession extends ChangeNotifier {
           currentTrip?['id'] != id) {
         return;
       }
-      customerContact = RideCustomerContact.fromJson(data as Map, id);
-    } catch (_) {
-      if (_disposed || generation != _contactGeneration) return;
-      customerContact = null;
+      final next = RideCustomerContact.fromJson(data as Map, id);
+      customerContact = RideCustomerContact(
+        rideId: id,
+        name: next.name.isEmpty ? activeCustomerContact?.name ?? '' : next.name,
+        callingNumber: next.callingNumber,
+      );
+    } catch (e) {
+      if (_disposed ||
+          generation != _contactGeneration ||
+          api.userId != userId ||
+          currentTrip?['id'] != id) {
+        return;
+      }
+      final saved = activeCustomerContact;
+      customerContact =
+          e is ApiException && const [401, 403, 404, 410].contains(e.status)
+          ? null
+          : saved == null
+          ? null
+          : RideCustomerContact(rideId: id, name: saved.name);
       customerContactError =
           'Customer contact could not be verified. Refresh or try again.';
     } finally {
@@ -120,7 +158,7 @@ class DriverSession extends ChangeNotifier {
     final id = currentTrip?['id'];
     // One fresh, coalesced ownership/state check before passing PII to the OS.
     await refreshCustomerContact();
-    final contact = customerContact;
+    final contact = activeCustomerContact;
     if (!canRequestCustomerContact ||
         currentTrip?['id'] != id ||
         contact?.rideId != id ||
@@ -257,7 +295,16 @@ class DriverSession extends ChangeNotifier {
   }
 
   String? locationWarning;
-  Map<String, dynamic>? get liveNavigation => currentTrip;
+  Map<String, dynamic>? _navigationUpdate;
+  Map<String, dynamic>? get liveNavigation =>
+      _navigationUpdate?['rideId'] == currentTrip?['id']
+      ? _navigationUpdate ?? currentTrip
+      : currentTrip;
+  Future<bool>? _activeTripRequest;
+  int _tripGeneration = 0;
+  String? _joinedTripId;
+  bool paymentRefreshing = false;
+  String? paymentRefreshError;
 
   List<Map<String, dynamic>> approvals = [];
   List<Map<String, dynamic>> applications = [];
@@ -482,6 +529,7 @@ class DriverSession extends ChangeNotifier {
 
   Future<bool> run(Future<void> Function() action) async {
     if (busy) return false;
+    _tripGeneration++;
     busy = true;
     error = null;
     errorCode = null;
@@ -731,6 +779,7 @@ class DriverSession extends ChangeNotifier {
   });
 
   Future<bool> refresh({bool automatic = false}) async {
+    if (automatic && currentTrip != null) return _refreshActiveTrip();
     final ok = await run(_load);
     if (ok) {
       _pollFailures = 0;
@@ -784,8 +833,6 @@ class DriverSession extends ChangeNotifier {
     await _load();
   });
   Future<void> _load() async {
-    _invalidateCustomerContact();
-    _notify();
     if (api.roleFlowEnabled &&
         !api.isAdmin &&
         !isPreview &&
@@ -825,13 +872,14 @@ class DriverSession extends ChangeNotifier {
                 '/rides/driver/current-trip',
               );
               if (trip is Map) {
-                currentTrip = Map<String, dynamic>.from(trip);
+                _setCurrentTrip(trip);
+                await _ensureCustomerContact();
                 assignedVehicle = await _fetchAssignedVehicle();
                 if (api.accessToken != _socket?.auth['token']) _connect();
                 _joinTrip();
                 if (_positions == null) await _resumeLocation();
               } else {
-                currentTrip = null;
+                _setCurrentTrip(null);
                 assignedVehicle = null;
                 assignedVehicleLoading = false;
                 assignedVehicleLoaded = true;
@@ -839,7 +887,7 @@ class DriverSession extends ChangeNotifier {
               }
             } on ApiException catch (e) {
               if (e.status != 404) rethrow;
-              currentTrip = null;
+              _setCurrentTrip(null);
               assignedVehicle = null;
               assignedVehicleLoading = false;
               assignedVehicleLoaded = true;
@@ -1077,7 +1125,7 @@ class DriverSession extends ChangeNotifier {
       _positions = null;
       _expiry?.cancel();
       rides = [];
-      currentTrip = null;
+      _setCurrentTrip(null);
       history = null;
       return;
     }
@@ -1087,9 +1135,7 @@ class DriverSession extends ChangeNotifier {
       '/rides/driver/history?limit=$historyLimit',
     );
     final nextRides = await api.request('GET', '/rides/driver/available');
-    currentTrip = nextTrip == null
-        ? null
-        : Map<String, dynamic>.from(nextTrip as Map);
+    _setCurrentTrip(nextTrip as Map?);
     history = Map<String, dynamic>.from(nextHistory as Map);
     rides = (nextRides as List)
         .map(
@@ -1099,7 +1145,7 @@ class DriverSession extends ChangeNotifier {
           },
         )
         .toList();
-    await refreshCustomerContact();
+    await _ensureCustomerContact();
     await refreshTodaySummary();
     if (api.accessToken != _socket?.auth['token']) _connect();
     _joinTrip();
@@ -1693,7 +1739,7 @@ class DriverSession extends ChangeNotifier {
     if (currentTrip == null) throw const ApiException('No active trip.');
     if (isPreview) {
       if (status == 'completed') {
-        currentTrip = null;
+        _setCurrentTrip(null);
       } else {
         if (status == 'in_progress' &&
             currentTrip?['sector'] == 'logistics' &&
@@ -1737,7 +1783,7 @@ class DriverSession extends ChangeNotifier {
           'Trip start was not confirmed. Refresh and contact support if this continues.',
         );
       }
-      currentTrip = Map<String, dynamic>.from(ride);
+      _setCurrentTrip(ride);
     } else {
       await api.request(
         'POST',
@@ -1758,6 +1804,89 @@ class DriverSession extends ChangeNotifier {
       rethrow;
     }
   });
+
+  bool _setCurrentTrip(Map? snapshot) {
+    final previous = currentTrip;
+    final next = snapshot == null ? null : Map<String, dynamic>.from(snapshot);
+    if (previous?['id'] != next?['id']) {
+      _invalidateCustomerContact();
+      _navigationUpdate = null;
+      paymentRefreshError = null;
+    } else if (next != null &&
+        next['bookingId'] == null &&
+        previous?['bookingId'] != null) {
+      next['bookingId'] = previous!['bookingId'];
+    }
+    if (jsonEncode(previous) == jsonEncode(next)) return false;
+    currentTrip = next;
+    return true;
+  }
+
+  Future<void> _ensureCustomerContact() async {
+    if (!canRequestCustomerContact) {
+      _invalidateCustomerContact();
+    } else if (activeCustomerContact == null) {
+      await refreshCustomerContact();
+    }
+  }
+
+  Future<bool> _refreshActiveTrip() {
+    if (_activeTripRequest case final pending?) return pending;
+    final id = currentTrip?['id'];
+    if (_disposed || !authenticated || id is! String || busy) {
+      return Future.value(false);
+    }
+    final generation = _tripGeneration;
+    final request = _fetchActiveTrip(id, api.userId, generation);
+    _activeTripRequest = request;
+    return request;
+  }
+
+  Future<bool> _fetchActiveTrip(
+    String id,
+    String? userId,
+    int generation,
+  ) async {
+    bool stillCurrent() =>
+        !_disposed &&
+        authenticated &&
+        api.userId == userId &&
+        currentTrip?['id'] == id &&
+        _tripGeneration == generation;
+    try {
+      final snapshot = await api.request('GET', '/rides/driver/current-trip');
+      if (!stillCurrent() ||
+          (snapshot != null &&
+              (snapshot is! Map || snapshot['id'] is! String))) {
+        return false;
+      }
+      final changed = _setCurrentTrip(snapshot as Map?);
+      _joinTrip();
+      if (currentTrip == null && !online) {
+        final positions = _positions;
+        _positions = null;
+        await positions?.cancel();
+      }
+      if (changed) _notify();
+      unawaited(_ensureCustomerContact());
+      return true;
+    } on ApiException catch (e) {
+      if (!_disposed &&
+          _tripGeneration == generation &&
+          api.accessToken == null &&
+          _accountVerified) {
+        _clear();
+        _notify();
+      } else if (stillCurrent() && const [401, 403].contains(e.status)) {
+        _invalidateCustomerContact();
+        _notify();
+      }
+      return false;
+    } finally {
+      _activeTripRequest = null;
+      _drainRideEventRefresh();
+    }
+  }
 
   Future<Map> _logisticsPaymentSummary(String rideId) async {
     final id = Uri.encodeComponent(rideId);
@@ -1801,23 +1930,37 @@ class DriverSession extends ChangeNotifier {
     await _load();
   });
 
-  Future<bool> payLogisticsUpfrontOnline(String rideId) => run(() async {
+  Future<bool> payLogisticsUpfrontOnline(String rideId) async {
+    if (busy ||
+        paymentRefreshing ||
+        currentTrip?['id'] != rideId ||
+        currentTrip?['sector'] != 'logistics') {
+      return false;
+    }
     if (isPreview) {
-      if (currentTrip?['id'] == rideId &&
-          currentTrip?['sector'] == 'logistics') {
-        currentTrip?['upfrontPaymentStatus'] = 'PAID_VERIFIED';
-        currentTrip?['upfrontPaymentMethod'] = 'online';
+      currentTrip?['upfrontPaymentStatus'] = 'PAID_VERIFIED';
+      currentTrip?['upfrontPaymentMethod'] = 'online';
+      _notify();
+      return true;
+    }
+    paymentRefreshing = true;
+    paymentRefreshError = null;
+    _notify();
+    try {
+      final updated = await _refreshActiveTrip();
+      if (currentTrip?['id'] != rideId) return false;
+      if (!updated) {
+        paymentRefreshError = 'Could not refresh payment status. Try again.';
+      } else if (currentTrip?['upfrontPaymentStatus'] != 'PAID_VERIFIED') {
+        paymentRefreshError =
+            'Waiting for the customer’s verified upfront payment.';
       }
-      return;
+      return updated && currentTrip?['upfrontPaymentStatus'] == 'PAID_VERIFIED';
+    } finally {
+      paymentRefreshing = false;
+      _notify();
     }
-    final summary = await _logisticsPaymentSummary(rideId);
-    if (summary['upfrontConfirmed'] != true) {
-      throw const ApiException(
-        'Waiting for the customer’s verified upfront payment.',
-      );
-    }
-    await _load();
-  });
+  }
 
   static const _rideEvents = {
     'ride:incoming',
@@ -1841,7 +1984,25 @@ class DriverSession extends ChangeNotifier {
     final ride = payload['ride'];
     final id = payload['rideId'] ?? (ride is Map ? ride['id'] : null);
     if (id is! String || id.isEmpty) return;
-    if (id == currentTrip?['id']) {
+    if (event == 'ride:route_updated') {
+      final segment = currentTrip?['status'] == 'in_progress'
+          ? 'destination'
+          : 'pickup';
+      final version = payload['routeVersion'];
+      if (id == currentTrip?['id'] &&
+          payload['segment'] == segment &&
+          payload['route'] is Map &&
+          version is num &&
+          (_navigationUpdate?['segment'] != segment ||
+              version > (_navigationUpdate?['routeVersion'] as num? ?? -1))) {
+        _navigationUpdate = Map<String, dynamic>.from(payload);
+        _notify();
+      }
+      return;
+    }
+    if (currentTrip != null && id != currentTrip?['id']) return;
+    if (id == currentTrip?['id'] &&
+        const ['ride:cancelled', 'ride:completed'].contains(event)) {
       _invalidateCustomerContact();
       _notify();
     }
@@ -1850,11 +2011,15 @@ class DriverSession extends ChangeNotifier {
   }
 
   void _drainRideEventRefresh() {
-    if (!_rideEventRefreshPending || busy || _disposed || !authenticated) {
+    if (!_rideEventRefreshPending ||
+        busy ||
+        _activeTripRequest != null ||
+        _disposed ||
+        !authenticated) {
       return;
     }
     _rideEventRefreshPending = false;
-    unawaited(refresh());
+    unawaited(currentTrip == null ? refresh() : _refreshActiveTrip());
   }
 
   void _connect() {
@@ -1870,6 +2035,7 @@ class DriverSession extends ChangeNotifier {
     );
     realtimeStatus = 'Connecting';
     _socket!.onConnect((_) {
+      _joinedTripId = null;
       realtimeStatus = 'Connected';
       _joinTrip();
       _notify();
@@ -1879,12 +2045,11 @@ class DriverSession extends ChangeNotifier {
     });
     _socket!.onDisconnect((_) {
       realtimeStatus = 'Disconnected';
-      _invalidateCustomerContact();
+      _joinedTripId = null;
       _notify();
     });
     _socket!.onConnectError((_) {
       realtimeStatus = 'Connection failed';
-      _invalidateCustomerContact();
       _notify();
     });
     for (final event in _rideEvents) {
@@ -1896,6 +2061,10 @@ class DriverSession extends ChangeNotifier {
     // reconnect with refreshed access tokens instead of retrying expired ones.
     _expiry = Timer.periodic(const Duration(minutes: 5), (_) {
       if (!busy && authenticated) {
+        if (currentTrip != null) {
+          unawaited(_renewActiveTripSocket());
+          return;
+        }
         unawaited(
           run(() async {
             await api.refreshSession();
@@ -1907,13 +2076,42 @@ class DriverSession extends ChangeNotifier {
     });
   }
 
+  Future<void> _renewActiveTripSocket() async {
+    final generation = _tripGeneration;
+    final userId = api.userId;
+    try {
+      await api.refreshSession();
+      if (!_disposed &&
+          authenticated &&
+          api.userId == userId &&
+          _socket?.auth['token'] != api.accessToken) {
+        _connect();
+      }
+    } on ApiException {
+      if (!_disposed &&
+          generation == _tripGeneration &&
+          api.accessToken == null &&
+          _accountVerified) {
+        _clear();
+        _notify();
+      }
+    }
+  }
+
   void _joinTrip() {
-    if (currentTrip != null && _socket?.connected == true) {
-      _socket!.emitWithAck(
+    final id = currentTrip?['id'];
+    final socket = _socket;
+    if (id is String && id != _joinedTripId && socket?.connected == true) {
+      _joinedTripId = id;
+      socket!.emitWithAck(
         'ride:join',
-        currentTrip!['id'],
+        id,
         ack: (dynamic response) {
-          if (response is Map && response['success'] == false) {
+          if (_socket == socket &&
+              currentTrip?['id'] == id &&
+              response is Map &&
+              response['success'] == false) {
+            _joinedTripId = null;
             _invalidateCustomerContact();
             error = 'The server denied access to the ride updates.';
             _notify();
@@ -1978,7 +2176,7 @@ class DriverSession extends ChangeNotifier {
     verificationContact = null;
     verificationResendAt = null;
     profile = null;
-    currentTrip = null;
+    _setCurrentTrip(null);
     assignedVehicle = null;
     assignedVehicleLoading = false;
     assignedVehicleLoaded = false;

@@ -10,6 +10,7 @@ import '../../widgets/driver_bottom_nav.dart';
 import '../../widgets/operations.dart' show OpsError;
 import '../../widgets/reference_components.dart';
 import '../../widgets/incoming_ride_request_card.dart';
+import '../../widgets/ongoing_ride_card.dart';
 
 class DriverHomeScreen extends StatelessWidget {
   const DriverHomeScreen({super.key});
@@ -166,6 +167,13 @@ class DriverHomeScreen extends StatelessWidget {
                       "We couldn't load this information. Please try again.",
                       retry: () => session.refresh(),
                     ),
+                  if (session.currentTrip != null) ...[
+                    OngoingRideCard(
+                      bookingId: session.currentTrip?['bookingId']?.toString(),
+                      onTap: () => context.go('/driver/active-trip'),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
                   Row(
                     children: [
                       CircleAvatar(

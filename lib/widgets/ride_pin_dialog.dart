@@ -79,7 +79,7 @@ class _RidePinDialogState extends State<RidePinDialog> {
           controller: _pin,
           focusNode: _focus,
           enabled: !_busy,
-          autofocus: true,
+          autofocus: !widget.embedded,
           keyboardType: TextInputType.number,
           textInputAction: TextInputAction.done,
           autofillHints: const [AutofillHints.oneTimeCode],

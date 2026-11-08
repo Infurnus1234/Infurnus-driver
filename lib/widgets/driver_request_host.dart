@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../providers/driver_session.dart';
 import '../services/ride_request_presentation.dart';
 import 'incoming_ride_request_card.dart';
+import 'ongoing_ride_card.dart';
 
 /// One coordinator for socket, polling and push hints; actions always revalidate through DriverSession.
 class DriverRequestHost extends StatefulWidget {
@@ -139,12 +140,18 @@ class _DriverRequestHostState extends State<DriverRequestHost>
       return;
     }
     final trip = s.currentTrip?['id']?.toString();
-    if (trip != null && trip != _trip) {
-      await _bridge.dismiss();
-      _navigateTrip();
-    } else if (trip == null) {
-      _trip = null;
+    if (trip != null) {
+      _timer?.cancel();
+      _timer = null;
+      if (_offer != null) setState(() => _offer = null);
+      if (trip != _trip || _presented != null) {
+        _presented = null;
+        await _bridge.dismiss();
+        _navigateTrip();
+      }
+      return;
     }
+    _trip = null;
     if (!_acting && !s.busy) {
       final action = await _bridge.takeAction();
       if (action != null) {
@@ -174,15 +181,10 @@ class _DriverRequestHostState extends State<DriverRequestHost>
         return;
       }
     }
-    final offers = s.currentTrip == null
-        ? s.rides
-              .where(
-                (r) =>
-                    offerRemaining(r) > Duration.zero &&
-                    !_closed.contains(offerKey(r)),
-              )
-              .toList()
-        : <Map<String, dynamic>>[];
+    final offers = s.rides.where(
+      (r) =>
+          offerRemaining(r) > Duration.zero && !_closed.contains(offerKey(r)),
+    );
     final next = offers.firstOrNull;
     if (next == null) {
       _timer?.cancel();
@@ -226,40 +228,73 @@ class _DriverRequestHostState extends State<DriverRequestHost>
   }
 
   @override
-  Widget build(BuildContext context) => Stack(
-    fit: StackFit.expand,
-    children: [
-      widget.child,
-      if (_foreground &&
-          _offer != null &&
-          _routePath != '/driver/ride-requests')
-        Positioned.fill(
-          child: Material(
-            color: const Color(0x55000000),
-            child: SafeArea(
-              child: Center(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(16),
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 430),
-                    child: IncomingRideRequestCard(
-                      ride: _offer!,
-                      remaining: offerRemaining(_offer!),
-                      busy: _acting || (_session?.busy ?? false),
-                      accept: () => _act(true),
-                      reject: () => _act(false),
-                      close: () {
-                        _closed.add(offerKey(_offer!));
-                        unawaited(_bridge.dismiss());
-                        _schedule();
-                      },
+  Widget build(BuildContext context) {
+    final (active, bookingId) = context.select<DriverSession, (bool, String?)>(
+      (session) => (
+        session.authenticated &&
+            session.api.hasDriverRole &&
+            session.api.providerMode == 'driver' &&
+            session.currentTrip != null,
+        session.currentTrip?['bookingId']?.toString(),
+      ),
+    );
+    final showRideLink =
+        active &&
+        _routePath != null &&
+        !{
+          '/driver/dashboard',
+          '/driver/active-trip',
+          '/login',
+          '/otp',
+        }.contains(_routePath) &&
+        MediaQuery.viewInsetsOf(context).bottom == 0;
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Column(
+          children: [
+            Expanded(child: widget.child),
+            if (showRideLink)
+              SafeArea(
+                top: false,
+                child: OngoingRideCard(
+                  bookingId: bookingId,
+                  onTap: () => widget.navigate('/driver/active-trip'),
+                ),
+              ),
+          ],
+        ),
+        if (_foreground &&
+            _offer != null &&
+            _routePath != '/driver/ride-requests')
+          Positioned.fill(
+            child: Material(
+              color: const Color(0x55000000),
+              child: SafeArea(
+                child: Center(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(16),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 430),
+                      child: IncomingRideRequestCard(
+                        ride: _offer!,
+                        remaining: offerRemaining(_offer!),
+                        busy: _acting || (_session?.busy ?? false),
+                        accept: () => _act(true),
+                        reject: () => _act(false),
+                        close: () {
+                          _closed.add(offerKey(_offer!));
+                          unawaited(_bridge.dismiss());
+                          _schedule();
+                        },
+                      ),
                     ),
                   ),
                 ),
               ),
             ),
           ),
-        ),
-    ],
-  );
+      ],
+    );
+  }
 }
