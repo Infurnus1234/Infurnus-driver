@@ -29,10 +29,12 @@ import 'guided_provider_setup.dart';
 
 class ProviderAssetsScreen extends StatefulWidget {
   final bool identityOnly, bankProofOnly;
+  final int? initialTab;
   const ProviderAssetsScreen({
     super.key,
     this.identityOnly = false,
     this.bankProofOnly = false,
+    this.initialTab,
   });
   @override
   State<ProviderAssetsScreen> createState() => _ProviderAssetsScreenState();
@@ -47,7 +49,11 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
   @override
   void initState() {
     super.initState();
-    if (widget.identityOnly || widget.bankProofOnly) _tab = 4;
+    if (widget.initialTab != null) {
+      _tab = widget.initialTab!;
+    } else if (widget.identityOnly || widget.bankProofOnly) {
+      _tab = 4;
+    }
   }
 
   String _vehicleFilter = 'All';
