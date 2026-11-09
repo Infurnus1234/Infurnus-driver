@@ -517,6 +517,25 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
           errorMessage: () => _assets!.error,
         ),
       );
+  Widget _bullet(String text) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 2),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          '• ',
+          style: TextStyle(color: Ops.textSecondary, fontSize: 13),
+        ),
+        Expanded(
+          child: Text(
+            text,
+            style: const TextStyle(color: Ops.textSecondary, fontSize: 12),
+          ),
+        ),
+      ],
+    ),
+  );
+
   Widget _document(
     DocumentRule rule, {
     String? vehicleId,
@@ -536,88 +555,153 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
     final status = expired ? 'Expired' : statusLabel(doc?['status']);
     final expiryDetails = rule.requiresExpiry || expiry != null
         ? expiry == null
-              ? '\nExpiry required'
-              : '\nExpiry: ${doc!['expiresAt']}'
-        : '';
-    final detailText = compact
-        ? '${rule.required ? 'Required · ' : ''}$status${soon ? ' · Expires within 30 days' : ''}$expiryDetails${reason == null ? '' : '\n$reason'}'
-        : '${rule.required ? 'Required by policy' : 'Optional'} · $status${soon ? ' · Expires within 30 days' : ''}$expiryDetails\n${rule.minimumPages}–5 files/pages; JPEG, PNG, WebP${rule.code == 'profile_photo' ? '' : ', PDF'}; ${rule.imageOnly ? 10 : 15} MiB/file, 30 MiB total${reason == null ? '' : '\nReason: $reason'}';
-    final actions = <Widget>[
-      if (doc != null)
-        IconButton(
-          tooltip: 'View document',
-          visualDensity: VisualDensity.compact,
-          icon: const Icon(Icons.visibility_outlined),
-          onPressed: _assets!.busy
-              ? null
-              : () => showPrivateDocumentPreview(
-                  context,
-                  _assets!.api,
-                  '/partners/${_assets!.partner!['id']}/documents/${doc['id']}',
-                  label,
-                ),
-        ),
-      IconButton(
-        tooltip: doc == null ? 'Upload' : 'Replace / resubmit',
-        visualDensity: VisualDensity.compact,
-        icon: const Icon(Icons.upload_file),
-        onPressed: _assets!.busy
-            ? null
-            : () {
-                if (_assets!.partner == null) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                        'Please create your provider/business profile first.',
+              ? 'Expiry required'
+              : 'Expiry: ${doc!['expiresAt']}'
+        : null;
+
+    return Card(
+      elevation: 0,
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(Ops.radius),
+        side: const BorderSide(color: Ops.borderSubtle),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        label,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                    ),
-                  );
-                  _business();
-                  return;
-                }
-                _upload(rule, vehicleId: vehicleId);
-              },
-      ),
-      if (doc != null &&
-          doc['status'] == 'PENDING' &&
-          (doc['version'] ?? 1) == 1)
-        IconButton(
-          tooltip: 'Remove unreviewed draft',
-          visualDensity: VisualDensity.compact,
-          icon: const Icon(Icons.delete_outline),
-          onPressed: _assets!.busy
-              ? null
-              : () async {
-                  if (await confirmOperation(
-                    context,
-                    'Remove draft document?',
-                    'Only an original unreviewed draft can be removed. Reviewed or replaced evidence must be retained.',
-                  )) {
-                    await _assets!.removeDraftDocument(doc['id'] as String);
-                  }
-                },
-        ),
-    ];
-    final tile = ListTile(
-      dense: compact,
-      contentPadding: compact ? EdgeInsets.zero : null,
-      onTap: doc == null || _assets!.busy
-          ? null
-          : () => showPrivateDocumentPreview(
-              context,
-              _assets!.api,
-              '/partners/${_assets!.partner!['id']}/documents/${doc['id']}',
-              rule.label,
+                      const SizedBox(height: 2),
+                      Text(
+                        rule.required
+                            ? 'Required document'
+                            : 'Optional document',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Ops.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                StatusPill(status),
+              ],
             ),
-      title: Text(
-        compact
-            ? label
-            : '$label — ${rule.required ? 'Required by policy' : 'Optional'}',
+            if (soon || expiryDetails != null || reason != null) ...[
+              const SizedBox(height: 6),
+              if (soon)
+                const Text(
+                  'Expires within 30 days',
+                  style: TextStyle(color: Ops.warning, fontSize: 12),
+                ),
+              if (expiryDetails != null)
+                Text(
+                  expiryDetails,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Ops.textSecondary,
+                  ),
+                ),
+              if (reason != null)
+                Container(
+                  margin: const EdgeInsets.only(top: 4),
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: Ops.error.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    reason,
+                    style: const TextStyle(color: Ops.error, fontSize: 12),
+                  ),
+                ),
+            ],
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                if (doc != null) ...[
+                  IconButton(
+                    tooltip: 'View document',
+                    visualDensity: VisualDensity.compact,
+                    icon: const Icon(Icons.visibility_outlined, size: 20),
+                    onPressed: _assets!.busy
+                        ? null
+                        : () => showPrivateDocumentPreview(
+                            context,
+                            _assets!.api,
+                            '/partners/${_assets!.partner!['id']}/documents/${doc['id']}',
+                            label,
+                          ),
+                  ),
+                  if (doc['status'] == 'PENDING' && (doc['version'] ?? 1) == 1)
+                    IconButton(
+                      tooltip: 'Remove unreviewed draft',
+                      visualDensity: VisualDensity.compact,
+                      icon: const Icon(
+                        Icons.delete_outline,
+                        size: 20,
+                        color: Ops.error,
+                      ),
+                      onPressed: _assets!.busy
+                          ? null
+                          : () async {
+                              if (await confirmOperation(
+                                context,
+                                'Remove draft document?',
+                                'Only an original unreviewed draft can be removed. Reviewed or replaced evidence must be retained.',
+                              )) {
+                                await _assets!.removeDraftDocument(
+                                  doc['id'] as String,
+                                );
+                              }
+                            },
+                    ),
+                  const Spacer(),
+                ] else
+                  const Spacer(),
+                OutlinedButton.icon(
+                  onPressed: _assets!.busy
+                      ? null
+                      : () {
+                          if (_assets!.partner == null) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Please create your provider/business profile first.',
+                                ),
+                              ),
+                            );
+                            _business();
+                            return;
+                          }
+                          _upload(rule, vehicleId: vehicleId);
+                        },
+                  icon: Icon(
+                    doc == null ? Icons.upload_file : Icons.refresh,
+                    size: 18,
+                  ),
+                  label: Text(doc == null ? 'Upload' : 'Replace'),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
-      subtitle: Text(detailText),
-      trailing: Row(mainAxisSize: MainAxisSize.min, children: actions),
     );
-    return compact ? tile : Card(child: tile);
   }
 
   String _documentLabel(DocumentRule rule) {
@@ -1648,10 +1732,41 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
                       _document(const DocumentRule('bank_proof')),
                     ]
                   : [
-                      const Padding(
-                        padding: EdgeInsets.all(12),
-                        child: Text(
-                          'JPEG, PNG or WebP; PDF where allowed · 10 MiB per image or 15 MiB per other file · 30 MiB total. The upload form enforces policy-specific counts and expiry.',
+                      Container(
+                        margin: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Ops.surfaceOverlay,
+                          borderRadius: BorderRadius.circular(Ops.radius),
+                          border: Border.all(color: Ops.borderSubtle),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Document upload rules',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            _bullet(
+                              'Accepted formats: JPEG, PNG, WebP (PDF where allowed)',
+                            ),
+                            _bullet(
+                              'File size limits: up to 10 MiB per image, 15 MiB for PDF',
+                            ),
+                            _bullet(
+                              'Total combined upload size: maximum 30 MiB',
+                            ),
+                            _bullet(
+                              'Submissions undergo independent administrative review',
+                            ),
+                          ],
                         ),
                       ),
                       for (final r in rules.values.where(
