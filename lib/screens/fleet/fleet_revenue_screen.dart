@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/operations_theme.dart';
 import '../../providers/driver_session.dart';
 import '../../widgets/operations.dart';
+import '../../widgets/reference_components.dart';
 
 class FleetVehicleRevenueScreen extends StatelessWidget {
   final String vehicleId;
@@ -49,6 +51,31 @@ class _FleetRevenuePanelState extends State<FleetRevenuePanel> {
     _vehicleOffset = 0;
     _trendOffset = 0;
   });
+  Widget _contributionRow(String label, String value) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 3),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          flex: 5,
+          child: Text(
+            label,
+            style: const TextStyle(fontSize: 13, color: Ops.textSecondary),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          flex: 6,
+          child: Text(
+            value,
+            textAlign: TextAlign.end,
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+          ),
+        ),
+      ],
+    ),
+  );
+
   Widget metric(String label, dynamic value) => Padding(
     padding: const EdgeInsets.symmetric(vertical: 4),
     child: Text('$label: ${value ?? 'Unavailable'}'),
@@ -339,20 +366,90 @@ class _FleetRevenuePanelState extends State<FleetRevenuePanel> {
                 if (s['totalJobs'] == 0)
                   const OpsEmpty('No recorded trips in this period.'),
                 const SizedBox(height: 12),
-                const Text('Vehicle contributions'),
+                const Text(
+                  'Vehicle contributions',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 6),
                 for (final row in vehicles)
                   Card(
-                    child: ListTile(
-                      title: Text(
-                        '${row['plateNumber']}  /  ${row['make']} ${row['model']}',
-                      ),
-                      subtitle: Text(
-                        '''${row['active'] == true ? 'Active' : 'Inactive'}  /  ${row['completedTrips']} completed
-Gross fares ${inr(row['grossFarePaise'])}  /  Collected ${inr(row['collectedAfterRefundsPaise'])}
-Assigned driver: ${row['assignedDriverId'] == null ? 'Unassigned' : '${row['assignedDriverFirstName'] ?? ''} ${row['assignedDriverLastName'] ?? ''}'}''',
-                      ),
+                    elevation: 0,
+                    margin: const EdgeInsets.symmetric(vertical: 6),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(Ops.radius),
+                      side: const BorderSide(color: Ops.borderSubtle),
+                    ),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(Ops.radius),
                       onTap: () =>
                           change(() => _vehicle = row['vehicleId'] as String),
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        row['plateNumber']?.toString() ??
+                                            'Vehicle',
+                                        style: const TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        '${row['make'] ?? ''} ${row['model'] ?? ''}'
+                                                .trim()
+                                                .isEmpty
+                                            ? 'Vehicle model unavailable'
+                                            : '${row['make']} ${row['model']}',
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          color: Ops.textSecondary,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                StatusPill(
+                                  row['active'] == true ? 'Active' : 'Inactive',
+                                ),
+                              ],
+                            ),
+                            const Divider(height: 16),
+                            _contributionRow(
+                              'Vehicle status',
+                              row['active'] == true ? 'Active' : 'Inactive',
+                            ),
+                            _contributionRow(
+                              'Completed trips',
+                              '${row['completedTrips'] ?? 0}',
+                            ),
+                            _contributionRow(
+                              'Gross fares',
+                              inr(row['grossFarePaise']),
+                            ),
+                            _contributionRow(
+                              'Collected amount',
+                              inr(row['collectedAfterRefundsPaise']),
+                            ),
+                            _contributionRow(
+                              'Assigned driver',
+                              row['assignedDriverId'] == null
+                                  ? 'Unassigned'
+                                  : '${row['assignedDriverFirstName'] ?? ''} ${row['assignedDriverLastName'] ?? ''}'
+                                        .trim(),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                 pages(
