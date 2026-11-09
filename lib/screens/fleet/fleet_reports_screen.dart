@@ -27,6 +27,18 @@ class _FleetReportsScreenState extends State<FleetReportsScreen> {
   String _period = 'All', _status = 'All';
   bool _exporting = false;
   Future<void> _export(List<Map> rows) async {
+    if (rows.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'No trips to export. Adjust your filters to include trips.',
+            ),
+          ),
+        );
+      }
+      return;
+    }
     if (_exporting) return;
     setState(() => _exporting = true);
     final csv = [
@@ -53,18 +65,26 @@ class _FleetReportsScreenState extends State<FleetReportsScreen> {
         ],
     ].map((row) => row.map(fleetCsvCell).join(',')).join('\r\n');
     try {
-      await FilePicker.platform.saveFile(
+      const fileName = 'infurnus-fleet-trips.csv';
+      final path = await FilePicker.platform.saveFile(
         dialogTitle: 'Export visible fleet trips',
-        fileName: 'infurnus-fleet-trips.csv',
+        fileName: fileName,
         type: FileType.custom,
         allowedExtensions: ['csv'],
         bytes: Uint8List.fromList(utf8.encode(csv)),
       );
-    } catch (_) {
+      if (mounted && path != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Exported successfully: $fileName')),
+        );
+      }
+    } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('The report could not be exported. Please retry.'),
+          SnackBar(
+            content: Text(
+              'The report could not be exported: ${e.toString().replaceAll('Exception:', '').trim()}',
+            ),
           ),
         );
       }
@@ -158,11 +178,11 @@ class _FleetReportsScreenState extends State<FleetReportsScreen> {
                       '${rows.length} trips in this view, from ${source.length} recent trips. Showing up to 100 trips; dates use your local time.',
                     ),
                     OutlinedButton.icon(
-                      onPressed: rows.isEmpty || _exporting
-                          ? null
-                          : () => _export(rows),
+                      onPressed: _exporting ? null : () => _export(rows),
                       icon: const Icon(Icons.download_outlined),
-                      label: const Text('Export visible trips'),
+                      label: Text(
+                        _exporting ? 'Exporting…' : 'Export visible trips',
+                      ),
                     ),
                     if (rows.isEmpty)
                       const OpsEmpty('No fleet trips match these filters.'),

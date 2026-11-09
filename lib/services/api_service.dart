@@ -366,6 +366,9 @@ class ApiService {
     if (code == 'TEST_STOP') {
       return 'This request couldn\'t be completed. Check your information and retry.';
     }
+    if (status >= 500) {
+      return 'We couldn\'t complete this request. Please try again.';
+    }
     if (serverMessage != null &&
         serverMessage.trim().isNotEmpty &&
         serverMessage != 'Request validation failed' &&
@@ -374,9 +377,6 @@ class ApiService {
     }
     if (code == 'VALIDATION_ERROR') {
       return 'Validation error. Please check your information and retry.';
-    }
-    if (status >= 500) {
-      return 'Server error ($status). Please try again later.';
     }
     return 'This request couldn\'t be completed. Check your information and retry.';
   }
