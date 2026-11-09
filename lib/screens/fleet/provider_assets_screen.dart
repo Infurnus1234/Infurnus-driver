@@ -924,9 +924,16 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
 
     return Card(
       key: ValueKey('fleet-vehicle-$vehicleId'),
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(Ops.radius),
+        side: const BorderSide(color: Ops.borderSubtle),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Row(
@@ -945,10 +952,16 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
                     children: [
                       Text(
                         '${vehicle['make']} ${vehicle['model']}',
-                        style: Theme.of(context).textTheme.titleMedium,
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w600),
                       ),
+                      const SizedBox(height: 2),
                       Text(
                         '${vehicle['plateNumber']} · ${vehicle['sector'] ?? 'Sector unavailable'} · ${vehicle['category'] ?? 'Type unavailable'}',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Ops.textSecondary,
+                        ),
                       ),
                     ],
                   ),
@@ -957,6 +970,7 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
                 if (assets.fleetMode)
                   IconButton(
                     tooltip: 'Vehicle revenue details',
+                    visualDensity: VisualDensity.compact,
                     onPressed: () => Navigator.of(context).push(
                       MaterialPageRoute<void>(
                         builder: (_) => FleetVehicleRevenueScreen(
@@ -970,43 +984,86 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
               ],
             ),
             if (permanentCode != null && permanentCode.isNotEmpty)
-              ListTile(
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Permanent vehicle code'),
-                trailing: SelectableText(permanentCode),
+              Container(
+                margin: const EdgeInsets.only(top: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: Ops.surfaceOverlay,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: Ops.borderSubtle),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.pin_outlined,
+                      size: 16,
+                      color: Ops.textSecondary,
+                    ),
+                    const SizedBox(width: 6),
+                    const Text(
+                      'Permanent vehicle code: ',
+                      style: TextStyle(fontSize: 12, color: Ops.textSecondary),
+                    ),
+                    SelectableText(
+                      permanentCode,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             if (rejectionReason(vehicle) != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 6),
-                child: Text(rejectionReason(vehicle)!),
+              Container(
+                margin: const EdgeInsets.only(top: 8),
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Ops.error.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  rejectionReason(vehicle)!,
+                  style: const TextStyle(color: Ops.error, fontSize: 12),
+                ),
               ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             Wrap(
               spacing: 8,
-              runSpacing: 4,
+              runSpacing: 8,
               children: [
                 OutlinedButton.icon(
                   onPressed: assets.busy ? null : () => _vehicle(vehicle),
-                  icon: const Icon(Icons.edit_outlined),
+                  icon: const Icon(Icons.edit_outlined, size: 18),
                   label: const Text('Edit vehicle'),
                 ),
                 OutlinedButton.icon(
                   onPressed: assets.busy
                       ? null
                       : () => _vehicleDocuments(vehicle),
-                  icon: const Icon(Icons.description_outlined),
+                  icon: const Icon(Icons.description_outlined, size: 18),
                   label: const Text('Vehicle documents'),
                 ),
                 if (_canRequestVehicleReview(vehicle))
                   _review('vehicle', vehicleId, 'vehicle_verification'),
               ],
             ),
+            const SizedBox(height: 10),
             DropdownButtonFormField<String>(
+              isDense: true,
               initialValue: statusOptions.contains(operationalStatus)
                   ? operationalStatus
                   : 'ACTIVE',
-              decoration: const InputDecoration(labelText: 'Vehicle status'),
+              decoration: const InputDecoration(
+                labelText: 'Vehicle status',
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+              ),
               items: statusOptions
                   .map(
                     (status) =>
@@ -1023,66 +1080,88 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
                 approval == ProviderStatus.approved &&
                 session.profile != null &&
                 session.assignedVehicle?['id'] != vehicleId)
-              Align(
-                alignment: Alignment.centerLeft,
-                child: OutlinedButton.icon(
-                  onPressed: assets.busy
-                      ? null
-                      : () async {
-                          final ok = await session.run(() async {
-                            await session.api.request(
-                              'POST',
-                              '/rides/driver/active-vehicle',
-                              body: {'vehicleId': vehicleId},
-                            );
-                          });
-                          if (ok) await session.refresh();
-                        },
-                  icon: const Icon(Icons.check_circle_outline),
-                  label: const Text('Select own approved vehicle'),
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: OutlinedButton.icon(
+                    onPressed: assets.busy
+                        ? null
+                        : () async {
+                            final ok = await session.run(() async {
+                              await session.api.request(
+                                'POST',
+                                '/rides/driver/active-vehicle',
+                                body: {'vehicleId': vehicleId},
+                              );
+                            });
+                            if (ok) await session.refresh();
+                          },
+                    icon: const Icon(Icons.check_circle_outline, size: 18),
+                    label: const Text('Select own approved vehicle'),
+                  ),
                 ),
               ),
             if (assets.fleetMode && assignedDriver is Map)
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Assigned Driver · ${assignedDriver['name'] ?? 'Driver'}',
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.person_outline,
+                      size: 18,
+                      color: Ops.textSecondary,
                     ),
-                  ),
-                  TextButton(
-                    onPressed: assets.busy
-                        ? null
-                        : () => assets.unassign(vehicleId),
-                    child: const Text('Unassign driver'),
-                  ),
-                ],
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        'Assigned Driver: ${assignedDriver['name'] ?? 'Driver'}',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: assets.busy
+                          ? null
+                          : () => assets.unassign(vehicleId),
+                      child: const Text('Unassign driver'),
+                    ),
+                  ],
+                ),
               ),
             if (assets.fleetMode &&
                 (assignedDriver is! Map) &&
                 activeCode != null &&
                 activeCode.isNotEmpty)
-              Align(
-                alignment: Alignment.centerLeft,
-                child: TextButton.icon(
-                  onPressed: () => _showAssignmentCode(vehicle),
-                  icon: const Icon(Icons.qr_code_2),
-                  label: Text(
-                    permanentCode == null ? 'Show Code' : 'Show vehicle code',
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: () => _showAssignmentCode(vehicle),
+                    icon: const Icon(Icons.qr_code_2, size: 18),
+                    label: Text(
+                      permanentCode == null ? 'Show Code' : 'Show vehicle code',
+                    ),
                   ),
                 ),
               ),
             if (assets.fleetMode &&
                 (assignedDriver is! Map) &&
                 (activeCode == null || activeCode.isEmpty))
-              Align(
-                alignment: Alignment.centerLeft,
-                child: TextButton.icon(
-                  onPressed: assets.busy
-                      ? null
-                      : () => _generateAssignmentCode(vehicle),
-                  icon: const Icon(Icons.qr_code_2),
-                  label: const Text('Generate assignment code'),
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: assets.busy
+                        ? null
+                        : () => _generateAssignmentCode(vehicle),
+                    icon: const Icon(Icons.qr_code_2, size: 18),
+                    label: const Text('Generate assignment code'),
+                  ),
                 ),
               ),
           ],
