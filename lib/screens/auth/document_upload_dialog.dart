@@ -5,6 +5,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:mime/mime.dart';
 
+import '../../core/operations_theme.dart';
 import '../../models/onboarding_rules.dart';
 import '../../providers/driver_session.dart';
 import '../../services/api_service.dart';
@@ -176,6 +177,79 @@ class _DocumentUploadDialogState extends State<DocumentUploadDialog> {
     }
   }
 
+  Future<void> _submit() async {
+    if (widget.session.busy) {
+      setState(
+        () => _error = 'Please wait for the current status refresh to finish.',
+      );
+      return;
+    }
+    final metadata = <String, String>{
+      if (_identityConsent) ...{
+        'identityConsent': 'true',
+        'maskedIdentity': 'true',
+      },
+      'uploadSource': _source,
+      if (_number.text.trim().isNotEmpty)
+        'documentNumber': widget.rule.code == 'pan'
+            ? _number.text.trim().toUpperCase()
+            : _number.text.trim(),
+      if (_holderName.text.trim().isNotEmpty)
+        'holderName': _holderName.text.trim(),
+      if (_licenceClasses.text.trim().isNotEmpty)
+        'licenceClasses': _licenceClasses.text.trim(),
+      if (_authority.text.trim().isNotEmpty)
+        'issuingAuthority': _authority.text.trim(),
+      if (_issued.text.trim().isNotEmpty) 'issuedAt': _issued.text.trim(),
+      if (_expiry.text.trim().isNotEmpty) 'expiresAt': _expiry.text.trim(),
+      if (_files.length == 1) 'side': _side,
+    };
+    final validation = OnboardingRules.validateFiles(
+      widget.rule,
+      _files,
+      metadata,
+    );
+    if (validation == null &&
+        widget.rule.code == 'pan' &&
+        !RegExp(r'^[A-Z]{5}[0-9]{4}[A-Z]$')
+            .hasMatch(_number.text.trim().toUpperCase())) {
+      setState(() => _error = 'Enter the PAN number printed on the document.');
+      return;
+    }
+    if (validation == null &&
+        [
+          'pan',
+          'driving_licence',
+          'driver_license',
+        ].contains(widget.rule.code) &&
+        _holderName.text.trim().length < 2) {
+      setState(() => _error = 'Enter the name printed on the document.');
+      return;
+    }
+    if (validation != null) {
+      setState(() => _error = validation);
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    final success = await (widget.uploader ?? widget.session.uploadDocument)(
+      widget.rule,
+      List.of(_files),
+      metadata,
+    );
+    if (!mounted) return;
+    if (success) {
+      Navigator.pop(context, true);
+    } else {
+      setState(() {
+        _busy = false;
+        _error = widget.errorMessage?.call() ?? widget.session.error;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) => !widget.rule.collectionAllowed
       ? AlertDialog(
@@ -197,31 +271,85 @@ class _DocumentUploadDialogState extends State<DocumentUploadDialog> {
             child: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text(
-                    widget.rule.required
-                        ? 'Required by your current document policy.'
-                        : 'Optional document.',
-                  ),
-                  Text(
-                    'Minimum files/pages: ${widget.rule.minimumPages}. Pages may be ordered for review; front/back is not universally required. A selected PDF counts as one uploaded file.',
-                  ),
-                  Wrap(
-                    spacing: 8,
-                    children: [
-                      for (final source in ['CAMERA', 'GALLERY', 'FILE'])
-                        OutlinedButton(
-                          onPressed: _busy ? null : () => _pick(source),
-                          child: Text(
-                            source == 'CAMERA'
-                                ? 'Add camera page'
-                                : source == 'GALLERY'
-                                ? 'Gallery'
-                                : 'Files',
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Ops.surfaceOverlay,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Ops.borderSubtle),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.rule.required
+                              ? 'Required document'
+                              : 'Optional document',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
                           ),
                         ),
+                        const SizedBox(height: 4),
+                        Text(
+                          widget.rule.required
+                              ? 'Upload at least ${widget.rule.minimumPages} page(s) (up to 5). Accepted: JPEG, PNG, WebP or PDF.'
+                              : 'This document is optional. If you choose to upload it, provide at least ${widget.rule.minimumPages} page/file (up to 5 total).',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Ops.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: _busy ? null : () => _pick('CAMERA'),
+                          icon: const Icon(Icons.camera_alt_outlined, size: 16),
+                          label: const Text(
+                            'Camera',
+                            style: TextStyle(fontSize: 12),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: _busy ? null : () => _pick('GALLERY'),
+                          icon: const Icon(
+                            Icons.photo_library_outlined,
+                            size: 16,
+                          ),
+                          label: const Text(
+                            'Gallery',
+                            style: TextStyle(fontSize: 12),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: _busy ? null : () => _pick('FILE'),
+                          icon: const Icon(
+                            Icons.folder_open_outlined,
+                            size: 16,
+                          ),
+                          label: const Text(
+                            'Files',
+                            style: TextStyle(fontSize: 12),
+                          ),
+                        ),
+                      ),
                     ],
                   ),
+                  const SizedBox(height: 8),
                   for (var index = 0; index < _files.length; index++)
                     ListTile(
                       contentPadding: EdgeInsets.zero,
@@ -265,6 +393,11 @@ class _DocumentUploadDialogState extends State<DocumentUploadDialog> {
                       initialValue: _side,
                       decoration: const InputDecoration(
                         labelText: 'Document side',
+                        isDense: true,
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 12,
+                        ),
                       ),
                       items: ['FRONT', 'BACK', 'PAGE']
                           .map(
@@ -277,6 +410,18 @@ class _DocumentUploadDialogState extends State<DocumentUploadDialog> {
                               if (s != null) setState(() => _side = s);
                             },
                     ),
+                  const SizedBox(height: 16),
+                  const Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Document metadata (optional)',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
                   if ([
                     'pan',
                     'driving_licence',
@@ -289,169 +434,142 @@ class _DocumentUploadDialogState extends State<DocumentUploadDialog> {
                       enabled: !_busy,
                       decoration: const InputDecoration(
                         labelText: 'Name printed on document',
+                        isDense: true,
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 12,
+                        ),
                       ),
                     ),
+                    const SizedBox(height: 10),
                     if ([
                       'driving_licence',
                       'driver_license',
-                    ].contains(widget.rule.code))
+                    ].contains(widget.rule.code)) ...[
                       TextField(
                         controller: _licenceClasses,
                         enabled: !_busy,
                         decoration: const InputDecoration(
                           labelText: 'Licence classes (if applicable)',
+                          isDense: true,
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 12,
+                          ),
                         ),
                       ),
+                      const SizedBox(height: 10),
+                    ],
                   ],
-                  if (widget.rule.code.startsWith('aadhaar'))
+                  if (widget.rule.code.startsWith('aadhaar')) ...[
                     CheckboxListTile(
+                      contentPadding: EdgeInsets.zero,
                       value: _identityConsent,
                       onChanged: _busy
                           ? null
                           : (v) => setState(() => _identityConsent = v == true),
                       title: const Text(
                         'I consent to the authorized verification purpose and confirm this is a permitted masked copy.',
+                        style: TextStyle(fontSize: 12),
                       ),
                     ),
+                    const SizedBox(height: 10),
+                  ],
                   TextField(
                     controller: _number,
                     enabled: !_busy,
                     maxLength: 100,
                     decoration: const InputDecoration(
                       labelText: 'Document number (optional)',
+                      isDense: true,
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 12,
+                      ),
                     ),
                   ),
+                  const SizedBox(height: 10),
                   TextField(
                     controller: _authority,
                     enabled: !_busy,
                     maxLength: 150,
                     decoration: const InputDecoration(
                       labelText: 'Issuing authority (optional)',
+                      isDense: true,
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 12,
+                      ),
                     ),
                   ),
+                  const SizedBox(height: 10),
                   TextField(
                     controller: _issued,
                     enabled: !_busy,
+                    readOnly: true,
+                    onTap: _busy ? null : () => _selectDate(_issued),
                     decoration: InputDecoration(
                       labelText: 'Issue date (YYYY-MM-DD, optional)',
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 12,
+                      ),
                       suffixIcon: IconButton(
-                        icon: const Icon(Icons.calendar_today, size: 20),
+                        icon: const Icon(Icons.calendar_today, size: 18),
                         onPressed: _busy ? null : () => _selectDate(_issued),
                       ),
                     ),
                   ),
+                  const SizedBox(height: 10),
                   TextField(
                     controller: _expiry,
                     enabled: !_busy,
+                    readOnly: true,
+                    onTap: _busy ? null : () => _selectDate(_expiry),
                     decoration: InputDecoration(
                       labelText:
                           'Expiry date (YYYY-MM-DD${widget.rule.requiresExpiry ? ', required' : ', optional'})',
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 12,
+                      ),
                       suffixIcon: IconButton(
-                        icon: const Icon(Icons.calendar_today, size: 20),
+                        icon: const Icon(Icons.calendar_today, size: 18),
                         onPressed: _busy ? null : () => _selectDate(_expiry),
                       ),
                     ),
                   ),
-                  if (_error != null)
+                  if (_error != null) ...[
+                    const SizedBox(height: 8),
                     Text(_error!, style: const TextStyle(color: Colors.red)),
-                  if (_busy) const LinearProgressIndicator(),
+                  ],
+                  if (_busy) ...[
+                    const SizedBox(height: 8),
+                    const LinearProgressIndicator(),
+                  ],
                 ],
               ),
             ),
           ),
           actions: [
-            TextButton(
-              onPressed: _busy ? null : () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: _busy
-                  ? null
-                  : () async {
-                      if (widget.session.busy) {
-                        setState(
-                          () => _error = 'Please wait for the current status refresh to finish.',
-                        );
-                        return;
-                      }
-                      final metadata = <String, String>{
-                        if (_identityConsent) ...{
-                          'identityConsent': 'true',
-                          'maskedIdentity': 'true',
-                        },
-                        'uploadSource': _source,
-                        if (_number.text.trim().isNotEmpty)
-                          'documentNumber': widget.rule.code == 'pan'
-                              ? _number.text.trim().toUpperCase()
-                              : _number.text.trim(),
-                        if (_holderName.text.trim().isNotEmpty)
-                          'holderName': _holderName.text.trim(),
-                        if (_licenceClasses.text.trim().isNotEmpty)
-                          'licenceClasses': _licenceClasses.text.trim(),
-                        if (_authority.text.trim().isNotEmpty)
-                          'issuingAuthority': _authority.text.trim(),
-                        if (_issued.text.trim().isNotEmpty)
-                          'issuedAt': _issued.text.trim(),
-                        if (_expiry.text.trim().isNotEmpty)
-                          'expiresAt': _expiry.text.trim(),
-                        if (_files.length == 1) 'side': _side,
-                      };
-                      final validation = OnboardingRules.validateFiles(
-                        widget.rule,
-                        _files,
-                        metadata,
-                      );
-                      if (validation == null &&
-                          widget.rule.code == 'pan' &&
-                          !RegExp(r'^[A-Z]{5}[0-9]{4}[A-Z]$')
-                              .hasMatch(_number.text.trim().toUpperCase())) {
-                        setState(
-                          () => _error =
-                              'Enter the PAN number printed on the document.',
-                        );
-                        return;
-                      }
-                      if (validation == null &&
-                          [
-                            'pan',
-                            'driving_licence',
-                            'driver_license',
-                          ].contains(widget.rule.code) &&
-                          _holderName.text.trim().length < 2) {
-                        setState(
-                          () => _error =
-                              'Enter the name printed on the document.',
-                        );
-                        return;
-                      }
-                      if (validation != null) {
-                        setState(() => _error = validation);
-                        return;
-                      }
-                      setState(() {
-                        _busy = true;
-                        _error = null;
-                      });
-                      final success =
-                          await (widget.uploader ??
-                              widget.session.uploadDocument)(
-                            widget.rule,
-                            List.of(_files),
-                            metadata,
-                          );
-                      if (!context.mounted) return;
-                      if (success) {
-                        Navigator.pop(context, true);
-                      } else {
-                        setState(() {
-                          _busy = false;
-                          _error =
-                              widget.errorMessage?.call() ??
-                              widget.session.error;
-                        });
-                      }
-                    },
-              child: const Text('Upload'),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: _busy ? null : () => Navigator.pop(context),
+                    child: const Text('Cancel'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: FilledButton(
+                    onPressed: _busy ? null : _submit,
+                    child: Text(_busy ? 'Uploading…' : 'Upload'),
+                  ),
+                ),
+              ],
             ),
           ],
         );
