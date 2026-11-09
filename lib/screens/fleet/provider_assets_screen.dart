@@ -17,6 +17,7 @@ import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../providers/driver_session.dart';
+import '../../services/api_service.dart';
 import '../../providers/provider_assets.dart';
 import '../../models/onboarding_rules.dart';
 import '../../models/provider_status.dart';
@@ -85,6 +86,7 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
   @override
   void dispose() {
     _timer?.cancel();
+    _assets?.clearError();
     _assets?.removeListener(_changed);
     _assets?.dispose();
     super.dispose();
@@ -159,6 +161,14 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
           (key.contains('Date') || key.contains('Expiry')) &&
           !OnboardingRules.validDate(text)) {
         return 'Use YYYY-MM-DD';
+      }
+      if (key == 'licenseExpiry' &&
+          text.isNotEmpty &&
+          OnboardingRules.validDate(text)) {
+        final today = DateTime.now().toIso8601String().substring(0, 10);
+        if (text.compareTo(today) < 0) {
+          return 'Licence expiry must be today or in the future';
+        }
       }
       if (key == 'registrationExpiry' &&
           text.isNotEmpty &&
@@ -346,12 +356,28 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
                                     submitting = true;
                                     submitError = null;
                                   });
-                                  final ok = await onSubmit(values);
-                                  if (!context.mounted) return;
-                                  if (!ok) {
+                                  try {
+                                    final ok = await onSubmit(values);
+                                    if (!context.mounted) return;
+                                    if (!ok) {
+                                      update(() {
+                                        submitting = false;
+                                        submitError = _assets?.error ?? 'Could not save. Your entries are retained; retry.';
+                                      });
+                                      return;
+                                    }
+                                  } on ApiException catch (e) {
+                                    if (!context.mounted) return;
                                     update(() {
                                       submitting = false;
-                                      submitError = _assets!.error ?? 'Could not save. Your entries are retained; retry.';
+                                      submitError = e.message;
+                                    });
+                                    return;
+                                  } catch (e) {
+                                    if (!context.mounted) return;
+                                    update(() {
+                                      submitting = false;
+                                      submitError = 'Server or network error. Please try again.';
                                     });
                                     return;
                                   }
@@ -1189,6 +1215,7 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
                   currentIndex: _tab,
                   type: BottomNavigationBarType.fixed,
                   onTap: (value) => setState(() {
+                    assets.clearError();
                     _tab = value;
                     _search = '';
                   }),
@@ -1232,10 +1259,12 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
                   ? _submitPendingRequests
                   : null,
               onAddVehicle: () => setState(() {
+                assets.clearError();
                 _tab = 1;
                 _search = '';
               }),
               onAddDriver: () => setState(() {
+                assets.clearError();
                 _tab = 2;
                 _search = '';
               }),
@@ -1251,7 +1280,33 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
                   setState(() => _search = value.trim().toLowerCase()),
             ),
           if (assets.error != null)
-            Text(assets.error!, style: const TextStyle(color: Colors.red)),
+            Container(
+              margin: const EdgeInsets.symmetric(vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.red.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.red.shade200),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.error_outline, color: Colors.red, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      assets.error!,
+                      style: const TextStyle(color: Colors.red, fontSize: 13),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, size: 16, color: Colors.red),
+                    onPressed: assets.clearError,
+                    tooltip: 'Dismiss error',
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ],
+              ),
+            ),
           if (!assets.fleetMode)
             TextButton(
               onPressed: () => context.go(session.landingPath),
@@ -1628,26 +1683,50 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
                           'licenseNumber',
                           'licenseExpiry',
                         },
-                        onSubmit: (input) => assets.run(() async {
+                        onSubmit: (input) async {
+                          final phoneRaw =
+                              (input['phone'] as String?)?.trim() ?? '';
+                          String? formattedPhone;
+                          if (phoneRaw.isNotEmpty) {
+                            var p = phoneRaw.replaceAll(RegExp(r'[\s()-]'), '');
+                            if (!p.startsWith('+')) {
+                              if (RegExp(r'^[1-9]\d{9}$').hasMatch(p)) {
+                                p = '+91$p';
+                              } else {
+                                p = '+$p';
+                              }
+                            }
+                            formattedPhone = p;
+                          }
+                          final payload = <String, dynamic>{
+                            'firstName': (input['firstName'] as String).trim(),
+                            'lastName': (input['lastName'] as String).trim(),
+                            if (input['email'] != null &&
+                                (input['email'] as String).trim().isNotEmpty)
+                              'email': (input['email'] as String)
+                                  .trim()
+                                  .toLowerCase(),
+                            // ignore: use_null_aware_elements
+                            if (formattedPhone != null) 'phone': formattedPhone,
+                            'licenseNumber': (input['licenseNumber'] as String)
+                                .trim(),
+                            'licenseExpiry': (input['licenseExpiry'] as String)
+                                .trim(),
+                          };
                           result = Map<String, dynamic>.from(
                             await session.api.request(
                               'POST',
                               '/provider/managed-drivers',
-                              body: {
-                                ...input,
-                                if (input['email'] != null)
-                                  'email': (input['email'] as String)
-                                      .trim()
-                                      .toLowerCase(),
-                                if (input['phone'] != null)
-                                  'phone': (input['phone'] as String)
-                                      .replaceAll(RegExp(r'[\s()-]'), ''),
-                              },
+                              body: payload,
                             ) as Map,
                           );
-                        }),
+                          return true;
+                        },
                       );
-                      if (input == null || result == null) return;
+                      if (input == null || result == null) {
+                        assets.clearError();
+                        return;
+                      }
                       if (context.mounted) {
                         setState(() => _driversVersion++);
                         ScaffoldMessenger.of(context).showSnackBar(

@@ -249,8 +249,9 @@ class ApiService {
         envelope?['success'] == false) {
       final error = envelope?['error'];
       final code = error is Map ? error['code']?.toString() : null;
+      final serverMessage = error is Map ? error['message']?.toString() : null;
       developer.log(
-        'API request failed: $method $requestPath status=${response.statusCode} code=${code ?? 'unknown'}',
+        'API request failed: $method $requestPath status=${response.statusCode} code=${code ?? 'unknown'} message=${serverMessage ?? ''}',
         name: 'ApiService',
       );
       if (isTestOnboarding &&
@@ -270,7 +271,7 @@ class ApiService {
         clearSession();
       }
       throw ApiException(
-        _userFacingError(code, response.statusCode),
+        _userFacingError(code, response.statusCode, serverMessage),
         response.statusCode,
         code,
       );
@@ -333,7 +334,7 @@ class ApiService {
     return envelope['data'];
   }
 
-  String _userFacingError(String? code, int status) {
+  String _userFacingError(String? code, int status, [String? serverMessage]) {
     if (code == 'INVALID_VEHICLE_CATEGORY') {
       return 'This vehicle option is inactive or unavailable. Refresh the catalog and choose an active option.';
     }
@@ -362,8 +363,20 @@ class ApiService {
         code == 'INVALID_ASSIGNMENT_CODE') {
       return 'This vehicle code is incorrect. Check it and try again.';
     }
+    if (code == 'TEST_STOP') {
+      return 'This request couldn\'t be completed. Check your information and retry.';
+    }
+    if (serverMessage != null &&
+        serverMessage.trim().isNotEmpty &&
+        serverMessage != 'Request validation failed' &&
+        serverMessage != 'Validation failed') {
+      return serverMessage.trim();
+    }
+    if (code == 'VALIDATION_ERROR') {
+      return 'Validation error. Please check your information and retry.';
+    }
     if (status >= 500) {
-      return 'We couldn\'t complete this request. Please try again.';
+      return 'Server error ($status). Please try again later.';
     }
     return 'This request couldn\'t be completed. Check your information and retry.';
   }
