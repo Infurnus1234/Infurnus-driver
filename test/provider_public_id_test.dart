@@ -70,4 +70,36 @@ void main() {
     expect(session.publicId, '1000000');
     session.dispose();
   });
+  testWidgets(
+    'DA-01: missing publicId shows meaningful system-generated message instead of Unavailable',
+    (tester) async {
+      final api = ApiService(
+        client: MockClient(
+          (request) async => http.Response(
+            jsonEncode({
+              'success': true,
+              'data': {
+                'id': 'uuid-without-public-id',
+                'firstName': 'Test',
+                'lastName': 'Driver',
+              },
+            }),
+            200,
+          ),
+        ),
+      );
+      final session = DriverSession(api: api);
+      await tester.pumpWidget(
+        ChangeNotifierProvider.value(
+          value: session,
+          child: const MaterialApp(home: Scaffold(body: AccountDetailsCard())),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Provider ID'), findsOneWidget);
+      expect(find.text('System-generated upon verification'), findsOneWidget);
+      expect(find.text('Unavailable'), findsNothing);
+      session.dispose();
+    },
+  );
 }
