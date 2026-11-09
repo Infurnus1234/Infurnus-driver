@@ -142,38 +142,78 @@ class _FleetReportsScreenState extends State<FleetReportsScreen> {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Wrap(
-                      spacing: 8,
+                    Row(
                       children: [
-                        for (final period in [
-                          'Today',
-                          '7 days',
-                          '30 days',
-                          'All',
-                        ])
-                          ChoiceChip(
-                            label: Text(period),
-                            selected: _period == period,
-                            onSelected: (_) => setState(() => _period = period),
+                        Expanded(
+                          child: DropdownButtonFormField<String>(
+                            key: const Key('filter-period'),
+                            value: _period,
+                            isDense: true,
+                            decoration: const InputDecoration(
+                              labelText: 'Date range',
+                              contentPadding: EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 8,
+                              ),
+                            ),
+                            items: const [
+                              DropdownMenuItem(
+                                value: 'Today',
+                                child: Text('Today'),
+                              ),
+                              DropdownMenuItem(
+                                value: '7 days',
+                                child: Text('7 days'),
+                              ),
+                              DropdownMenuItem(
+                                value: '30 days',
+                                child: Text('30 days'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'All',
+                                child: Text('All'),
+                              ),
+                            ],
+                            onChanged: (v) => setState(() => _period = v!),
                           ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: DropdownButtonFormField<String>(
+                            key: const Key('filter-status'),
+                            value: _status,
+                            isDense: true,
+                            decoration: const InputDecoration(
+                              labelText: 'Trip status',
+                              contentPadding: EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 8,
+                              ),
+                            ),
+                            items: const [
+                              DropdownMenuItem(
+                                value: 'All',
+                                child: Text('All'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'Active',
+                                child: Text('Active'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'Completed',
+                                child: Text('Completed'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'Cancelled',
+                                child: Text('Cancelled'),
+                              ),
+                            ],
+                            onChanged: (v) => setState(() => _status = v!),
+                          ),
+                        ),
                       ],
                     ),
-                    Wrap(
-                      spacing: 8,
-                      children: [
-                        for (final status in [
-                          'All',
-                          'Active',
-                          'Completed',
-                          'Cancelled',
-                        ])
-                          ChoiceChip(
-                            label: Text(status),
-                            selected: _status == status,
-                            onSelected: (_) => setState(() => _status = status),
-                          ),
-                      ],
-                    ),
+                    const SizedBox(height: 8),
                     Text(
                       '${rows.length} trips in this view, from ${source.length} recent trips. Showing up to 100 trips; dates use your local time.',
                     ),
