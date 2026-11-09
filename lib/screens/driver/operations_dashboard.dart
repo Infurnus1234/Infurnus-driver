@@ -324,7 +324,11 @@ class LogisticsUpfrontPaymentCard extends StatelessWidget {
     final status =
         trip['upfrontPaymentStatus']?.toString().toUpperCase() ?? 'PENDING';
     final method =
-        trip['upfrontPaymentMethod']?.toString().toLowerCase() ?? 'online';
+        trip['upfrontPaymentMethod']?.toString().toLowerCase() ??
+        session.currentTrip?['upfrontPaymentMethod']
+            ?.toString()
+            .toLowerCase() ??
+        'online';
     final isVerified = status == 'PAID_VERIFIED';
 
     return Container(

@@ -123,7 +123,7 @@ public class DriverRequestOverlayPlugin implements FlutterPlugin, MethodChannel.
  private static void channels(){
   if(Build.VERSION.SDK_INT<26)return;
   NotificationChannel channel=new NotificationChannel(CHANNEL,"Infurnus Driver Notifications",NotificationManager.IMPORTANCE_HIGH);
-  int raw=context.getResources().getIdentifier("infurnus_alert","raw",context.getPackageName());
+  int raw=context.getResources().getIdentifier("ride_request_alert","raw",context.getPackageName());
   if(raw!=0)channel.setSound(Uri.parse("android.resource://"+context.getPackageName()+"/"+raw),new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_NOTIFICATION).build());
   channel.enableVibration(true);notifications().createNotificationChannel(channel);
   NotificationChannel quiet=new NotificationChannel(QUIET_CHANNEL,"Ride request overlay backup",NotificationManager.IMPORTANCE_LOW);
@@ -198,7 +198,7 @@ public class DriverRequestOverlayPlugin implements FlutterPlugin, MethodChannel.
    }
   }
   if(alertChannel!=null && alertChannel.getSound()==null)return;
-  int raw=context.getResources().getIdentifier("infurnus_alert","raw",context.getPackageName());
+  int raw=context.getResources().getIdentifier("ride_request_alert","raw",context.getPackageName());
   if(raw==0)return;
   try{if(sound!=null){sound.release();sound=null;}sound=MediaPlayer.create(context,raw);if(sound!=null){sound.setOnCompletionListener(p->{p.release();if(sound==p)sound=null;});sound.start();}}catch(Exception ignored){}
  }

@@ -54,24 +54,33 @@ Future<void> driverFirebaseMessagingBackgroundHandler(
       );
       await localPlugin.initialize(initSettings);
 
+      final isOffer = isDriverOffer(message.data);
+      final activeChannel = isOffer
+          ? 'ride_request_v2'
+          : 'infurnus_default_channel';
+
       await localPlugin.show(
         (message.data['notificationId'] ?? message.hashCode.toString())
                 .hashCode &
             0x7fffffff,
         title,
         body,
-        const NotificationDetails(
+        NotificationDetails(
           android: AndroidNotificationDetails(
-            'infurnus_driver_channel_v3',
-            'Infurnus Driver Notifications',
-            importance: Importance.max,
-            priority: Priority.max,
+            activeChannel,
+            isOffer ? 'Ride Requests' : 'General Notifications',
+            importance: isOffer ? Importance.max : Importance.high,
+            priority: isOffer ? Priority.max : Priority.high,
             playSound: true,
-            sound: RawResourceAndroidNotificationSound('infurnus_alert'),
+            sound: isOffer
+                ? const RawResourceAndroidNotificationSound(
+                    'ride_request_alert',
+                  )
+                : null,
             enableVibration: true,
           ),
           iOS: DarwinNotificationDetails(
-            sound: 'infurnus_alert.wav',
+            sound: isOffer ? 'ride_request_alert.mp3' : null,
             presentSound: true,
             presentAlert: true,
             presentBadge: true,
@@ -114,6 +123,7 @@ class DriverNotificationService {
 
   void _open(Map<String, dynamic> data) {
     if (_disposed || api.accessToken == null) return;
+    unawaited(cancelAll());
     timing.record(data, 'openedAt');
     onRideUpdate?.call(data);
     final route = notificationDestination(data);
@@ -149,28 +159,34 @@ class DriverNotificationService {
       await androidPlugin?.deleteNotificationChannel('infurnus_driver_channel');
       await androidPlugin?.deleteNotificationChannel('infurnus_channel');
       await androidPlugin?.deleteNotificationChannel('infurnus_ride_requests');
-      const AndroidNotificationChannel driverChannel =
+      await androidPlugin?.deleteNotificationChannel(
+        'infurnus_driver_channel_v2',
+      );
+      await androidPlugin?.deleteNotificationChannel(
+        'infurnus_driver_channel_v3',
+      );
+      const AndroidNotificationChannel rideRequestChannel =
           AndroidNotificationChannel(
-            'infurnus_driver_channel_v3',
-            'Infurnus Driver Notifications',
-            description:
-                'Audible alerts for new ride requests and trip updates',
+            'ride_request_v2',
+            'Ride Requests',
+            description: 'Audible alerts for new ride requests and trip offers',
             importance: Importance.max,
             playSound: true,
-            sound: RawResourceAndroidNotificationSound('infurnus_alert'),
+            sound: RawResourceAndroidNotificationSound('ride_request_alert'),
             enableVibration: true,
           );
-      await androidPlugin?.createNotificationChannel(driverChannel);
-      // Server notifications for older clients still target this channel.
-      await androidPlugin?.createNotificationChannel(
-        const AndroidNotificationChannel(
-          'infurnus_driver_channel_v2',
-          'Infurnus Driver Updates',
-          importance: Importance.high,
-          sound: RawResourceAndroidNotificationSound('infurnus_alert'),
-          enableVibration: true,
-        ),
-      );
+      await androidPlugin?.createNotificationChannel(rideRequestChannel);
+      const AndroidNotificationChannel defaultChannel =
+          AndroidNotificationChannel(
+            'infurnus_default_channel',
+            'General Notifications',
+            description:
+                'General alerts, document updates, and trip notifications',
+            importance: Importance.high,
+            playSound: true,
+            enableVibration: true,
+          );
+      await androidPlugin?.createNotificationChannel(defaultChannel);
       await _plugin.initialize(
         const InitializationSettings(
           android: AndroidInitializationSettings('@mipmap/launcher_icon'),
@@ -311,22 +327,31 @@ class DriverNotificationService {
       if (data is Map<String, dynamic>) {
         timing.record(data, 'localPresentationRequestedAt');
       }
+      final isOffer = data is Map ? isDriverOffer(data) : false;
+      final activeChannel = isOffer
+          ? 'ride_request_v2'
+          : 'infurnus_default_channel';
+
       await _plugin.show(
         id,
         title,
         body,
-        const NotificationDetails(
+        NotificationDetails(
           android: AndroidNotificationDetails(
-            'infurnus_driver_channel_v3',
-            'Infurnus Driver Notifications',
-            importance: Importance.max,
-            priority: Priority.high,
-            sound: RawResourceAndroidNotificationSound('infurnus_alert'),
+            activeChannel,
+            isOffer ? 'Ride Requests' : 'General Notifications',
+            importance: isOffer ? Importance.max : Importance.high,
+            priority: isOffer ? Priority.high : Priority.defaultPriority,
+            sound: isOffer
+                ? const RawResourceAndroidNotificationSound(
+                    'ride_request_alert',
+                  )
+                : null,
             playSound: true,
             enableVibration: true,
           ),
           iOS: DarwinNotificationDetails(
-            sound: 'infurnus_alert.wav',
+            sound: isOffer ? 'ride_request_alert.mp3' : null,
             presentSound: true,
             presentAlert: true,
             presentBadge: true,
@@ -337,6 +362,18 @@ class DriverNotificationService {
     } catch (_) {
       debugPrint('Local notification presentation unavailable.');
     }
+  }
+
+  Future<void> cancel(int id) async {
+    try {
+      await _plugin.cancel(id);
+    } catch (_) {}
+  }
+
+  Future<void> cancelAll() async {
+    try {
+      await _plugin.cancelAll();
+    } catch (_) {}
   }
 
   void dispose() {

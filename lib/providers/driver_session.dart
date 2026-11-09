@@ -328,6 +328,12 @@ class DriverSession extends ChangeNotifier {
   Timer? _poll;
   Timer? _expiry;
   DriverNotificationService? _notifications;
+  DriverNotificationService? get notifications => _notifications;
+
+  void dismissRideNotifications() {
+    unawaited(_notifications?.cancelAll());
+  }
+
   String? pendingNotificationRoute;
   String? driverPhotoUrl;
   String? _photoDocumentId;
@@ -1690,6 +1696,7 @@ class DriverSession extends ChangeNotifier {
   });
 
   Future<bool> accept(String id) => run(() async {
+    dismissRideNotifications();
     if (isPreview) {
       final index = rides.indexWhere((r) => r['id'] == id);
       if (index >= 0) {
@@ -1725,6 +1732,7 @@ class DriverSession extends ChangeNotifier {
     await _load();
   });
   Future<bool> decline(String id) => run(() async {
+    dismissRideNotifications();
     if (isPreview) {
       rides.removeWhere((r) => r['id'] == id);
       return;
@@ -1859,6 +1867,32 @@ class DriverSession extends ChangeNotifier {
           (snapshot != null &&
               (snapshot is! Map || snapshot['id'] is! String))) {
         return false;
+      }
+      if (snapshot is Map && snapshot['sector'] == 'logistics') {
+        final existingMethod =
+            snapshot['upfrontPaymentMethod'] ??
+            currentTrip?['upfrontPaymentMethod'];
+        if (existingMethod != null) {
+          snapshot['upfrontPaymentMethod'] = existingMethod;
+        } else {
+          try {
+            final summary = await _logisticsPaymentSummary(
+              snapshot['id'].toString(),
+            );
+            final payments = summary['payments'];
+            if (payments is List) {
+              final upfront = payments.whereType<Map>().firstWhere(
+                (p) => p['paymentStage'] == 'upfront',
+                orElse: () => <String, dynamic>{},
+              );
+              if (upfront['provider'] != null) {
+                snapshot['upfrontPaymentMethod'] = upfront['provider']
+                    .toString()
+                    .toLowerCase();
+              }
+            }
+          } catch (_) {}
+        }
       }
       final changed = _setCurrentTrip(snapshot as Map?);
       _joinTrip();
@@ -1999,6 +2033,14 @@ class DriverSession extends ChangeNotifier {
         _notify();
       }
       return;
+    }
+    if (const [
+      'ride:taken',
+      'ride:cancelled',
+      'ride:driver_assigned',
+      'ride:completed',
+    ].contains(event)) {
+      dismissRideNotifications();
     }
     if (currentTrip != null && id != currentTrip?['id']) return;
     if (id == currentTrip?['id'] &&

@@ -85,6 +85,9 @@ class _DriverRequestHostState extends State<DriverRequestHost>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _session?.dismissRideNotifications();
+    }
     _foreground = state == AppLifecycleState.resumed;
     _presented = null;
     _schedule();
@@ -194,7 +197,10 @@ class _DriverRequestHostState extends State<DriverRequestHost>
     }
     final key = next == null ? null : offerKey(next);
     if (key != _presented) {
-      if (_presented != null || next == null) await _bridge.dismiss();
+      if (_presented != null || next == null) {
+        await _bridge.dismiss();
+        if (next == null) s.dismissRideNotifications();
+      }
       _presented = key;
       if (next != null) {
         await _bridge.present(next);
