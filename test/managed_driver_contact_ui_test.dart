@@ -131,7 +131,7 @@ void main() {
           expect(posts, hasLength(1));
           expect(find.text('Create Driver profile'), findsOneWidget);
           expect(
-            find.textContaining('Check your information and retry.'),
+            find.textContaining('Synthetic save stop'),
             findsOneWidget,
           );
           expect(

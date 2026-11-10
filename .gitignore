@@ -71,3 +71,8 @@ app.*.map.json
 
 test/failures/
 /android/.kotlin/
+
+.gradle/
+build/
+test_output.txt
+ci_failed.txt
