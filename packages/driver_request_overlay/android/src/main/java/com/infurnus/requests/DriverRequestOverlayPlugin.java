@@ -9,6 +9,7 @@ import android.graphics.Typeface;
 import android.graphics.PixelFormat;
 import android.graphics.drawable.GradientDrawable;
 import android.media.AudioAttributes;
+import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.net.Uri;
 import android.os.*;
@@ -35,10 +36,11 @@ public class DriverRequestOverlayPlugin implements FlutterPlugin, MethodChannel.
  private static boolean foreground=false, ready=false;
  private static final Handler handler=new Handler(Looper.getMainLooper());
  private static View overlay;
- private static String shownKey;
+ private static String shownKey, shownRide, notificationRide;
  private static int shownNotification;
  private static MediaPlayer sound;
  private static Runnable expiryTask;
+ private static final Set<String> endedOffers=new LinkedHashSet<>();
  private static final String CHANNEL="infurnus_driver_channel_v3";
  private static final String QUIET_CHANNEL="infurnus_driver_overlay_backup";
  private static android.content.SharedPreferences prefs(){return context.getSharedPreferences("ride_request_presentation",Context.MODE_PRIVATE);}
@@ -92,10 +94,29 @@ public class DriverRequestOverlayPlugin implements FlutterPlugin, MethodChannel.
     case "present": result.success(present(new JSONObject((Map<?,?>)call.arguments)));break;
     case "notifyOffer":
      JSONObject offer=new JSONObject((Map<?,?>)call.arguments);
-     if(offer.optLong("deadline")>System.currentTimeMillis())fallback(offer,false);
+     String pendingRide=offer.optString("rideId");
+     long pendingDeadline=offer.optLong("deadline");
+     if(!pendingRide.isEmpty()&&pendingDeadline>System.currentTimeMillis()&&shownKey==null
+        && !pendingRide.equals(notificationRide)&&!endedOffers.contains(pendingRide)){
+      hide();
+      if(postOfferNotification(offer,false)){
+       expiryTask=()->{if(pendingRide.equals(notificationRide))hide();};
+       handler.postDelayed(expiryTask,Math.max(0,pendingDeadline-System.currentTimeMillis()));
+      }
+     }
      result.success(true);break;
-    case "dismiss": hide();if(shownNotification!=0)notifications().cancel(shownNotification);result.success(null);break;
-    case "clear":hide();for(String k:prefs().getAll().keySet())if(k.startsWith("notification_"))try{notifications().cancel(Integer.parseInt(k.substring(13)));}catch(Exception ignored){}prefs().edit().clear().apply();result.success(null);break;
+    case "dismiss": hide();result.success(null);break;
+    case "dismissOffer":
+     String ride=call.argument("rideId");
+     if(ride!=null && !ride.isEmpty()){
+      if(Boolean.TRUE.equals(call.argument("invalidate"))){
+       endedOffers.add(ride);
+       if(endedOffers.size()>128)endedOffers.remove(endedOffers.iterator().next());
+      }
+      if(ride.equals(shownRide)||ride.equals(notificationRide))hide();
+     }
+     result.success(null);break;
+    case "clear":hide();endedOffers.clear();for(String k:prefs().getAll().keySet())if(k.startsWith("notification_"))try{notifications().cancel(Integer.parseInt(k.substring(13)));}catch(Exception ignored){}prefs().edit().clear().apply();result.success(null);break;
     default:result.notImplemented();
    }
   }catch(Exception e){result.error("REQUEST_PRESENTATION_UNAVAILABLE","Ride request presentation is unavailable",null);}
@@ -122,11 +143,11 @@ public class DriverRequestOverlayPlugin implements FlutterPlugin, MethodChannel.
  }
  private static void channels(){
   if(Build.VERSION.SDK_INT<26)return;
-  NotificationChannel channel=new NotificationChannel(CHANNEL,"Infurnus Driver Notifications",NotificationManager.IMPORTANCE_HIGH);
+  NotificationChannel channel=new NotificationChannel(CHANNEL,"Ride Request Sound",NotificationManager.IMPORTANCE_HIGH);
   int raw=context.getResources().getIdentifier("ride_request_alert","raw",context.getPackageName());
   if(raw!=0)channel.setSound(Uri.parse("android.resource://"+context.getPackageName()+"/"+raw),new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_NOTIFICATION).build());
   channel.enableVibration(true);notifications().createNotificationChannel(channel);
-  NotificationChannel quiet=new NotificationChannel(QUIET_CHANNEL,"Ride request overlay backup",NotificationManager.IMPORTANCE_LOW);
+  NotificationChannel quiet=new NotificationChannel(QUIET_CHANNEL,"Ride Request Actions",NotificationManager.IMPORTANCE_LOW);
   quiet.setSound(null,null);notifications().createNotificationChannel(quiet);
  }
  private static String text(JSONObject d,String key,String fallback){String value=d.optString(key,fallback);return value.length()>500?value.substring(0,500):value;}
@@ -142,54 +163,77 @@ public class DriverRequestOverlayPlugin implements FlutterPlugin, MethodChannel.
  }
  private static void choose(JSONObject d,String action){
   Intent intent=action(d,action);hide();
-  if(intent!=null){try{context.startActivity(intent);}catch(Exception ignored){fallback(d,false);}}
+  if(intent!=null){try{context.startActivity(intent);}catch(Exception ignored){postOfferNotification(d,true);}}
  }
- private static void fallback(JSONObject d,boolean quiet){
-  Intent intent=action(d,"review");if(intent==null)return;
+ private static boolean postOfferNotification(JSONObject d,boolean actionable){
+  if(!canNotify())return false;
+  NotificationChannel channel=Build.VERSION.SDK_INT>=26?notifications().getNotificationChannel(QUIET_CHANNEL):null;
+  if(channel!=null&&channel.getImportance()==NotificationManager.IMPORTANCE_NONE)return false;
+  Intent intent=action(d,"review");if(intent==null)return false;
   int id=text(d,"key", "").hashCode()&0x7fffffff;
-  if(shownNotification!=0 && shownNotification!=id)notifications().cancel(shownNotification);
+  if(shownNotification!=0 && shownNotification!=id)cancelNotification();
   shownNotification=id;
+  notificationRide=d.optString("rideId");
   prefs().edit().putBoolean("notification_"+id,true).apply();
   PendingIntent open=PendingIntent.getActivity(context,id,intent,PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);
-  Notification.Builder builder=Build.VERSION.SDK_INT>=26?new Notification.Builder(context,quiet?QUIET_CHANNEL:CHANNEL):new Notification.Builder(context);
+  Notification.Builder builder=Build.VERSION.SDK_INT>=26?new Notification.Builder(context,QUIET_CHANNEL):new Notification.Builder(context);
   long remaining=d.optLong("deadline")-System.currentTimeMillis();
   builder.setSmallIcon(context.getApplicationInfo().icon).setContentTitle("New Ride Request")
    .setContentText(text(d,"pickup","Open INFURNUS to review this request"))
    .setStyle(new Notification.BigTextStyle().bigText("Pickup: "+text(d,"pickup","Available in app")+"\nDrop: "+text(d,"drop","Available after PIN verification")))
    .setVisibility(Notification.VISIBILITY_PRIVATE).setContentIntent(open).setAutoCancel(true).setOnlyAlertOnce(true).setCategory(Notification.CATEGORY_EVENT)
-   .setPriority(quiet?Notification.PRIORITY_LOW:Notification.PRIORITY_MAX);
+   .setPriority(Notification.PRIORITY_LOW);
+  if(actionable){
+   Intent accept=action(d,"accept"), reject=action(d,"reject");
+   if(accept==null||reject==null)return false;
+   builder.addAction(0,"Accept",PendingIntent.getActivity(context,id^0x40000000,accept,PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE));
+   builder.addAction(0,"Reject",PendingIntent.getActivity(context,id^0x20000000,reject,PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE));
+  }
   if(Build.VERSION.SDK_INT>=26)builder.setTimeoutAfter(Math.max(1,remaining));
-  try{notifications().notify(id,builder.build());}catch(SecurityException ignored){}
+  try{notifications().notify(id,builder.build());return true;}catch(SecurityException ignored){return false;}
  }
  private static boolean present(JSONObject d){
-  String key=d.optString("key");long deadline=d.optLong("deadline");
-  if(key.isEmpty()||d.optString("rideId").isEmpty()||deadline<=System.currentTimeMillis())return false;
+  String key=d.optString("key"), ride=d.optString("rideId");long deadline=d.optLong("deadline");
+  if(key.isEmpty()||ride.isEmpty()||deadline<=System.currentTimeMillis()||endedOffers.contains(ride))return false;
+  if(key.equals(shownKey))return true;
+  if(prefs().getBoolean("dismissed_"+key,false))return true;
+  boolean inApp=d.optBoolean("inApp");
+  if(foreground&&!inApp)return true;
+  hide();
+  shownKey=key;shownRide=ride;
+  channels();
+  boolean actionable=inApp;
+  if(!inApp&&overlayAllowed()){
+   try{
+    LinearLayout card=card(d);
+    WindowManager.LayoutParams params=new WindowManager.LayoutParams(Math.min(dp(430),context.getResources().getDisplayMetrics().widthPixels-dp(24)),WindowManager.LayoutParams.WRAP_CONTENT,Build.VERSION.SDK_INT>=26?WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY:WindowManager.LayoutParams.TYPE_PHONE,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE|WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL|WindowManager.LayoutParams.FLAG_DIM_BEHIND,PixelFormat.TRANSLUCENT);
+    params.gravity=Gravity.CENTER;params.dimAmount=.18f;
+    ((WindowManager)context.getSystemService(Context.WINDOW_SERVICE)).addView(card,params);overlay=card;
+    actionable=true;
+   }catch(Exception ignored){}
+  }
+  if(!inApp)actionable=postOfferNotification(d,true)||actionable;
+  if(!actionable){hide();return false;}
   long previous=prefs().getLong("seen_"+key,0);
-  boolean fresh=previous==0;
-  if(fresh){
+  if(previous==0){
    android.content.SharedPreferences.Editor edit=prefs().edit();
    for(Map.Entry<String,?> e:prefs().getAll().entrySet())if(e.getKey().startsWith("seen_")&&e.getValue() instanceof Long&&(Long)e.getValue()<System.currentTimeMillis())edit.remove(e.getKey());
    edit.putLong("seen_"+key,deadline).apply();
+   if(deadline>System.currentTimeMillis())playAlert();
   }
-  if(foreground){hide();if(shownNotification!=0)notifications().cancel(shownNotification);if(fresh)playAlert();return true;}
-  if(key.equals(shownKey)&&overlay!=null)return true;
-  if(prefs().getBoolean("dismissed_"+key,false))return true;
-  if(!overlayAllowed()){fallback(d,false);return true;}
-  try{
-   hide();shownKey=key;
-   LinearLayout card=card(d);
-   WindowManager.LayoutParams params=new WindowManager.LayoutParams(Math.min(dp(430),context.getResources().getDisplayMetrics().widthPixels-dp(24)),WindowManager.LayoutParams.WRAP_CONTENT,Build.VERSION.SDK_INT>=26?WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY:WindowManager.LayoutParams.TYPE_PHONE,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE|WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL|WindowManager.LayoutParams.FLAG_DIM_BEHIND,PixelFormat.TRANSLUCENT);
-   params.gravity=Gravity.CENTER;params.dimAmount=.18f;
-   ((WindowManager)context.getSystemService(Context.WINDOW_SERVICE)).addView(card,params);overlay=card;
-   fallback(d,true);if(fresh)playAlert();
-   expiryTask=()->{hide();notifications().cancel(shownNotification);};handler.postDelayed(expiryTask,deadline-System.currentTimeMillis());
-   return true;
-  }catch(Exception ignored){hide();fallback(d,false);return true;}
+  expiryTask=()->{if(key.equals(shownKey))hide();};
+  handler.postDelayed(expiryTask,Math.max(0,deadline-System.currentTimeMillis()));
+  return true;
+ }
+ private static boolean canNotify(){
+  return (Build.VERSION.SDK_INT<33||context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)==PackageManager.PERMISSION_GRANTED)
+      && (Build.VERSION.SDK_INT<24||notifications().areNotificationsEnabled());
  }
  private static void playAlert(){
-  if(Build.VERSION.SDK_INT>=24 && !notifications().areNotificationsEnabled())return;
+  if(!canNotify())return;
   NotificationChannel alertChannel=Build.VERSION.SDK_INT>=26?notifications().getNotificationChannel(CHANNEL):null;
-  if(alertChannel!=null && alertChannel.getImportance()==NotificationManager.IMPORTANCE_NONE)return;
+  if(Build.VERSION.SDK_INT>=26 && (alertChannel==null||alertChannel.getImportance()<NotificationManager.IMPORTANCE_DEFAULT))return;
+  if(notifications().getCurrentInterruptionFilter()!=NotificationManager.INTERRUPTION_FILTER_ALL)return;
   if(alertChannel==null || alertChannel.shouldVibrate()){
    Vibrator vibrator=(Vibrator)context.getSystemService(Context.VIBRATOR_SERVICE);
    if(vibrator!=null && vibrator.hasVibrator()){
@@ -198,15 +242,37 @@ public class DriverRequestOverlayPlugin implements FlutterPlugin, MethodChannel.
    }
   }
   if(alertChannel!=null && alertChannel.getSound()==null)return;
+  AudioManager audio=(AudioManager)context.getSystemService(Context.AUDIO_SERVICE);
+  if(audio==null||audio.getRingerMode()!=AudioManager.RINGER_MODE_NORMAL)return;
   int raw=context.getResources().getIdentifier("ride_request_alert","raw",context.getPackageName());
   if(raw==0)return;
-  try{if(sound!=null){sound.release();sound=null;}sound=MediaPlayer.create(context,raw);if(sound!=null){sound.setOnCompletionListener(p->{p.release();if(sound==p)sound=null;});sound.start();}}catch(Exception ignored){}
+  AudioAttributes attributes=new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_NOTIFICATION).build();
+  try{
+   stopAlert();
+   sound=MediaPlayer.create(context,raw,attributes,0);
+   if(sound!=null){
+    sound.setOnCompletionListener(p->{if(sound==p)stopAlert();});
+    sound.setOnErrorListener((p,what,extra)->{if(sound==p)stopAlert();return true;});
+    sound.start();
+   }
+  }catch(Exception ignored){stopAlert();}
+ }
+ private static void stopAlert(){
+  MediaPlayer player=sound;sound=null;
+  if(player!=null)try{player.release();}catch(Exception ignored){}
+ }
+ private static void cancelNotification(){
+  if(shownNotification!=0){
+   notifications().cancel(shownNotification);
+   prefs().edit().remove("notification_"+shownNotification).apply();
+  }
+  shownNotification=0;notificationRide=null;
  }
  private static void hide(){
   if(expiryTask!=null){handler.removeCallbacks(expiryTask);expiryTask=null;}
   if(overlay!=null){try{((WindowManager)context.getSystemService(Context.WINDOW_SERVICE)).removeView(overlay);}catch(Exception ignored){}overlay=null;}
-  shownKey=null;
-  if(sound!=null){try{sound.release();}catch(Exception ignored){}sound=null;}
+  shownKey=null;shownRide=null;
+  stopAlert();cancelNotification();
  }
  private static GradientDrawable background(int color,int stroke,float radius){GradientDrawable d=new GradientDrawable();d.setColor(color);d.setCornerRadius(dp(radius));if(stroke!=0)d.setStroke(dp(1),stroke);return d;}
  private static TextView label(String value,int size,int color,boolean bold){TextView v=new TextView(context);v.setText(value);v.setTextSize(size);v.setTextColor(color);if(bold)v.setTypeface(Typeface.DEFAULT,Typeface.BOLD);return v;}

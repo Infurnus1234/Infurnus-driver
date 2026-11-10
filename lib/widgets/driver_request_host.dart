@@ -66,6 +66,7 @@ class _DriverRequestHostState extends State<DriverRequestHost>
     widget.router?.routerDelegate.removeListener(_routeChanged);
     _session?.removeListener(_schedule);
     _timer?.cancel();
+    unawaited(_bridge.dismiss());
     super.dispose();
   }
 
@@ -203,7 +204,9 @@ class _DriverRequestHostState extends State<DriverRequestHost>
       }
       _presented = key;
       if (next != null) {
-        await _bridge.present(next);
+        if (!mounted) return;
+        setState(() => _offer = next);
+        await _bridge.present({...next, '_presentInApp': _foreground});
       }
     }
     if (mounted) setState(() => _offer = next);
@@ -219,6 +222,7 @@ class _DriverRequestHostState extends State<DriverRequestHost>
       return;
     }
     setState(() => _acting = true);
+    unawaited(_bridge.dismissOffer(offer['id'].toString(), invalidate: false));
     try {
       final ok = accept
           ? await s.accept(offer['id'])

@@ -63,6 +63,7 @@ void main() {
       final requests = <String>[];
       Completer<http.Response>? paymentResponse;
       var paid = false;
+      var cancelled = false;
       final session = _Session(
         ApiService(
           client: MockClient((request) async {
@@ -76,6 +77,7 @@ void main() {
               });
             }
             if (path == '/rides/driver/current-trip') {
+              if (cancelled) return _data(null);
               final response = paymentResponse;
               return response == null
                   ? _data(_ride(paid: paid, includeBooking: false))
@@ -175,6 +177,12 @@ void main() {
       expect(find.text('Niranjan Kumar'), findsNWidgets(2));
       expect(find.text('Paid Verified'), findsOneWidget);
       expect(tester.getSize(panel).height, height);
+      cancelled = true;
+      session.handleRideEvent('ride:cancelled', {'rideId': _rideId});
+      await tester.pumpAndSettle();
+      expect(session.currentTrip, isNull);
+      expect(session.liveNavigation, isNull);
+      expect(find.byKey(const ValueKey('active-ride-panel')), findsNothing);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
       session.dispose();

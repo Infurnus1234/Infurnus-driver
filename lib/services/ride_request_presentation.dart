@@ -64,6 +64,7 @@ Map<String, dynamic> nativeOffer(Map<String, dynamic> ride) {
   return {
     'key': offerKey(ride),
     'rideId': ride['id'],
+    'inApp': ride['_presentInApp'] == true,
     'deadline': DateTime.now().add(offerRemaining(ride)).millisecondsSinceEpoch,
     'pickup': ride['pickupAddress'] ?? 'Pickup details available in app',
     // Never reveal a drop withheld by the existing backend's pre-PIN policy.
@@ -128,6 +129,10 @@ class RideRequestBridge {
 
   Future<void> dismiss() async {
     await _call('dismiss');
+  }
+
+  Future<void> dismissOffer(String rideId, {bool invalidate = true}) async {
+    await _call('dismissOffer', {'rideId': rideId, 'invalidate': invalidate});
   }
 
   Future<void> clear() async {

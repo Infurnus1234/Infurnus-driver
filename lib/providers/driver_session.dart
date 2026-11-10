@@ -1697,6 +1697,8 @@ class DriverSession extends ChangeNotifier {
 
   Future<bool> accept(String id) => run(() async {
     dismissRideNotifications();
+    final bridge = RideRequestBridge();
+    unawaited(bridge.dismissOffer(id, invalidate: false));
     if (isPreview) {
       final index = rides.indexWhere((r) => r['id'] == id);
       if (index >= 0) {
@@ -1728,11 +1730,13 @@ class DriverSession extends ChangeNotifier {
       throw const ApiException('This offer has expired. Refresh the offers.');
     }
     await api.request('POST', '/rides/${Uri.encodeComponent(id)}/accept');
-    await RideRequestBridge().dismiss();
+    await bridge.dismissOffer(id);
     await _load();
   });
   Future<bool> decline(String id) => run(() async {
     dismissRideNotifications();
+    final bridge = RideRequestBridge();
+    unawaited(bridge.dismissOffer(id, invalidate: false));
     if (isPreview) {
       rides.removeWhere((r) => r['id'] == id);
       return;
@@ -1741,6 +1745,7 @@ class DriverSession extends ChangeNotifier {
       'POST',
       '/rides/driver/available/${Uri.encodeComponent(id)}/decline',
     );
+    await bridge.dismissOffer(id);
     await _load();
   });
   Future<bool> transition(String status, {String? pin}) => run(() async {
@@ -2040,6 +2045,7 @@ class DriverSession extends ChangeNotifier {
       'ride:driver_assigned',
       'ride:completed',
     ].contains(event)) {
+      unawaited(RideRequestBridge().dismissOffer(id));
       dismissRideNotifications();
     }
     if (currentTrip != null && id != currentTrip?['id']) return;

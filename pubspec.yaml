@@ -2,7 +2,7 @@ name: infurnus_driver
 description: "A new Flutter project."
 publish_to: 'none'
 
-version: 1.0.0+120
+version: 1.0.0+129
 
 environment:
   sdk: ^3.13.3

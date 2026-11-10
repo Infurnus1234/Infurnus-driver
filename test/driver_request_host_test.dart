@@ -46,6 +46,7 @@ class RequestSession extends DriverSession {
 
 class BackgroundBridge extends RideRequestBridge {
   final offers = <Map<String, dynamic>>[];
+  final dismissals = <String>[];
   Map<String, dynamic>? action;
   @override
   Future<Map<String, dynamic>?> takeAction() async {
@@ -58,6 +59,11 @@ class BackgroundBridge extends RideRequestBridge {
   Future<bool> present(Map<String, dynamic> ride) async {
     offers.add(ride);
     return true;
+  }
+
+  @override
+  Future<void> dismissOffer(String rideId, {bool invalidate = true}) async {
+    dismissals.add(rideId);
   }
 }
 
@@ -137,6 +143,12 @@ void main() {
         () => Future<void>.delayed(const Duration(milliseconds: 30)),
       );
       expect(bridge.offers.single['id'], 'background');
+      expect(bridge.offers.single['_presentInApp'], false);
+      session.notifyListeners();
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 20)),
+      );
+      expect(bridge.offers, hasLength(1));
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
       await tester.pumpWidget(const SizedBox());
       session.dispose();
@@ -179,6 +191,7 @@ void main() {
   testWidgets(
     'duplicate taps and session notifications produce one acceptance and one navigation',
     (tester) async {
+      final bridge = BackgroundBridge();
       final session = RequestSession()
         ..rides = [
           {
@@ -195,6 +208,7 @@ void main() {
           value: session,
           child: MaterialApp(
             home: DriverRequestHost(
+              bridge: bridge,
               navigate: routes.add,
               child: const Scaffold(body: Text('Dashboard')),
             ),
@@ -213,6 +227,8 @@ void main() {
         isNull,
       );
       expect(session.accepts, 1);
+      expect(bridge.dismissals, ['live']);
+      expect(bridge.offers, hasLength(1));
       session.accepted.complete();
       await tester.pump();
       await tester.pump();

@@ -12,10 +12,22 @@ import 'background_ride_request.dart';
 import 'notification_timing.dart';
 import 'ride_request_presentation.dart';
 
+bool endsDriverOffer(Map data) =>
+    const {
+      'ride.accepted',
+      'ride.cancelled',
+      'ride.completed',
+    }.contains(data['type']) &&
+    data['rideId'] is String;
+
 @pragma('vm:entry-point')
 Future<void> driverFirebaseMessagingBackgroundHandler(
   RemoteMessage message,
 ) async {
+  if (endsDriverOffer(message.data)) {
+    await RideRequestBridge().dismissOffer(message.data['rideId'] as String);
+  }
+  if (message.data['silentOfferUpdate'] == 'true') return;
   try {
     await Firebase.initializeApp();
   } catch (_) {
@@ -29,11 +41,11 @@ Future<void> driverFirebaseMessagingBackgroundHandler(
       /* A notification can still lead to authenticated review. */
     }
     final bridge = RideRequestBridge();
-    if (bridge.supported &&
-        await bridge.notifyOffer(
-          message.data['rideId'] as String,
-          message.data['expiresAt']?.toString() ?? '',
-        )) {
+    if (bridge.supported) {
+      await bridge.notifyOffer(
+        message.data['rideId'] as String,
+        message.data['expiresAt']?.toString() ?? '',
+      );
       return;
     }
   }
@@ -54,33 +66,21 @@ Future<void> driverFirebaseMessagingBackgroundHandler(
       );
       await localPlugin.initialize(initSettings);
 
-      final isOffer = isDriverOffer(message.data);
-      final activeChannel = isOffer
-          ? 'ride_request_v2'
-          : 'infurnus_default_channel';
-
       await localPlugin.show(
         (message.data['notificationId'] ?? message.hashCode.toString())
                 .hashCode &
             0x7fffffff,
         title,
         body,
-        NotificationDetails(
+        const NotificationDetails(
           android: AndroidNotificationDetails(
-            activeChannel,
-            isOffer ? 'Ride Requests' : 'General Notifications',
-            importance: isOffer ? Importance.max : Importance.high,
-            priority: isOffer ? Priority.max : Priority.high,
-            playSound: true,
-            sound: isOffer
-                ? const RawResourceAndroidNotificationSound(
-                    'ride_request_alert',
-                  )
-                : null,
+            'infurnus_default_channel',
+            'General Notifications',
+            importance: Importance.high,
+            priority: Priority.high,
             enableVibration: true,
           ),
           iOS: DarwinNotificationDetails(
-            sound: isOffer ? 'ride_request_alert.mp3' : null,
             presentSound: true,
             presentAlert: true,
             presentBadge: true,
@@ -137,6 +137,9 @@ class DriverNotificationService {
     if (notificationOfferExpired(data)) return false;
     final id = data['notificationId']?.toString() ?? fallbackId;
     if (id != null && !_seen.add(id)) return false;
+    if (endsDriverOffer(data)) {
+      unawaited(RideRequestBridge().dismissOffer(data['rideId'] as String));
+    }
     if (_seen.length > 200) _seen.remove(_seen.first);
     onRideUpdate?.call(data);
     return true;
@@ -151,7 +154,7 @@ class DriverNotificationService {
       FirebaseMessaging.onBackgroundMessage(
         driverFirebaseMessagingBackgroundHandler,
       );
-      // Use a new channel for the updated alert; existing channel sounds are immutable.
+      // The native offer bridge owns its sound and action channels.
       final androidPlugin = _plugin
           .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin
@@ -162,20 +165,6 @@ class DriverNotificationService {
       await androidPlugin?.deleteNotificationChannel(
         'infurnus_driver_channel_v2',
       );
-      await androidPlugin?.deleteNotificationChannel(
-        'infurnus_driver_channel_v3',
-      );
-      const AndroidNotificationChannel rideRequestChannel =
-          AndroidNotificationChannel(
-            'ride_request_v2',
-            'Ride Requests',
-            description: 'Audible alerts for new ride requests and trip offers',
-            importance: Importance.max,
-            playSound: true,
-            sound: RawResourceAndroidNotificationSound('ride_request_alert'),
-            enableVibration: true,
-          );
-      await androidPlugin?.createNotificationChannel(rideRequestChannel);
       const AndroidNotificationChannel defaultChannel =
           AndroidNotificationChannel(
             'infurnus_default_channel',
@@ -327,31 +316,22 @@ class DriverNotificationService {
       if (data is Map<String, dynamic>) {
         timing.record(data, 'localPresentationRequestedAt');
       }
-      final isOffer = data is Map ? isDriverOffer(data) : false;
-      final activeChannel = isOffer
-          ? 'ride_request_v2'
-          : 'infurnus_default_channel';
+      if (data is Map && isDriverOffer(data)) return;
 
       await _plugin.show(
         id,
         title,
         body,
-        NotificationDetails(
+        const NotificationDetails(
           android: AndroidNotificationDetails(
-            activeChannel,
-            isOffer ? 'Ride Requests' : 'General Notifications',
-            importance: isOffer ? Importance.max : Importance.high,
-            priority: isOffer ? Priority.high : Priority.defaultPriority,
-            sound: isOffer
-                ? const RawResourceAndroidNotificationSound(
-                    'ride_request_alert',
-                  )
-                : null,
+            'infurnus_default_channel',
+            'General Notifications',
+            importance: Importance.high,
+            priority: Priority.defaultPriority,
             playSound: true,
             enableVibration: true,
           ),
           iOS: DarwinNotificationDetails(
-            sound: isOffer ? 'ride_request_alert.mp3' : null,
             presentSound: true,
             presentAlert: true,
             presentBadge: true,
