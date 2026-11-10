@@ -1,4 +1,3 @@
-import 'premium_operating_location_picker.dart';
 import '../../repositories/vehicle_catalog_repository.dart';
 
 import 'package:flutter/material.dart';
@@ -27,7 +26,6 @@ class _VehicleCategoryDialog extends StatefulWidget {
 class _VehicleCategoryDialogState extends State<_VehicleCategoryDialog> {
   late Future<dynamic> _catalog;
   String? _sector, _type, _error;
-  Map<String, dynamic>? _operatingLocation;
   bool _selectionAvailable = false;
   int _catalogRequest = 0;
 
@@ -36,10 +34,6 @@ class _VehicleCategoryDialogState extends State<_VehicleCategoryDialog> {
     super.initState();
     _sector = widget.initial?['sector'] as String?;
     _type = widget.initial?['category'] as String?;
-    final initial = widget.initial?['operatingLocation'];
-    _operatingLocation = initial is Map
-        ? Map<String, dynamic>.from(initial)
-        : null;
     _catalog = _loadCatalog();
   }
 
@@ -186,15 +180,6 @@ class _VehicleCategoryDialogState extends State<_VehicleCategoryDialog> {
                   const Text(
                     'No configured types are available for this category.',
                   ),
-                if (_sector == 'premium') ...[
-                  const SizedBox(height: 16),
-                  PremiumOperatingLocationPicker(
-                    api: widget.api,
-                    initial: _operatingLocation,
-                    onChanged: (location) =>
-                        setState(() => _operatingLocation = location),
-                  ),
-                ],
                 if (_error != null) Text(_error!),
               ],
             ),
@@ -209,17 +194,11 @@ class _VehicleCategoryDialogState extends State<_VehicleCategoryDialog> {
         child: const Text('Cancel'),
       ),
       FilledButton(
-        onPressed:
-            !_selectionAvailable ||
-                _sector == null ||
-                _type == null ||
-                (_sector == 'premium' && _operatingLocation == null)
+        onPressed: !_selectionAvailable || _sector == null || _type == null
             ? null
             : () => Navigator.pop(context, {
                 'sector': _sector!,
                 'category': _type!,
-                if (_sector == 'premium')
-                  'operatingLocation': _operatingLocation!,
               }),
         child: const Text('Continue'),
       ),
