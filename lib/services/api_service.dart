@@ -22,11 +22,13 @@ class ApiException implements Exception {
   final int? status;
   final String? code;
   final bool generic;
+  final String? serverMessage;
   const ApiException(
     this.message, [
     this.status,
     this.code,
     this.generic = false,
+    this.serverMessage,
   ]);
   @override
   String toString() => message;
@@ -271,9 +273,11 @@ class ApiService {
         clearSession();
       }
       throw ApiException(
-        _userFacingError(code, response.statusCode, serverMessage),
+        _userFacingError(code, response.statusCode),
         response.statusCode,
         code,
+        false,
+        serverMessage,
       );
     }
     if (response.statusCode == 204) return null;
@@ -334,7 +338,7 @@ class ApiService {
     return envelope['data'];
   }
 
-  String _userFacingError(String? code, int status, [String? serverMessage]) {
+  String _userFacingError(String? code, int status) {
     if (code == 'INVALID_VEHICLE_CATEGORY') {
       return 'This vehicle option is inactive or unavailable. Refresh the catalog and choose an active option.';
     }
@@ -363,20 +367,8 @@ class ApiService {
         code == 'INVALID_ASSIGNMENT_CODE') {
       return 'This vehicle code is incorrect. Check it and try again.';
     }
-    if (code == 'TEST_STOP') {
-      return 'This request couldn\'t be completed. Check your information and retry.';
-    }
     if (status >= 500) {
       return 'We couldn\'t complete this request. Please try again.';
-    }
-    if (serverMessage != null &&
-        serverMessage.trim().isNotEmpty &&
-        serverMessage != 'Request validation failed' &&
-        serverMessage != 'Validation failed') {
-      return serverMessage.trim();
-    }
-    if (code == 'VALIDATION_ERROR') {
-      return 'Validation error. Please check your information and retry.';
     }
     return 'This request couldn\'t be completed. Check your information and retry.';
   }

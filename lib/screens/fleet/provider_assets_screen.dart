@@ -86,8 +86,8 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
   @override
   void dispose() {
     _timer?.cancel();
-    _assets?.clearError();
     _assets?.removeListener(_changed);
+    _assets?.clearError();
     _assets?.dispose();
     super.dispose();
   }
@@ -370,7 +370,13 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
                                     if (!context.mounted) return;
                                     update(() {
                                       submitting = false;
-                                      submitError = e.message;
+                                      submitError =
+                                          (e.serverMessage != null &&
+                                              e.serverMessage!
+                                                  .trim()
+                                                  .isNotEmpty)
+                                          ? e.serverMessage!.trim()
+                                          : e.message;
                                     });
                                     return;
                                   } catch (e) {
@@ -1088,7 +1094,11 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
                     ),
                     const SizedBox(width: 6),
                     const Text(
-                      'Permanent vehicle code: ',
+                      'Permanent vehicle code',
+                      style: TextStyle(fontSize: 12, color: Ops.textSecondary),
+                    ),
+                    const Text(
+                      ': ',
                       style: TextStyle(fontSize: 12, color: Ops.textSecondary),
                     ),
                     SelectableText(
@@ -1758,7 +1768,7 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
                               'Accepted formats: JPEG, PNG, WebP (PDF where allowed)',
                             ),
                             _bullet(
-                              'File size limits: up to 10 MiB per image, 15 MiB for PDF',
+                              'File size limits: 10 MiB per image or 15 MiB per other file',
                             ),
                             _bullet(
                               'Total combined upload size: maximum 30 MiB',
