@@ -147,7 +147,7 @@ class _FleetReportsScreenState extends State<FleetReportsScreen> {
                         Expanded(
                           child: DropdownButtonFormField<String>(
                             key: const Key('filter-period'),
-                            value: _period,
+                            initialValue: _period,
                             isDense: true,
                             decoration: const InputDecoration(
                               labelText: 'Date range',
@@ -181,7 +181,7 @@ class _FleetReportsScreenState extends State<FleetReportsScreen> {
                         Expanded(
                           child: DropdownButtonFormField<String>(
                             key: const Key('filter-status'),
-                            value: _status,
+                            initialValue: _status,
                             isDense: true,
                             decoration: const InputDecoration(
                               labelText: 'Trip status',
