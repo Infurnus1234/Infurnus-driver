@@ -21,6 +21,13 @@ class ProviderAssets extends ChangeNotifier {
   bool busy = false, loaded = false, _disposed = false;
   String? error, refreshWarning;
   Map<String, dynamic>? lastSubmission;
+  void clearError() {
+    if (error != null) {
+      error = null;
+      _notify();
+    }
+  }
+
   String get vehiclePath =>
       api.hasFleetRole && api.providerMode == 'fleet_owner'
       ? '/fleet/vehicles'

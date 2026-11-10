@@ -17,6 +17,7 @@ import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../providers/driver_session.dart';
+import '../../services/api_service.dart';
 import '../../providers/provider_assets.dart';
 import '../../models/onboarding_rules.dart';
 import '../../models/provider_status.dart';
@@ -29,10 +30,12 @@ import 'guided_provider_setup.dart';
 
 class ProviderAssetsScreen extends StatefulWidget {
   final bool identityOnly, bankProofOnly;
+  final int? initialTab;
   const ProviderAssetsScreen({
     super.key,
     this.identityOnly = false,
     this.bankProofOnly = false,
+    this.initialTab,
   });
   @override
   State<ProviderAssetsScreen> createState() => _ProviderAssetsScreenState();
@@ -47,7 +50,11 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
   @override
   void initState() {
     super.initState();
-    if (widget.identityOnly || widget.bankProofOnly) _tab = 4;
+    if (widget.initialTab != null) {
+      _tab = widget.initialTab!;
+    } else if (widget.identityOnly || widget.bankProofOnly) {
+      _tab = 4;
+    }
   }
 
   String _vehicleFilter = 'All';
@@ -80,6 +87,7 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
   void dispose() {
     _timer?.cancel();
     _assets?.removeListener(_changed);
+    _assets?.clearError();
     _assets?.dispose();
     super.dispose();
   }
@@ -153,6 +161,14 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
           (key.contains('Date') || key.contains('Expiry')) &&
           !OnboardingRules.validDate(text)) {
         return 'Use YYYY-MM-DD';
+      }
+      if (key == 'licenseExpiry' &&
+          text.isNotEmpty &&
+          OnboardingRules.validDate(text)) {
+        final today = DateTime.now().toIso8601String().substring(0, 10);
+        if (text.compareTo(today) < 0) {
+          return 'Licence expiry must be today or in the future';
+        }
       }
       if (key == 'registrationExpiry' &&
           text.isNotEmpty &&
@@ -340,12 +356,34 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
                                     submitting = true;
                                     submitError = null;
                                   });
-                                  final ok = await onSubmit(values);
-                                  if (!context.mounted) return;
-                                  if (!ok) {
+                                  try {
+                                    final ok = await onSubmit(values);
+                                    if (!context.mounted) return;
+                                    if (!ok) {
+                                      update(() {
+                                        submitting = false;
+                                        submitError = _assets?.error ?? 'Could not save. Your entries are retained; retry.';
+                                      });
+                                      return;
+                                    }
+                                  } on ApiException catch (e) {
+                                    if (!context.mounted) return;
                                     update(() {
                                       submitting = false;
-                                      submitError = _assets!.error ?? 'Could not save. Your entries are retained; retry.';
+                                      submitError =
+                                          (e.serverMessage != null &&
+                                              e.serverMessage!
+                                                  .trim()
+                                                  .isNotEmpty)
+                                          ? e.serverMessage!.trim()
+                                          : e.message;
+                                    });
+                                    return;
+                                  } catch (e) {
+                                    if (!context.mounted) return;
+                                    update(() {
+                                      submitting = false;
+                                      submitError = 'Server or network error. Please try again.';
                                     });
                                     return;
                                   }
@@ -485,6 +523,25 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
           errorMessage: () => _assets!.error,
         ),
       );
+  Widget _bullet(String text) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 2),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          '• ',
+          style: TextStyle(color: Ops.textSecondary, fontSize: 13),
+        ),
+        Expanded(
+          child: Text(
+            text,
+            style: const TextStyle(color: Ops.textSecondary, fontSize: 12),
+          ),
+        ),
+      ],
+    ),
+  );
+
   Widget _document(
     DocumentRule rule, {
     String? vehicleId,
@@ -504,88 +561,153 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
     final status = expired ? 'Expired' : statusLabel(doc?['status']);
     final expiryDetails = rule.requiresExpiry || expiry != null
         ? expiry == null
-              ? '\nExpiry required'
-              : '\nExpiry: ${doc!['expiresAt']}'
-        : '';
-    final detailText = compact
-        ? '${rule.required ? 'Required · ' : ''}$status${soon ? ' · Expires within 30 days' : ''}$expiryDetails${reason == null ? '' : '\n$reason'}'
-        : '${rule.required ? 'Required by policy' : 'Optional'} · $status${soon ? ' · Expires within 30 days' : ''}$expiryDetails\n${rule.minimumPages}–5 files/pages; JPEG, PNG, WebP${rule.code == 'profile_photo' ? '' : ', PDF'}; ${rule.imageOnly ? 10 : 15} MiB/file, 30 MiB total${reason == null ? '' : '\nReason: $reason'}';
-    final actions = <Widget>[
-      if (doc != null)
-        IconButton(
-          tooltip: 'View document',
-          visualDensity: VisualDensity.compact,
-          icon: const Icon(Icons.visibility_outlined),
-          onPressed: _assets!.busy
-              ? null
-              : () => showPrivateDocumentPreview(
-                  context,
-                  _assets!.api,
-                  '/partners/${_assets!.partner!['id']}/documents/${doc['id']}',
-                  label,
-                ),
-        ),
-      IconButton(
-        tooltip: doc == null ? 'Upload' : 'Replace / resubmit',
-        visualDensity: VisualDensity.compact,
-        icon: const Icon(Icons.upload_file),
-        onPressed: _assets!.busy
-            ? null
-            : () {
-                if (_assets!.partner == null) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                        'Please create your provider/business profile first.',
+              ? 'Expiry required'
+              : 'Expiry: ${doc!['expiresAt']}'
+        : null;
+
+    return Card(
+      elevation: 0,
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(Ops.radius),
+        side: const BorderSide(color: Ops.borderSubtle),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        label,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                    ),
-                  );
-                  _business();
-                  return;
-                }
-                _upload(rule, vehicleId: vehicleId);
-              },
-      ),
-      if (doc != null &&
-          doc['status'] == 'PENDING' &&
-          (doc['version'] ?? 1) == 1)
-        IconButton(
-          tooltip: 'Remove unreviewed draft',
-          visualDensity: VisualDensity.compact,
-          icon: const Icon(Icons.delete_outline),
-          onPressed: _assets!.busy
-              ? null
-              : () async {
-                  if (await confirmOperation(
-                    context,
-                    'Remove draft document?',
-                    'Only an original unreviewed draft can be removed. Reviewed or replaced evidence must be retained.',
-                  )) {
-                    await _assets!.removeDraftDocument(doc['id'] as String);
-                  }
-                },
-        ),
-    ];
-    final tile = ListTile(
-      dense: compact,
-      contentPadding: compact ? EdgeInsets.zero : null,
-      onTap: doc == null || _assets!.busy
-          ? null
-          : () => showPrivateDocumentPreview(
-              context,
-              _assets!.api,
-              '/partners/${_assets!.partner!['id']}/documents/${doc['id']}',
-              rule.label,
+                      const SizedBox(height: 2),
+                      Text(
+                        rule.required
+                            ? 'Required document'
+                            : 'Optional document',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Ops.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                StatusPill(status),
+              ],
             ),
-      title: Text(
-        compact
-            ? label
-            : '$label — ${rule.required ? 'Required by policy' : 'Optional'}',
+            if (soon || expiryDetails != null || reason != null) ...[
+              const SizedBox(height: 6),
+              if (soon)
+                const Text(
+                  'Expires within 30 days',
+                  style: TextStyle(color: Ops.warning, fontSize: 12),
+                ),
+              if (expiryDetails != null)
+                Text(
+                  expiryDetails,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Ops.textSecondary,
+                  ),
+                ),
+              if (reason != null)
+                Container(
+                  margin: const EdgeInsets.only(top: 4),
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: Ops.error.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    reason,
+                    style: const TextStyle(color: Ops.error, fontSize: 12),
+                  ),
+                ),
+            ],
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                if (doc != null) ...[
+                  IconButton(
+                    tooltip: 'View document',
+                    visualDensity: VisualDensity.compact,
+                    icon: const Icon(Icons.visibility_outlined, size: 20),
+                    onPressed: _assets!.busy
+                        ? null
+                        : () => showPrivateDocumentPreview(
+                            context,
+                            _assets!.api,
+                            '/partners/${_assets!.partner!['id']}/documents/${doc['id']}',
+                            label,
+                          ),
+                  ),
+                  if (doc['status'] == 'PENDING' && (doc['version'] ?? 1) == 1)
+                    IconButton(
+                      tooltip: 'Remove unreviewed draft',
+                      visualDensity: VisualDensity.compact,
+                      icon: const Icon(
+                        Icons.delete_outline,
+                        size: 20,
+                        color: Ops.error,
+                      ),
+                      onPressed: _assets!.busy
+                          ? null
+                          : () async {
+                              if (await confirmOperation(
+                                context,
+                                'Remove draft document?',
+                                'Only an original unreviewed draft can be removed. Reviewed or replaced evidence must be retained.',
+                              )) {
+                                await _assets!.removeDraftDocument(
+                                  doc['id'] as String,
+                                );
+                              }
+                            },
+                    ),
+                  const Spacer(),
+                ] else
+                  const Spacer(),
+                OutlinedButton.icon(
+                  onPressed: _assets!.busy
+                      ? null
+                      : () {
+                          if (_assets!.partner == null) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Please create your provider/business profile first.',
+                                ),
+                              ),
+                            );
+                            _business();
+                            return;
+                          }
+                          _upload(rule, vehicleId: vehicleId);
+                        },
+                  icon: Icon(
+                    doc == null ? Icons.upload_file : Icons.refresh,
+                    size: 18,
+                  ),
+                  label: Text(doc == null ? 'Upload' : 'Replace'),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
-      subtitle: Text(detailText),
-      trailing: Row(mainAxisSize: MainAxisSize.min, children: actions),
     );
-    return compact ? tile : Card(child: tile);
   }
 
   String _documentLabel(DocumentRule rule) {
@@ -892,9 +1014,16 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
 
     return Card(
       key: ValueKey('fleet-vehicle-$vehicleId'),
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(Ops.radius),
+        side: const BorderSide(color: Ops.borderSubtle),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Row(
@@ -913,10 +1042,16 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
                     children: [
                       Text(
                         '${vehicle['make']} ${vehicle['model']}',
-                        style: Theme.of(context).textTheme.titleMedium,
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w600),
                       ),
+                      const SizedBox(height: 2),
                       Text(
                         '${vehicle['plateNumber']} · ${vehicle['sector'] ?? 'Sector unavailable'} · ${vehicle['category'] ?? 'Type unavailable'}',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Ops.textSecondary,
+                        ),
                       ),
                     ],
                   ),
@@ -925,6 +1060,7 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
                 if (assets.fleetMode)
                   IconButton(
                     tooltip: 'Vehicle revenue details',
+                    visualDensity: VisualDensity.compact,
                     onPressed: () => Navigator.of(context).push(
                       MaterialPageRoute<void>(
                         builder: (_) => FleetVehicleRevenueScreen(
@@ -938,43 +1074,90 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
               ],
             ),
             if (permanentCode != null && permanentCode.isNotEmpty)
-              ListTile(
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Permanent vehicle code'),
-                trailing: SelectableText(permanentCode),
+              Container(
+                margin: const EdgeInsets.only(top: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: Ops.surfaceOverlay,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: Ops.borderSubtle),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.pin_outlined,
+                      size: 16,
+                      color: Ops.textSecondary,
+                    ),
+                    const SizedBox(width: 6),
+                    const Text(
+                      'Permanent vehicle code',
+                      style: TextStyle(fontSize: 12, color: Ops.textSecondary),
+                    ),
+                    const Text(
+                      ': ',
+                      style: TextStyle(fontSize: 12, color: Ops.textSecondary),
+                    ),
+                    SelectableText(
+                      permanentCode,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             if (rejectionReason(vehicle) != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 6),
-                child: Text(rejectionReason(vehicle)!),
+              Container(
+                margin: const EdgeInsets.only(top: 8),
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Ops.error.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  rejectionReason(vehicle)!,
+                  style: const TextStyle(color: Ops.error, fontSize: 12),
+                ),
               ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             Wrap(
               spacing: 8,
-              runSpacing: 4,
+              runSpacing: 8,
               children: [
                 OutlinedButton.icon(
                   onPressed: assets.busy ? null : () => _vehicle(vehicle),
-                  icon: const Icon(Icons.edit_outlined),
+                  icon: const Icon(Icons.edit_outlined, size: 18),
                   label: const Text('Edit vehicle'),
                 ),
                 OutlinedButton.icon(
                   onPressed: assets.busy
                       ? null
                       : () => _vehicleDocuments(vehicle),
-                  icon: const Icon(Icons.description_outlined),
+                  icon: const Icon(Icons.description_outlined, size: 18),
                   label: const Text('Vehicle documents'),
                 ),
                 if (_canRequestVehicleReview(vehicle))
                   _review('vehicle', vehicleId, 'vehicle_verification'),
               ],
             ),
+            const SizedBox(height: 10),
             DropdownButtonFormField<String>(
+              isDense: true,
               initialValue: statusOptions.contains(operationalStatus)
                   ? operationalStatus
                   : 'ACTIVE',
-              decoration: const InputDecoration(labelText: 'Vehicle status'),
+              decoration: const InputDecoration(
+                labelText: 'Vehicle status',
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+              ),
               items: statusOptions
                   .map(
                     (status) =>
@@ -991,66 +1174,88 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
                 approval == ProviderStatus.approved &&
                 session.profile != null &&
                 session.assignedVehicle?['id'] != vehicleId)
-              Align(
-                alignment: Alignment.centerLeft,
-                child: OutlinedButton.icon(
-                  onPressed: assets.busy
-                      ? null
-                      : () async {
-                          final ok = await session.run(() async {
-                            await session.api.request(
-                              'POST',
-                              '/rides/driver/active-vehicle',
-                              body: {'vehicleId': vehicleId},
-                            );
-                          });
-                          if (ok) await session.refresh();
-                        },
-                  icon: const Icon(Icons.check_circle_outline),
-                  label: const Text('Select own approved vehicle'),
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: OutlinedButton.icon(
+                    onPressed: assets.busy
+                        ? null
+                        : () async {
+                            final ok = await session.run(() async {
+                              await session.api.request(
+                                'POST',
+                                '/rides/driver/active-vehicle',
+                                body: {'vehicleId': vehicleId},
+                              );
+                            });
+                            if (ok) await session.refresh();
+                          },
+                    icon: const Icon(Icons.check_circle_outline, size: 18),
+                    label: const Text('Select own approved vehicle'),
+                  ),
                 ),
               ),
             if (assets.fleetMode && assignedDriver is Map)
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Assigned Driver · ${assignedDriver['name'] ?? 'Driver'}',
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.person_outline,
+                      size: 18,
+                      color: Ops.textSecondary,
                     ),
-                  ),
-                  TextButton(
-                    onPressed: assets.busy
-                        ? null
-                        : () => assets.unassign(vehicleId),
-                    child: const Text('Unassign driver'),
-                  ),
-                ],
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        'Assigned Driver: ${assignedDriver['name'] ?? 'Driver'}',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: assets.busy
+                          ? null
+                          : () => assets.unassign(vehicleId),
+                      child: const Text('Unassign driver'),
+                    ),
+                  ],
+                ),
               ),
             if (assets.fleetMode &&
                 (assignedDriver is! Map) &&
                 activeCode != null &&
                 activeCode.isNotEmpty)
-              Align(
-                alignment: Alignment.centerLeft,
-                child: TextButton.icon(
-                  onPressed: () => _showAssignmentCode(vehicle),
-                  icon: const Icon(Icons.qr_code_2),
-                  label: Text(
-                    permanentCode == null ? 'Show Code' : 'Show vehicle code',
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: () => _showAssignmentCode(vehicle),
+                    icon: const Icon(Icons.qr_code_2, size: 18),
+                    label: Text(
+                      permanentCode == null ? 'Show Code' : 'Show vehicle code',
+                    ),
                   ),
                 ),
               ),
             if (assets.fleetMode &&
                 (assignedDriver is! Map) &&
                 (activeCode == null || activeCode.isEmpty))
-              Align(
-                alignment: Alignment.centerLeft,
-                child: TextButton.icon(
-                  onPressed: assets.busy
-                      ? null
-                      : () => _generateAssignmentCode(vehicle),
-                  icon: const Icon(Icons.qr_code_2),
-                  label: const Text('Generate assignment code'),
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: assets.busy
+                        ? null
+                        : () => _generateAssignmentCode(vehicle),
+                    icon: const Icon(Icons.qr_code_2, size: 18),
+                    label: const Text('Generate assignment code'),
+                  ),
                 ),
               ),
           ],
@@ -1183,6 +1388,7 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
                   currentIndex: _tab,
                   type: BottomNavigationBarType.fixed,
                   onTap: (value) => setState(() {
+                    assets.clearError();
                     _tab = value;
                     _search = '';
                   }),
@@ -1226,10 +1432,12 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
                   ? _submitPendingRequests
                   : null,
               onAddVehicle: () => setState(() {
+                assets.clearError();
                 _tab = 1;
                 _search = '';
               }),
               onAddDriver: () => setState(() {
+                assets.clearError();
                 _tab = 2;
                 _search = '';
               }),
@@ -1245,7 +1453,33 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
                   setState(() => _search = value.trim().toLowerCase()),
             ),
           if (assets.error != null)
-            Text(assets.error!, style: const TextStyle(color: Colors.red)),
+            Container(
+              margin: const EdgeInsets.symmetric(vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.red.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.red.shade200),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.error_outline, color: Colors.red, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      assets.error!,
+                      style: const TextStyle(color: Colors.red, fontSize: 13),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, size: 16, color: Colors.red),
+                    onPressed: assets.clearError,
+                    tooltip: 'Dismiss error',
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ],
+              ),
+            ),
           if (!assets.fleetMode)
             TextButton(
               onPressed: () => context.go(session.landingPath),
@@ -1508,10 +1742,41 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
                       _document(const DocumentRule('bank_proof')),
                     ]
                   : [
-                      const Padding(
-                        padding: EdgeInsets.all(12),
-                        child: Text(
-                          'JPEG, PNG or WebP; PDF where allowed · 10 MiB per image or 15 MiB per other file · 30 MiB total. The upload form enforces policy-specific counts and expiry.',
+                      Container(
+                        margin: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Ops.surfaceOverlay,
+                          borderRadius: BorderRadius.circular(Ops.radius),
+                          border: Border.all(color: Ops.borderSubtle),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Document upload rules',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            _bullet(
+                              'Accepted formats: JPEG, PNG, WebP (PDF where allowed)',
+                            ),
+                            _bullet(
+                              'File size limits: 10 MiB per image or 15 MiB per other file',
+                            ),
+                            _bullet(
+                              'Total combined upload size: maximum 30 MiB',
+                            ),
+                            _bullet(
+                              'Submissions undergo independent administrative review',
+                            ),
+                          ],
                         ),
                       ),
                       for (final r in rules.values.where(
@@ -1622,26 +1887,50 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
                           'licenseNumber',
                           'licenseExpiry',
                         },
-                        onSubmit: (input) => assets.run(() async {
+                        onSubmit: (input) async {
+                          final phoneRaw =
+                              (input['phone'] as String?)?.trim() ?? '';
+                          String? formattedPhone;
+                          if (phoneRaw.isNotEmpty) {
+                            var p = phoneRaw.replaceAll(RegExp(r'[\s()-]'), '');
+                            if (!p.startsWith('+')) {
+                              if (RegExp(r'^[1-9]\d{9}$').hasMatch(p)) {
+                                p = '+91$p';
+                              } else {
+                                p = '+$p';
+                              }
+                            }
+                            formattedPhone = p;
+                          }
+                          final payload = <String, dynamic>{
+                            'firstName': (input['firstName'] as String).trim(),
+                            'lastName': (input['lastName'] as String).trim(),
+                            if (input['email'] != null &&
+                                (input['email'] as String).trim().isNotEmpty)
+                              'email': (input['email'] as String)
+                                  .trim()
+                                  .toLowerCase(),
+                            // ignore: use_null_aware_elements
+                            if (formattedPhone != null) 'phone': formattedPhone,
+                            'licenseNumber': (input['licenseNumber'] as String)
+                                .trim(),
+                            'licenseExpiry': (input['licenseExpiry'] as String)
+                                .trim(),
+                          };
                           result = Map<String, dynamic>.from(
                             await session.api.request(
                               'POST',
                               '/provider/managed-drivers',
-                              body: {
-                                ...input,
-                                if (input['email'] != null)
-                                  'email': (input['email'] as String)
-                                      .trim()
-                                      .toLowerCase(),
-                                if (input['phone'] != null)
-                                  'phone': (input['phone'] as String)
-                                      .replaceAll(RegExp(r'[\s()-]'), ''),
-                              },
+                              body: payload,
                             ) as Map,
                           );
-                        }),
+                          return true;
+                        },
                       );
-                      if (input == null || result == null) return;
+                      if (input == null || result == null) {
+                        assets.clearError();
+                        return;
+                      }
                       if (context.mounted) {
                         setState(() => _driversVersion++);
                         ScaffoldMessenger.of(context).showSnackBar(
@@ -1859,25 +2148,225 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
             ExpansionTile(
               title: const Text('Verification requests'),
               children: [
-                for (final a in assets.approvals)
-                  ListTile(
-                    title: Text(
-                      (a['request_type'] ?? a['requestType']).toString(),
-                    ),
-                    subtitle: Text(
-                      '${statusLabel(a['status'])}\n${a['rejection_reason'] ?? a['rejectionReason'] ?? ''}',
+                if (assets.approvals.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.all(16),
+                    child: OpsEmpty(
+                      'No verification requests submitted yet.',
+                      icon: Icons.assignment_turned_in_outlined,
                     ),
                   ),
+                for (final a in assets.approvals) ...[
+                  Card(
+                    elevation: 0,
+                    margin: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 6,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(Ops.radius),
+                      side: const BorderSide(color: Ops.borderSubtle),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(14),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      verificationRequestLabel(
+                                        a['request_type'] ?? a['requestType'],
+                                      ),
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 15,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      verificationRequestDescription(
+                                        a['request_type'] ?? a['requestType'],
+                                      ),
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: Ops.textSecondary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              StatusPill(statusLabel(a['status'])),
+                            ],
+                          ),
+                          if ((a['rejection_reason'] ?? a['rejectionReason']) !=
+                                  null &&
+                              (a['rejection_reason'] ?? a['rejectionReason'])
+                                  .toString()
+                                  .trim()
+                                  .isNotEmpty) ...[
+                            const SizedBox(height: 10),
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Ops.error.withValues(alpha: 0.08),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                (a['rejection_reason'] ?? a['rejectionReason'])
+                                    .toString(),
+                                style: const TextStyle(
+                                  color: Ops.error,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
             ExpansionTile(
               title: const Text('Settlement ledger'),
               children: [
+                if ((assets.earnings?['periods'] as List? ?? []).isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.all(16),
+                    child: OpsEmpty(
+                      'No settlement ledger periods available.',
+                      icon: Icons.account_balance_wallet_outlined,
+                    ),
+                  ),
                 for (final row in assets.earnings?['periods'] as List? ?? [])
-                  ListTile(
-                    title: Text(row['period'].toString()),
-                    subtitle: Text(
-                      'Gross ₹${(double.tryParse(row['grossPaise'].toString()) ?? 0) / 100} • Commission ₹${(double.tryParse(row['commissionPaise'].toString()) ?? 0) / 100} • Net ₹${(double.tryParse(row['netPaise'].toString()) ?? 0) / 100}',
+                  Card(
+                    elevation: 0,
+                    margin: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 6,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(Ops.radius),
+                      side: const BorderSide(color: Ops.borderSubtle),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(14),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                '${ledgerPeriodLabel(row['period'])} settlement',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 15,
+                                ),
+                              ),
+                              Text(
+                                inr(row['netPaise']),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 16,
+                                  color: Ops.success,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            ledgerPeriodDescription(row['period']),
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Ops.textSecondary,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          const Divider(height: 1),
+                          const SizedBox(height: 10),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'Gross earnings',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Ops.textSecondary,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      inr(row['grossPaise']),
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'Commission',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Ops.textSecondary,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      inr(row['commissionPaise']),
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'Net payout',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Ops.textSecondary,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      inr(row['netPaise']),
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 13,
+                                        color: Ops.success,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                   ),
               ],

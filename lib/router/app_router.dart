@@ -36,6 +36,68 @@ final appRouter = createAppRouter();
 
 GoRouter createAppRouter() => GoRouter(
   initialLocation: '/login',
+  errorBuilder: (context, state) => Scaffold(
+    backgroundColor: InfurnusTheme.bgWhite,
+    appBar: AppBar(
+      title: const Text('Page Not Found'),
+      backgroundColor: Colors.white,
+      foregroundColor: InfurnusTheme.textDark,
+      elevation: 0,
+    ),
+    body: Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(
+              Icons.search_off_rounded,
+              size: 64,
+              color: InfurnusTheme.textMuted,
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Page Not Found',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: InfurnusTheme.textDark,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'The requested route (${state.uri.path}) does not exist or has moved.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 14,
+                color: InfurnusTheme.textMuted,
+              ),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: InfurnusTheme.primaryGreen,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
+              ),
+              onPressed: () {
+                if (context.canPop()) {
+                  context.pop();
+                } else {
+                  context.go('/login');
+                }
+              },
+              icon: const Icon(Icons.arrow_back),
+              label: const Text('Go Back'),
+            ),
+          ],
+        ),
+      ),
+    ),
+  ),
   redirect: (context, state) {
     final session = context.read<DriverSession>(), path = state.uri.path;
     if (session.restoring) {
@@ -290,6 +352,26 @@ GoRouter createAppRouter() => GoRouter(
     GoRoute(
       path: '/fleet/dashboard',
       builder: (_, _) => const ProviderAssetsScreen(),
+    ),
+    GoRoute(
+      path: '/fleet/tracking',
+      builder: (_, _) => const ProviderAssetsScreen(initialTab: 3),
+    ),
+    GoRoute(
+      path: '/fleet/vehicles',
+      builder: (_, _) => const ProviderAssetsScreen(initialTab: 1),
+    ),
+    GoRoute(
+      path: '/fleet/drivers',
+      builder: (_, _) => const ProviderAssetsScreen(initialTab: 2),
+    ),
+    GoRoute(
+      path: '/fleet/assignment',
+      builder: (_, _) => const ProviderAssetsScreen(initialTab: 1),
+    ),
+    GoRoute(
+      path: '/fleet/revenue',
+      builder: (_, _) => const ProviderAssetsScreen(initialTab: 5),
     ),
     GoRoute(
       path: '/admin/dashboard',

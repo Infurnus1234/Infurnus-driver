@@ -101,7 +101,9 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.textContaining('Active pickup'), findsOneWidget);
-      await tester.tap(find.widgetWithText(ChoiceChip, 'Completed'));
+      await tester.tap(find.byKey(const Key('filter-status')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Completed').last);
       await tester.pumpAndSettle();
       expect(find.textContaining('Active pickup'), findsNothing);
       expect(find.textContaining('Completed pickup'), findsOneWidget);

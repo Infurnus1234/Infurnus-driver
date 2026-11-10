@@ -22,11 +22,13 @@ class ApiException implements Exception {
   final int? status;
   final String? code;
   final bool generic;
+  final String? serverMessage;
   const ApiException(
     this.message, [
     this.status,
     this.code,
     this.generic = false,
+    this.serverMessage,
   ]);
   @override
   String toString() => message;
@@ -249,8 +251,9 @@ class ApiService {
         envelope?['success'] == false) {
       final error = envelope?['error'];
       final code = error is Map ? error['code']?.toString() : null;
+      final serverMessage = error is Map ? error['message']?.toString() : null;
       developer.log(
-        'API request failed: $method $requestPath status=${response.statusCode} code=${code ?? 'unknown'}',
+        'API request failed: $method $requestPath status=${response.statusCode} code=${code ?? 'unknown'} message=${serverMessage ?? ''}',
         name: 'ApiService',
       );
       if (isTestOnboarding &&
@@ -273,6 +276,8 @@ class ApiService {
         _userFacingError(code, response.statusCode),
         response.statusCode,
         code,
+        false,
+        serverMessage,
       );
     }
     if (response.statusCode == 204) return null;

@@ -190,7 +190,9 @@ class _AccountDetailsCardState extends State<AccountDetailsCard> {
           ),
           ListTile(
             title: const Text('Provider ID'),
-            subtitle: Text(session.publicId ?? 'Unavailable'),
+            subtitle: Text(
+              session.publicId ?? 'System-generated upon verification',
+            ),
           ),
           if (_expanded) ...[
             if (_loading) const LinearProgressIndicator(),
