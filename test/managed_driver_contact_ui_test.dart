@@ -130,10 +130,7 @@ void main() {
         } else {
           expect(posts, hasLength(1));
           expect(find.text('Create Driver profile'), findsOneWidget);
-          expect(
-            find.textContaining('Synthetic save stop'),
-            findsOneWidget,
-          );
+          expect(find.textContaining('Synthetic save stop'), findsOneWidget);
           expect(
             tester
                 .widget<TextFormField>(
