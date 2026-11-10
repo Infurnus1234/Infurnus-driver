@@ -2138,25 +2138,225 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
             ExpansionTile(
               title: const Text('Verification requests'),
               children: [
-                for (final a in assets.approvals)
-                  ListTile(
-                    title: Text(
-                      (a['request_type'] ?? a['requestType']).toString(),
-                    ),
-                    subtitle: Text(
-                      '${statusLabel(a['status'])}\n${a['rejection_reason'] ?? a['rejectionReason'] ?? ''}',
+                if (assets.approvals.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.all(16),
+                    child: OpsEmpty(
+                      'No verification requests submitted yet.',
+                      icon: Icons.assignment_turned_in_outlined,
                     ),
                   ),
+                for (final a in assets.approvals) ...[
+                  Card(
+                    elevation: 0,
+                    margin: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 6,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(Ops.radius),
+                      side: const BorderSide(color: Ops.borderSubtle),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(14),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      verificationRequestLabel(
+                                        a['request_type'] ?? a['requestType'],
+                                      ),
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 15,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      verificationRequestDescription(
+                                        a['request_type'] ?? a['requestType'],
+                                      ),
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: Ops.textSecondary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              StatusPill(statusLabel(a['status'])),
+                            ],
+                          ),
+                          if ((a['rejection_reason'] ?? a['rejectionReason']) !=
+                                  null &&
+                              (a['rejection_reason'] ?? a['rejectionReason'])
+                                  .toString()
+                                  .trim()
+                                  .isNotEmpty) ...[
+                            const SizedBox(height: 10),
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Ops.error.withValues(alpha: 0.08),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                (a['rejection_reason'] ?? a['rejectionReason'])
+                                    .toString(),
+                                style: const TextStyle(
+                                  color: Ops.error,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
             ExpansionTile(
               title: const Text('Settlement ledger'),
               children: [
+                if ((assets.earnings?['periods'] as List? ?? []).isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.all(16),
+                    child: OpsEmpty(
+                      'No settlement ledger periods available.',
+                      icon: Icons.account_balance_wallet_outlined,
+                    ),
+                  ),
                 for (final row in assets.earnings?['periods'] as List? ?? [])
-                  ListTile(
-                    title: Text(row['period'].toString()),
-                    subtitle: Text(
-                      'Gross ₹${(double.tryParse(row['grossPaise'].toString()) ?? 0) / 100} • Commission ₹${(double.tryParse(row['commissionPaise'].toString()) ?? 0) / 100} • Net ₹${(double.tryParse(row['netPaise'].toString()) ?? 0) / 100}',
+                  Card(
+                    elevation: 0,
+                    margin: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 6,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(Ops.radius),
+                      side: const BorderSide(color: Ops.borderSubtle),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(14),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                '${ledgerPeriodLabel(row['period'])} settlement',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 15,
+                                ),
+                              ),
+                              Text(
+                                inr(row['netPaise']),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 16,
+                                  color: Ops.success,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            ledgerPeriodDescription(row['period']),
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Ops.textSecondary,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          const Divider(height: 1),
+                          const SizedBox(height: 10),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'Gross earnings',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Ops.textSecondary,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      inr(row['grossPaise']),
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'Commission',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Ops.textSecondary,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      inr(row['commissionPaise']),
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'Net payout',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Ops.textSecondary,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      inr(row['netPaise']),
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 13,
+                                        color: Ops.success,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                   ),
               ],

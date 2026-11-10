@@ -78,7 +78,10 @@ GoRouter createAppRouter() => GoRouter(
               style: ElevatedButton.styleFrom(
                 backgroundColor: InfurnusTheme.primaryGreen,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
               ),
               onPressed: () {
                 if (context.canPop()) {
