@@ -348,6 +348,12 @@ class ApiService {
     if (code == 'INVALID_PIN') {
       return 'Incorrect PIN. Check the four digits with the passenger and try again.';
     }
+    if (code == 'END_PIN_REQUIRED') {
+      return 'Customer delivery PIN is required to complete this delivery. Update the app to complete this delivery.';
+    }
+    if (code == 'INVALID_END_PIN') {
+      return 'Incorrect delivery PIN. Check the four digits with the customer and try again.';
+    }
     if (code == 'DUPLICATE_VEHICLE') {
       return 'This vehicle is already registered. Check the registration details.';
     }
