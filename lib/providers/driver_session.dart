@@ -1748,10 +1748,16 @@ class DriverSession extends ChangeNotifier {
     await bridge.dismissOffer(id);
     await _load();
   });
-  Future<bool> transition(String status, {String? pin}) => run(() async {
+  Future<bool> transition(String status, {String? pin, String? endPin}) => run(() async {
     if (currentTrip == null) throw const ApiException('No active trip.');
     if (isPreview) {
       if (status == 'completed') {
+        if (currentTrip?['sector'] == 'logistics' &&
+            (endPin == null || !RegExp(r'^\d{4}$').hasMatch(endPin))) {
+          throw const ApiException(
+            'Enter the customer’s four-digit Delivery PIN to complete the trip.',
+          );
+        }
         _setCurrentTrip(null);
       } else {
         if (status == 'in_progress' &&
@@ -1767,7 +1773,17 @@ class DriverSession extends ChangeNotifier {
     }
     final id = Uri.encodeComponent(currentTrip!['id'] as String);
     if (status == 'completed') {
-      await api.request('POST', '/rides/$id/complete');
+      if (currentTrip?['sector'] == 'logistics' &&
+          (endPin == null || !RegExp(r'^\d{4}$').hasMatch(endPin))) {
+        throw const ApiException(
+          'Enter the customer’s four-digit Delivery PIN to complete the trip.',
+        );
+      }
+      await api.request(
+        'POST',
+        '/rides/$id/complete',
+        body: endPin != null ? {'endPin': endPin} : null,
+      );
     } else if (status == 'in_progress') {
       if (currentTrip?['sector'] == 'logistics' &&
           currentTrip?['upfrontPaymentStatus'] != 'PAID_VERIFIED') {
