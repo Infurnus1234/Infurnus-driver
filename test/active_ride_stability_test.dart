@@ -7,6 +7,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:infurnus_driver/providers/driver_session.dart';
+import 'package:infurnus_driver/screens/driver/driver_home_screen.dart';
 import 'package:infurnus_driver/screens/driver/driver_navigation_screen.dart';
 import 'package:infurnus_driver/screens/driver/operations_dashboard.dart';
 import 'package:infurnus_driver/services/api_service.dart';
@@ -57,6 +58,77 @@ http.Response _data(Object? data) =>
     http.Response(jsonEncode({'success': true, 'data': data}), 200);
 
 void main() {
+  for (final cancelled in [false, true]) {
+    testWidgets(
+      'Driver Mode blocks going offline until the ride is ${cancelled ? 'cancelled' : 'completed'}',
+      (tester) async {
+        final session =
+            _Session(
+                ApiService(
+                  client: MockClient((request) async {
+                    expect(request.url.path, '/rides/driver/current-trip');
+                    return _data(null);
+                  }),
+                ),
+              )
+              ..isPreview = true
+              ..profile = {'onlinePreference': true}
+              ..rides = [
+                {..._ride(), 'sector': 'passenger'},
+              ];
+        session.api.accessToken = 'local-test';
+        session.api.userId = 'driver-test';
+        addTearDown(session.dispose);
+
+        await tester.pumpWidget(
+          ChangeNotifierProvider<DriverSession>.value(
+            value: session,
+            child: const MaterialApp(home: DriverHomeScreen()),
+          ),
+        );
+        final toggle = find.byType(Switch);
+        Switch statusSwitch() => tester.widget<Switch>(toggle);
+        await tester.tap(toggle);
+        await tester.pumpAndSettle();
+        expect(session.online, isFalse);
+        await tester.tap(toggle);
+        await tester.pumpAndSettle();
+        expect(session.online, isTrue);
+
+        expect(await session.accept(_rideId), isTrue);
+        await tester.pumpAndSettle();
+        expect(statusSwitch().value, isTrue);
+        expect(statusSwitch().onChanged, isNull);
+
+        final navigator = tester.state<NavigatorState>(find.byType(Navigator));
+        unawaited(
+          navigator.push<void>(
+            MaterialPageRoute(builder: (_) => const Scaffold()),
+          ),
+        );
+        await tester.pumpAndSettle();
+        navigator.pop();
+        await tester.pumpAndSettle();
+        expect(statusSwitch().onChanged, isNull);
+
+        expect(await session.setOnline(false), isFalse);
+        expect(session.online, isTrue);
+        if (cancelled) {
+          expect(await session.refresh(automatic: true), isTrue);
+        } else {
+          expect(await session.transition('completed'), isTrue);
+        }
+        await tester.pumpAndSettle();
+        expect(session.currentTrip, isNull);
+        expect(statusSwitch().value, isTrue);
+        expect(statusSwitch().onChanged, isNotNull);
+        await tester.tap(toggle);
+        await tester.pumpAndSettle();
+        expect(session.online, isFalse);
+      },
+    );
+  }
+
   testWidgets(
     'GPS, polling, payment and resume leave the active ride panel stable',
     (tester) async {

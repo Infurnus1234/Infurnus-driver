@@ -313,13 +313,14 @@ class _RidePanelDetails extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (id, status, sector, busy, error) = context.select(
+    final (id, status, sector, busy, error, canComplete) = context.select(
       (DriverSession s) => (
         s.currentTrip?['id'],
         s.currentTrip?['status'],
         s.currentTrip?['sector'],
         s.busy,
         s.error,
+        s.canCompleteAtDestination,
       ),
     );
     final session = context.read<DriverSession>();
@@ -380,7 +381,7 @@ class _RidePanelDetails extends StatelessWidget {
               ),
               const SizedBox(height: 12),
             ],
-            if (next != null)
+            if (next != null && (next != 'completed' || canComplete))
               FilledButton(
                 style: FilledButton.styleFrom(
                   backgroundColor: const Color(0xFF00B313),

@@ -175,7 +175,83 @@ class DriverSession extends ChangeNotifier {
   Map<String, dynamic>? history;
   int historyLimit = 20;
   List<Map<String, dynamic>> rides = [];
-  Position? position;
+  Position? _position;
+  Position? _arrivalPosition;
+  Position? _previousPosition;
+  Timer? _arrivalExpiry;
+  static const _arrivalFreshness = Duration(seconds: 30);
+  static const _destinationRestrictedSectors = {
+    'logistics',
+    'premium',
+    'rental',
+    'service',
+  };
+
+  Position? get position => _position;
+  set position(Position? fix) {
+    _position = fix;
+    if (fix != null &&
+        _arrivalPosition != null &&
+        !fix.timestamp.isAfter(_arrivalPosition!.timestamp)) {
+      return;
+    }
+    _arrivalExpiry?.cancel();
+    _previousPosition = fix == null ? null : _arrivalPosition;
+    _arrivalPosition = fix;
+    final previous = _previousPosition;
+    if (previous == null || fix == null) return;
+    final remaining =
+        _arrivalFreshness - DateTime.now().difference(previous.timestamp);
+    if (remaining > Duration.zero) {
+      _arrivalExpiry = Timer(remaining, _notify);
+    }
+  }
+
+  bool get canCompleteAtDestination {
+    if (currentTrip?['status'] != 'in_progress') return false;
+    if (!_destinationRestrictedSectors.contains(currentTrip?['sector'])) {
+      return true;
+    }
+    final destination = currentTrip?['destination'];
+    if (destination is! Map) return false;
+    final latitude = destination['latitude'];
+    final longitude = destination['longitude'];
+    if (latitude is! num ||
+        longitude is! num ||
+        !_validArrivalCoordinates(latitude, longitude)) {
+      return false;
+    }
+    final now = DateTime.now();
+    bool withinDestination(Position? fix) {
+      if (fix == null ||
+          fix.isMocked ||
+          !fix.accuracy.isFinite ||
+          fix.accuracy <= 0 ||
+          fix.accuracy > 30 ||
+          !_validArrivalCoordinates(fix.latitude, fix.longitude)) {
+        return false;
+      }
+      final age = now.difference(fix.timestamp);
+      return age >= const Duration(seconds: -2) &&
+          age < _arrivalFreshness &&
+          Geolocator.distanceBetween(
+                    fix.latitude,
+                    fix.longitude,
+                    latitude.toDouble(),
+                    longitude.toDouble(),
+                  ) +
+                  fix.accuracy <=
+              100;
+    }
+
+    return withinDestination(_arrivalPosition) &&
+        withinDestination(_previousPosition);
+  }
+
+  static bool _validArrivalCoordinates(num latitude, num longitude) =>
+      latitude.abs() <= 90 &&
+      longitude.abs() <= 180 &&
+      (latitude != 0 || longitude != 0);
   String? challengeId;
   String? signupId;
   String? verificationContact;
@@ -1570,6 +1646,9 @@ class DriverSession extends ChangeNotifier {
           onError: (_) {
             final failed = _positions;
             _positions = null;
+            _arrivalExpiry?.cancel();
+            _arrivalPosition = null;
+            _previousPosition = null;
             unawaited(failed?.cancel());
             locationWarning =
                 'Location tracking stopped. Check GPS and permissions.';
@@ -1661,39 +1740,42 @@ class DriverSession extends ChangeNotifier {
     locationWarning = null;
   }
 
-  Future<bool> setOnline(bool value) => run(() async {
-    if (value == online) return;
-    if (isPreview) {
+  Future<bool> setOnline(bool value) async {
+    if (!value && currentTrip != null) return false;
+    return run(() async {
+      if (value == online) return;
+      if (isPreview) {
+        profile?['onlinePreference'] = value;
+        profile?['availabilityStatus'] = value ? 'available' : 'unavailable';
+        return;
+      }
+      if (value && !operationalAllowed) {
+        throw const ApiException(
+          'Complete backend approval and vehicle assignment before going online.',
+        );
+      }
+      if (value) await _startLocation(retry: true);
+      try {
+        await api.request(
+          'PATCH',
+          '/rides/driver/availability',
+          body: {'status': value ? 'available' : 'unavailable'},
+        );
+      } catch (_) {
+        if (value) {
+          await _positions?.cancel();
+          _positions = null;
+        }
+        rethrow;
+      }
       profile?['onlinePreference'] = value;
-      profile?['availabilityStatus'] = value ? 'available' : 'unavailable';
-      return;
-    }
-    if (value && !operationalAllowed) {
-      throw const ApiException(
-        'Complete backend approval and vehicle assignment before going online.',
-      );
-    }
-    if (value) await _startLocation(retry: true);
-    try {
-      await api.request(
-        'PATCH',
-        '/rides/driver/availability',
-        body: {'status': value ? 'available' : 'unavailable'},
-      );
-    } catch (_) {
-      if (value) {
+      if (!value && currentTrip == null) {
         await _positions?.cancel();
         _positions = null;
       }
-      rethrow;
-    }
-    profile?['onlinePreference'] = value;
-    if (!value && currentTrip == null) {
-      await _positions?.cancel();
-      _positions = null;
-    }
-    await _load();
-  });
+      await _load();
+    });
+  }
 
   Future<bool> accept(String id) => run(() async {
     dismissRideNotifications();
@@ -1750,6 +1832,13 @@ class DriverSession extends ChangeNotifier {
   });
   Future<bool> transition(String status, {String? pin}) => run(() async {
     if (currentTrip == null) throw const ApiException('No active trip.');
+    if (status == 'completed' &&
+        _destinationRestrictedSectors.contains(currentTrip?['sector']) &&
+        !canCompleteAtDestination) {
+      throw const ApiException(
+        'Reach the saved destination and wait for an accurate GPS fix before completing the trip.',
+      );
+    }
     if (isPreview) {
       if (status == 'completed') {
         _setCurrentTrip(null);
@@ -2242,6 +2331,7 @@ class DriverSession extends ChangeNotifier {
 
   @override
   void dispose() {
+    _arrivalExpiry?.cancel();
     _disposed = true;
     _clear(persist: false);
     api.dispose();

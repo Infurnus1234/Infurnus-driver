@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:infurnus_driver/providers/driver_session.dart';
 import 'package:infurnus_driver/router/app_router.dart';
 import 'package:infurnus_driver/screens/driver/driver_navigation_screen.dart';
@@ -7,6 +8,71 @@ import 'package:infurnus_driver/widgets/trip_map.dart';
 import 'package:provider/provider.dart';
 
 void main() {
+  for (final sector in ['logistics', 'premium', 'rental', 'service']) {
+    testWidgets('$sector completion requires two accurate destination fixes', (
+      tester,
+    ) async {
+      final (latitude, longitude) = sector == 'logistics'
+          ? (26.65, 84.92) // Motihari
+          : (25.86, 85.78); // Samastipur
+      final session = _LocationSession()
+        ..currentTrip = {
+          ..._trip(),
+          'sector': sector,
+          'destination': {'latitude': latitude, 'longitude': longitude},
+        };
+      await tester.pumpWidget(
+        ChangeNotifierProvider<DriverSession>.value(
+          value: session,
+          child: const MaterialApp(home: DriverNavigationScreen()),
+        ),
+      );
+      final button = find.text('Complete Ride');
+      expect(button, findsNothing);
+      final stale = DateTime.now().subtract(const Duration(minutes: 1));
+      session.sample(_fix(latitude, longitude, stale));
+      session.sample(
+        _fix(latitude, longitude, stale.add(const Duration(seconds: 1))),
+      );
+      await tester.pump();
+      expect(button, findsNothing);
+      var timestamp = DateTime.now().subtract(const Duration(seconds: 15));
+      session.sample(_fix(25.61, 85.14, timestamp)); // Patna
+      await tester.pump();
+      expect(button, findsNothing);
+      Future<void> fix(double offset, {double accuracy = 8}) async {
+        timestamp = timestamp.add(const Duration(milliseconds: 500));
+        session.sample(
+          _fix(
+            latitude + offset / 111195,
+            longitude,
+            timestamp,
+            accuracy: accuracy,
+          ),
+        );
+        await tester.pump();
+      }
+
+      for (final distance in [10000.0, 1000.0, 200.0]) {
+        await fix(distance);
+        await fix(distance);
+        expect(button, findsNothing);
+      }
+      await fix(80);
+      expect(button, findsNothing);
+      await fix(80, accuracy: 35);
+      expect(button, findsNothing);
+      await fix(80);
+      expect(button, findsNothing);
+      await fix(80);
+      expect(button, findsOneWidget);
+      await fix(200);
+      expect(button, findsNothing);
+      await tester.pumpWidget(const SizedBox());
+      session.dispose();
+    });
+  }
+
   testWidgets('ride details have three heights and can scroll at half height', (
     tester,
   ) async {
@@ -64,6 +130,13 @@ void main() {
     final session = _DelayedCompletionSession()
       ..isPreview = true
       ..currentTrip = _trip();
+    final now = DateTime.now();
+    session.position = _fix(
+      26.12,
+      85.39,
+      now.subtract(const Duration(seconds: 2)),
+    );
+    session.position = _fix(26.12, 85.39, now);
     final router = createAppRouter();
     await tester.pumpWidget(
       ChangeNotifierProvider<DriverSession>.value(
@@ -113,6 +186,31 @@ class _DelayedCompletionSession extends DriverSession {
   }
 }
 
+class _LocationSession extends DriverSession {
+  void sample(Position fix) {
+    position = fix;
+    notifyListeners();
+  }
+}
+
+Position _fix(
+  double latitude,
+  double longitude,
+  DateTime timestamp, {
+  double accuracy = 8,
+}) => Position(
+  latitude: latitude,
+  longitude: longitude,
+  timestamp: timestamp,
+  accuracy: accuracy,
+  altitude: 0,
+  altitudeAccuracy: 0,
+  heading: 0,
+  headingAccuracy: 0,
+  speed: 0,
+  speedAccuracy: 0,
+);
+
 Map<String, dynamic> _trip() => {
   'id': 'qa-ride',
   'bookingId': '4441604',
@@ -120,6 +218,7 @@ Map<String, dynamic> _trip() => {
   'sector': 'logistics',
   'pickupAddress': 'Patna',
   'destinationAddress': 'Muzaffarpur',
+  'destination': {'latitude': 26.12, 'longitude': 85.39},
   'pinVerified': true,
   'fareEstimate': 2003,
   'upfrontPaymentStatus': 'PAID_VERIFIED',

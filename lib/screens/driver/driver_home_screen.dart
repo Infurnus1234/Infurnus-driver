@@ -246,7 +246,10 @@ class DriverHomeScreen extends StatelessWidget {
                               child: FittedBox(
                                 child: Switch(
                                   value: session.online,
-                                  onChanged: session.busy
+                                  onChanged:
+                                      session.busy ||
+                                          (session.online &&
+                                              session.currentTrip != null)
                                       ? null
                                       : session.setOnline,
                                   activeThumbColor: Colors.white,
