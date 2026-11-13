@@ -9,68 +9,74 @@ import 'package:provider/provider.dart';
 
 void main() {
   for (final sector in ['logistics', 'premium', 'rental', 'service']) {
-    testWidgets('$sector completion requires two accurate destination fixes', (
-      tester,
-    ) async {
-      final (latitude, longitude) = sector == 'logistics'
-          ? (26.65, 84.92) // Motihari
-          : (25.86, 85.78); // Samastipur
-      final session = _LocationSession()
-        ..currentTrip = {
-          ..._trip(),
-          'sector': sector,
-          'destination': {'latitude': latitude, 'longitude': longitude},
-        };
-      await tester.pumpWidget(
-        ChangeNotifierProvider<DriverSession>.value(
-          value: session,
-          child: const MaterialApp(home: DriverNavigationScreen()),
-        ),
-      );
-      final button = find.text('Complete Ride');
-      expect(button, findsNothing);
-      final stale = DateTime.now().subtract(const Duration(minutes: 1));
-      session.sample(_fix(latitude, longitude, stale));
-      session.sample(
-        _fix(latitude, longitude, stale.add(const Duration(seconds: 1))),
-      );
-      await tester.pump();
-      expect(button, findsNothing);
-      var timestamp = DateTime.now().subtract(const Duration(seconds: 15));
-      session.sample(_fix(25.61, 85.14, timestamp)); // Patna
-      await tester.pump();
-      expect(button, findsNothing);
-      Future<void> fix(double offset, {double accuracy = 8}) async {
-        timestamp = timestamp.add(const Duration(milliseconds: 500));
-        session.sample(
-          _fix(
-            latitude + offset / 111195,
-            longitude,
-            timestamp,
-            accuracy: accuracy,
+    testWidgets(
+      '$sector completion responds to the latest accurate destination fix',
+      (tester) async {
+        final (latitude, longitude) = sector == 'logistics'
+            ? (26.65, 84.92) // Motihari
+            : (25.86, 85.78); // Samastipur
+        final session = _LocationSession()
+          ..currentTrip = {
+            ..._trip(),
+            'sector': sector,
+            'destination': {'latitude': latitude, 'longitude': longitude},
+          };
+        await tester.pumpWidget(
+          ChangeNotifierProvider<DriverSession>.value(
+            value: session,
+            child: const MaterialApp(home: DriverNavigationScreen()),
           ),
         );
+        await tester.tap(find.byKey(const ValueKey('ride-details-handle')));
+        await tester.pumpAndSettle();
+        final button = find.widgetWithText(FilledButton, 'Complete Ride');
+        bool enabled() => tester.widget<FilledButton>(button).onPressed != null;
+        expect(button, findsOneWidget);
+        expect(enabled(), isFalse);
+        expect(
+          find.text(
+            'Reach within 100 meters of your destination to complete the trip.',
+          ),
+          findsOneWidget,
+        );
+        final stale = DateTime.now().subtract(const Duration(minutes: 1));
+        session.sample(_fix(latitude, longitude, stale));
         await tester.pump();
-      }
+        expect(enabled(), isFalse);
+        var timestamp = DateTime.now().subtract(const Duration(seconds: 15));
+        Future<void> fix(double offset, {double accuracy = 8}) async {
+          timestamp = timestamp.add(const Duration(milliseconds: 500));
+          session.sample(
+            _fix(
+              latitude + offset / 111195.080,
+              longitude,
+              timestamp,
+              accuracy: accuracy,
+            ),
+          );
+          await tester.pump();
+        }
 
-      for (final distance in [10000.0, 1000.0, 200.0]) {
-        await fix(distance);
-        await fix(distance);
-        expect(button, findsNothing);
-      }
-      await fix(80);
-      expect(button, findsNothing);
-      await fix(80, accuracy: 35);
-      expect(button, findsNothing);
-      await fix(80);
-      expect(button, findsNothing);
-      await fix(80);
-      expect(button, findsOneWidget);
-      await fix(200);
-      expect(button, findsNothing);
-      await tester.pumpWidget(const SizedBox());
-      session.dispose();
-    });
+        for (final distance in [10000.0, 1000.0, 500.0, 101.0]) {
+          await fix(distance);
+          expect(enabled(), isFalse);
+        }
+        await fix(100);
+        expect(enabled(), isTrue);
+        await fix(99);
+        expect(enabled(), isTrue);
+        await fix(50, accuracy: 35);
+        expect(enabled(), isFalse);
+        await fix(50);
+        expect(enabled(), isTrue);
+        await fix(0);
+        expect(enabled(), isTrue);
+        await fix(101);
+        expect(enabled(), isFalse);
+        await tester.pumpWidget(const SizedBox());
+        session.dispose();
+      },
+    );
   }
 
   testWidgets('ride details have three heights and can scroll at half height', (
@@ -90,10 +96,11 @@ void main() {
     final handle = find.byKey(const ValueKey('ride-details-handle'));
     final map = find.byType(TripMap);
     final originalMap = tester.state(map);
-    expect(tester.getSize(panel).height, closeTo(740 * .18, 1));
+    final collapsedHeight = tester.getSize(panel).height;
+    expect(collapsedHeight, greaterThan(740 * .18));
     expect(tester.getSize(map), const Size(360, 740));
     expect(find.text('Booking #4441604 · In progress'), findsOneWidget);
-    expect(find.text('Complete Ride').hitTestable(), findsNothing);
+    expect(find.text('Complete Ride').hitTestable(), findsOneWidget);
 
     await tester.drag(handle, const Offset(0, -205));
     await tester.pumpAndSettle();
@@ -113,12 +120,14 @@ void main() {
     await tester.tap(handle);
     await tester.pumpAndSettle();
     expect(tester.getSize(panel).height, closeTo(740 * .86, 1));
+    await tester.ensureVisible(find.text('Support'));
+    await tester.pumpAndSettle();
     expect(find.text('Support').hitTestable(), findsOneWidget);
     expect(tester.state(map), same(originalMap));
 
     await tester.tapAt(const Offset(8, 86));
     await tester.pumpAndSettle();
-    expect(tester.getSize(panel).height, closeTo(740 * .18, 1));
+    expect(tester.getSize(panel).height, closeTo(collapsedHeight, 1));
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
     session.dispose();

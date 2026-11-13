@@ -329,7 +329,10 @@ class _TripMapState extends State<TripMap> with SingleTickerProviderStateMixin {
       builder: (context, bounds) {
         final top = widget.fullScreen
             ? math.min(
-                MediaQuery.paddingOf(context).top + 146,
+                MediaQuery.paddingOf(context).top +
+                    (session.currentTrip?['status'] == 'in_progress'
+                        ? 170
+                        : 146),
                 bounds.maxHeight / 2,
               )
             : 0.0;
@@ -492,7 +495,22 @@ class _TripMapState extends State<TripMap> with SingleTickerProviderStateMixin {
                                   color: Ops.textSecondary,
                                 ),
                               ),
-                              if (_metrics != null)
+                              Selector<DriverSession, String?>(
+                                selector: (_, session) =>
+                                    session.remainingDistanceLabel,
+                                builder: (context, label, _) => label == null
+                                    ? const SizedBox.shrink()
+                                    : Text(
+                                        label,
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                              ),
+                              if (_metrics != null &&
+                                  session.currentTrip?['status'] !=
+                                      'in_progress')
                                 Text(
                                   '${((_metrics!['distanceMeters'] as num) / 1000).toStringAsFixed(1)} km · ${((_metrics!['durationSeconds'] as num) / 60).ceil()} min',
                                   style: const TextStyle(

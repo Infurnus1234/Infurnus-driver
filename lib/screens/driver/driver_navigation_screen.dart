@@ -13,6 +13,10 @@ import '../../widgets/reference_components.dart';
 import 'operations_dashboard.dart'
     show LogisticsUpfrontPaymentCard, RideDetails;
 
+const _completionHint =
+    'Reach within 100 meters of your destination to complete the trip.';
+const _completionHintStyle = TextStyle(fontSize: 13, height: 1.2);
+
 class DriverNavigationScreen extends StatefulWidget {
   const DriverNavigationScreen({super.key});
 
@@ -25,6 +29,14 @@ class _DriverNavigationScreenState extends State<DriverNavigationScreen>
   static const _half = .5;
   static const _full = .86;
   late final _extent = AnimationController(vsync: this);
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) context.read<DriverSession>().refreshRemainingDistance();
+    });
+  }
 
   @override
   void dispose() {
@@ -64,7 +76,10 @@ class _DriverNavigationScreenState extends State<DriverNavigationScreen>
 
   @override
   Widget build(BuildContext context) {
-    final rideId = context.select((DriverSession s) => s.currentTrip?['id']);
+    final (rideId, active) = context.select(
+      (DriverSession s) =>
+          (s.currentTrip?['id'], s.currentTrip?['status'] == 'in_progress'),
+    );
     if (rideId == null) {
       return Scaffold(
         appBar: AppBar(title: const Text('Trip navigation')),
@@ -88,8 +103,18 @@ class _DriverNavigationScreenState extends State<DriverNavigationScreen>
             final safeBottom = MediaQuery.paddingOf(context).bottom;
             final summaryHeight =
                 MediaQuery.textScalerOf(context).scale(54) + 49;
+            final hint = TextPainter(
+              text: const TextSpan(
+                text: _completionHint,
+                style: _completionHintStyle,
+              ),
+              textDirection: Directionality.of(context),
+              textScaler: MediaQuery.textScalerOf(context),
+            )..layout(maxWidth: math.max(1.0, constraints.maxWidth - 40));
+            final actionHeight = active ? hint.height + 70 : 0.0;
+            hint.dispose();
             final minimum = math
-                .max(.18, (summaryHeight + safeBottom) / height)
+                .max(.18, (summaryHeight + safeBottom + actionHeight) / height)
                 .clamp(.18, .46)
                 .toDouble();
             return Stack(
@@ -173,7 +198,9 @@ class _DriverNavigationScreenState extends State<DriverNavigationScreen>
                                   child: SizedBox(
                                     height: math.max(
                                       0,
-                                      minimum * height - safeBottom,
+                                      minimum * height -
+                                          safeBottom -
+                                          actionHeight,
                                     ),
                                     child: _RidePanelHeader(
                                       onTap: () {
@@ -189,6 +216,19 @@ class _DriverNavigationScreenState extends State<DriverNavigationScreen>
                                     ),
                                   ),
                                 ),
+                                if (active)
+                                  SizedBox(
+                                    height: actionHeight,
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 20,
+                                      ),
+                                      child: _TripAction(
+                                        next: 'completed',
+                                        onCompleted: _dashboard,
+                                      ),
+                                    ),
+                                  ),
                                 Expanded(
                                   child: IgnorePointer(
                                     ignoring: collapsed,
@@ -307,24 +347,91 @@ class _RidePanelHeader extends StatelessWidget {
   }
 }
 
+class _TripAction extends StatelessWidget {
+  const _TripAction({required this.next, required this.onCompleted});
+  final String next;
+  final VoidCallback onCompleted;
+
+  @override
+  Widget build(BuildContext context) {
+    final (hasEndPin, busy, canComplete) = context.select(
+      (DriverSession session) => (
+        session.requiresDeliveryPin,
+        session.busy,
+        session.canCompleteAtDestination,
+      ),
+    );
+    final session = context.read<DriverSession>();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        FilledButton(
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xFF00B313),
+            minimumSize: const Size.fromHeight(50),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
+          ),
+          onPressed: busy || (next == 'completed' && !canComplete)
+              ? null
+              : () async {
+                  String? endPin;
+                  if (next == 'completed') {
+                    if (hasEndPin) {
+                      endPin = await _promptDeliveryOtp(context);
+                      if (endPin == null) return;
+                    }
+                    if (!context.mounted) return;
+                    if (!await confirmOperation(
+                      context,
+                      'Complete this trip?',
+                      'Confirm that the passenger or shipment has reached the destination.',
+                    )) {
+                      return;
+                    }
+                  }
+                  if (await session.transition(next, endPin: endPin) &&
+                      next == 'completed') {
+                    onCompleted();
+                  }
+                },
+          child: Text(
+            busy
+                ? 'Updating trip…'
+                : const {
+                    'driver_arriving': 'Start toward pickup',
+                    'driver_arrived': 'Arrived at pickup',
+                    'completed': 'Complete Ride',
+                  }[next]!,
+            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+          ),
+        ),
+        if (next == 'completed' && !canComplete)
+          const Padding(
+            padding: EdgeInsets.only(top: 8),
+            child: Text(_completionHint, style: _completionHintStyle),
+          ),
+      ],
+    );
+  }
+}
+
 class _RidePanelDetails extends StatelessWidget {
   const _RidePanelDetails({required this.onCompleted});
   final VoidCallback onCompleted;
 
   @override
   Widget build(BuildContext context) {
-    final (id, status, sector, hasEndPin, busy, error, canComplete) = context
-        .select(
-          (DriverSession s) => (
-            s.currentTrip?['id'],
-            s.currentTrip?['status'],
-            s.currentTrip?['sector'],
-            s.requiresDeliveryPin,
-            s.busy,
-            s.error,
-            s.canCompleteAtDestination,
-          ),
-        );
+    final (id, status, sector, error) = context.select(
+      (DriverSession s) => (
+        s.currentTrip?['id'],
+        s.currentTrip?['status'],
+        s.currentTrip?['sector'],
+        s.error,
+      ),
+    );
     final session = context.read<DriverSession>();
     final next = const {
       'driver_assigned': 'driver_arriving',
@@ -383,52 +490,8 @@ class _RidePanelDetails extends StatelessWidget {
               ),
               const SizedBox(height: 12),
             ],
-            if (next != null && (next != 'completed' || canComplete))
-              FilledButton(
-                style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF00B313),
-                  minimumSize: const Size.fromHeight(50),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                ),
-                onPressed: busy
-                    ? null
-                    : () async {
-                        String? endPin;
-                        if (next == 'completed') {
-                          if (sector == 'logistics' && hasEndPin) {
-                            endPin = await _promptDeliveryOtp(context);
-                            if (endPin == null) return;
-                          }
-                          if (!context.mounted) return;
-                          if (!await confirmOperation(
-                            context,
-                            'Complete this trip?',
-                            'Confirm that the passenger or shipment has reached the destination.',
-                          )) {
-                            return;
-                          }
-                        }
-                        if (await session.transition(next, endPin: endPin) &&
-                            next == 'completed') {
-                          onCompleted();
-                        }
-                      },
-                child: Text(
-                  busy
-                      ? 'Updating trip…'
-                      : const {
-                          'driver_arriving': 'Start toward pickup',
-                          'driver_arrived': 'Arrived at pickup',
-                          'completed': 'Complete Ride',
-                        }[next]!,
-                  style: const TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
+            if (next != null && next != 'completed')
+              _TripAction(next: next, onCompleted: onCompleted),
             const _ActiveRideFacts(),
             if (error != null && status != 'driver_arrived')
               Padding(
