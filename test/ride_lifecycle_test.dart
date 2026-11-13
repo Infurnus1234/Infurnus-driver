@@ -15,7 +15,7 @@ class PinSession extends DriverSession {
   String? lastPin;
   final gate = Completer<bool>();
   @override
-  Future<bool> transition(String status, {String? pin}) async {
+  Future<bool> transition(String status, {String? pin, String? endPin}) async {
     attempts++;
     lastPin = pin;
     if (attempts == 1) {

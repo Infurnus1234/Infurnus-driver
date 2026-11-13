@@ -84,7 +84,8 @@ void main() {
           '/auth/refresh' => {'accessToken': 'fixture-session'},
           '/provider/approvals' ||
           '/provider/document-requirements' ||
-          '/provider/fleet-drivers' => [],
+          '/provider/fleet-drivers' ||
+          '/provider/logistics-dispatch' => [],
           _ => <String, dynamic>{},
         };
         return http.Response(jsonEncode({'success': true, 'data': data}), 200);

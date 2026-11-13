@@ -187,6 +187,7 @@ void main() {
                     };
                   case '/partners/partner/documents':
                     data = [];
+                  case '/provider/logistics-dispatch':
                   case '/provider/managed-drivers':
                     data = [];
                   case '/provider/vehicle-catalog':
@@ -539,7 +540,7 @@ void main() {
         await tester.pumpAndSettle();
       }
       if (name == 'mode-switch') {
-        await tester.tap(find.text('Driver Mode'));
+        await tester.tap(find.widgetWithText(ActionChip, 'Driver Mode'));
         await tester.pumpAndSettle();
       }
       if (name == 'pin-verification') {

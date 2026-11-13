@@ -313,16 +313,18 @@ class _RidePanelDetails extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (id, status, sector, busy, error, canComplete) = context.select(
-      (DriverSession s) => (
-        s.currentTrip?['id'],
-        s.currentTrip?['status'],
-        s.currentTrip?['sector'],
-        s.busy,
-        s.error,
-        s.canCompleteAtDestination,
-      ),
-    );
+    final (id, status, sector, hasEndPin, busy, error, canComplete) = context
+        .select(
+          (DriverSession s) => (
+            s.currentTrip?['id'],
+            s.currentTrip?['status'],
+            s.currentTrip?['sector'],
+            s.requiresDeliveryPin,
+            s.busy,
+            s.error,
+            s.canCompleteAtDestination,
+          ),
+        );
     final session = context.read<DriverSession>();
     final next = const {
       'driver_assigned': 'driver_arriving',
@@ -393,15 +395,22 @@ class _RidePanelDetails extends StatelessWidget {
                 onPressed: busy
                     ? null
                     : () async {
-                        if (next == 'completed' &&
-                            !await confirmOperation(
-                              context,
-                              'Complete this trip?',
-                              'Confirm that the passenger or shipment has reached the destination.',
-                            )) {
-                          return;
+                        String? endPin;
+                        if (next == 'completed') {
+                          if (sector == 'logistics' && hasEndPin) {
+                            endPin = await _promptDeliveryOtp(context);
+                            if (endPin == null) return;
+                          }
+                          if (!context.mounted) return;
+                          if (!await confirmOperation(
+                            context,
+                            'Complete this trip?',
+                            'Confirm that the passenger or shipment has reached the destination.',
+                          )) {
+                            return;
+                          }
                         }
-                        if (await session.transition(next) &&
+                        if (await session.transition(next, endPin: endPin) &&
                             next == 'completed') {
                           onCompleted();
                         }
@@ -503,4 +512,73 @@ class _ActiveRideFacts extends StatelessWidget {
         },
         builder: (_, ride, _) => RideDetails(ride: ride),
       );
+}
+
+Future<String?> _promptDeliveryOtp(BuildContext context) async {
+  final controller = TextEditingController();
+  return showDialog<String>(
+    context: context,
+    barrierDismissible: false,
+    builder: (dialogContext) => AlertDialog(
+      title: const Row(
+        children: [
+          Icon(Icons.local_shipping, color: Color(0xFF00B313)),
+          SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Delivery PIN',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text(
+            'Ask the customer for their 4-digit Delivery PIN to confirm delivery and complete the trip.',
+            style: TextStyle(fontSize: 14),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: controller,
+            keyboardType: TextInputType.number,
+            maxLength: 4,
+            autofocus: true,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 8,
+            ),
+            decoration: const InputDecoration(
+              hintText: '••••',
+              counterText: '',
+              border: OutlineInputBorder(),
+              contentPadding: EdgeInsets.symmetric(vertical: 12),
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(dialogContext).pop(null),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xFF00B313),
+          ),
+          onPressed: () {
+            final pin = controller.text.trim();
+            if (pin.length == 4) {
+              Navigator.of(dialogContext).pop(pin);
+            }
+          },
+          child: const Text('Verify & Complete'),
+        ),
+      ],
+    ),
+  );
 }

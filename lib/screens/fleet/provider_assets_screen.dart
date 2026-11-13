@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'fleet_revenue_screen.dart';
 import 'fleet_vehicle_category_dialog.dart';
+import 'logistics_fleet_offers.dart';
 import '../../widgets/calendar_field.dart';
 import 'managed_driver_screen.dart';
 
@@ -1425,6 +1426,11 @@ class _ProviderAssetsScreenState extends State<ProviderAssetsScreen> {
           if (assets.busy) const LinearProgressIndicator(),
           if (assets.fleetMode && _tab == 0) ...[
             const ModeSelector(),
+            LogisticsFleetOffers(
+              revision: context
+                  .watch<DriverSession>()
+                  .logisticsFleetOfferRevision,
+            ),
             const SizedBox(height: 12),
             FleetOverview(
               assets: assets,

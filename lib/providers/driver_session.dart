@@ -405,6 +405,7 @@ class DriverSession extends ChangeNotifier {
   Timer? _expiry;
   DriverNotificationService? _notifications;
   DriverNotificationService? get notifications => _notifications;
+  int logisticsFleetOfferRevision = 0;
 
   void dismissRideNotifications() {
     unawaited(_notifications?.cancelAll());
@@ -784,11 +785,27 @@ class DriverSession extends ChangeNotifier {
       _notifications?.dispose();
       _notifications = DriverNotificationService(
         api: api,
-        onRideUpdate: (data) => handleRideEvent('ride:lifecycle_updated', data),
+        onRideUpdate: (data) {
+          if (data['type'] == 'logistics.fleet_offer' ||
+              (api.providerMode == 'fleet_owner' &&
+                  data['silentOfferUpdate'] == 'true')) {
+            logisticsFleetOfferRevision++;
+            _notify();
+            return;
+          }
+          handleRideEvent('ride:lifecycle_updated', data);
+        },
         onOpen: (route) {
           if (!authenticated) return;
-          pendingNotificationRoute = route;
-          _notify();
+          unawaited(() async {
+            if (route == '/fleet/dashboard' &&
+                api.providerMode != 'fleet_owner' &&
+                !await switchMode('fleet_owner')) {
+              return;
+            }
+            pendingNotificationRoute = route;
+            _notify();
+          }());
         },
       );
       unawaited(_notifications!.init());
@@ -1830,7 +1847,15 @@ class DriverSession extends ChangeNotifier {
     await bridge.dismissOffer(id);
     await _load();
   });
-  Future<bool> transition(String status, {String? pin}) => run(() async {
+  bool get requiresDeliveryPin =>
+      currentTrip?['sector'] == 'logistics' &&
+      currentTrip?['hasEndPin'] == true;
+
+  Future<bool> transition(
+    String status, {
+    String? pin,
+    String? endPin,
+  }) => run(() async {
     if (currentTrip == null) throw const ApiException('No active trip.');
     if (status == 'completed' &&
         _destinationRestrictedSectors.contains(currentTrip?['sector']) &&
@@ -1841,6 +1866,12 @@ class DriverSession extends ChangeNotifier {
     }
     if (isPreview) {
       if (status == 'completed') {
+        if (requiresDeliveryPin &&
+            (endPin == null || !RegExp(r'^\d{4}$').hasMatch(endPin))) {
+          throw const ApiException(
+            'Enter the customer’s four-digit Delivery PIN to complete the trip.',
+          );
+        }
         _setCurrentTrip(null);
       } else {
         if (status == 'in_progress' &&
@@ -1856,7 +1887,17 @@ class DriverSession extends ChangeNotifier {
     }
     final id = Uri.encodeComponent(currentTrip!['id'] as String);
     if (status == 'completed') {
-      await api.request('POST', '/rides/$id/complete');
+      if (requiresDeliveryPin &&
+          (endPin == null || !RegExp(r'^\d{4}$').hasMatch(endPin))) {
+        throw const ApiException(
+          'Enter the customer’s four-digit Delivery PIN to complete the trip.',
+        );
+      }
+      await api.request(
+        'POST',
+        '/rides/$id/complete',
+        body: endPin != null ? {'endPin': endPin} : null,
+      );
     } else if (status == 'in_progress') {
       if (currentTrip?['sector'] == 'logistics' &&
           currentTrip?['upfrontPaymentStatus'] != 'PAID_VERIFIED') {

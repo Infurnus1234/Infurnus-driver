@@ -12,6 +12,37 @@ import 'background_ride_request.dart';
 import 'notification_timing.dart';
 import 'ride_request_presentation.dart';
 
+bool _logisticsOffer(Map data) => data['logisticsTargeted'] == 'true';
+
+int _logisticsAlertId(Map data) =>
+    ('logistics-offer:${data['rideId']}').hashCode & 0x7fffffff;
+
+const _logisticsSound = RawResourceAndroidNotificationSound(
+  'ride_request_alert',
+);
+
+NotificationDetails _logisticsDetails(Map data) {
+  final expires = DateTime.tryParse(data['expiresAt']?.toString() ?? '');
+  return NotificationDetails(
+    android: AndroidNotificationDetails(
+      'infurnus_logistics_offers',
+      'Logistics booking offers',
+      importance: Importance.high,
+      priority: Priority.high,
+      sound: _logisticsSound,
+      timeoutAfter: expires
+          ?.difference(DateTime.now())
+          .inMilliseconds
+          .clamp(1, 600000),
+    ),
+    iOS: const DarwinNotificationDetails(
+      presentSound: true,
+      presentAlert: true,
+      sound: 'infurnus_alert.wav',
+    ),
+  );
+}
+
 bool endsDriverOffer(Map data) =>
     const {
       'ride.accepted',
@@ -26,8 +57,18 @@ Future<void> driverFirebaseMessagingBackgroundHandler(
 ) async {
   if (endsDriverOffer(message.data)) {
     await RideRequestBridge().dismissOffer(message.data['rideId'] as String);
+    try {
+      await FlutterLocalNotificationsPlugin().cancel(
+        _logisticsAlertId(message.data),
+      );
+    } catch (_) {
+      // This platform may not expose local notifications in the background.
+    }
   }
   if (message.data['silentOfferUpdate'] == 'true') return;
+  if (_logisticsOffer(message.data) && notificationOfferExpired(message.data)) {
+    return;
+  }
   try {
     await Firebase.initializeApp();
   } catch (_) {
@@ -42,11 +83,11 @@ Future<void> driverFirebaseMessagingBackgroundHandler(
     }
     final bridge = RideRequestBridge();
     if (bridge.supported) {
-      await bridge.notifyOffer(
+      final presented = await bridge.notifyOffer(
         message.data['rideId'] as String,
         message.data['expiresAt']?.toString() ?? '',
       );
-      return;
+      if (presented || !_logisticsOffer(message.data)) return;
     }
   }
   if (message.notification == null && message.data.isNotEmpty) {
@@ -67,25 +108,29 @@ Future<void> driverFirebaseMessagingBackgroundHandler(
       await localPlugin.initialize(initSettings);
 
       await localPlugin.show(
-        (message.data['notificationId'] ?? message.hashCode.toString())
-                .hashCode &
-            0x7fffffff,
+        _logisticsOffer(message.data)
+            ? _logisticsAlertId(message.data)
+            : (message.data['notificationId'] ?? message.hashCode.toString())
+                      .hashCode &
+                  0x7fffffff,
         title,
         body,
-        const NotificationDetails(
-          android: AndroidNotificationDetails(
-            'infurnus_default_channel',
-            'General Notifications',
-            importance: Importance.high,
-            priority: Priority.high,
-            enableVibration: true,
-          ),
-          iOS: DarwinNotificationDetails(
-            presentSound: true,
-            presentAlert: true,
-            presentBadge: true,
-          ),
-        ),
+        _logisticsOffer(message.data)
+            ? _logisticsDetails(message.data)
+            : const NotificationDetails(
+                android: AndroidNotificationDetails(
+                  'infurnus_default_channel',
+                  'General Notifications',
+                  importance: Importance.high,
+                  priority: Priority.high,
+                  enableVibration: true,
+                ),
+                iOS: DarwinNotificationDetails(
+                  presentSound: true,
+                  presentAlert: true,
+                  presentBadge: true,
+                ),
+              ),
         payload: jsonEncode(message.data),
       );
     } catch (_) {}
@@ -94,6 +139,7 @@ Future<void> driverFirebaseMessagingBackgroundHandler(
 
 /// Payloads can choose an allowlisted destination, never an arbitrary route.
 String? notificationDestination(Map<String, dynamic> data) {
+  if (data['type'] == 'logistics.fleet_offer') return '/fleet/dashboard';
   if (data['rideId'] is String && (data['rideId'] as String).isNotEmpty) {
     return isDriverOffer(data)
         ? rideRequestRoute(data['rideId'] as String)
@@ -139,6 +185,7 @@ class DriverNotificationService {
     if (id != null && !_seen.add(id)) return false;
     if (endsDriverOffer(data)) {
       unawaited(RideRequestBridge().dismissOffer(data['rideId'] as String));
+      unawaited(cancel(_logisticsAlertId(data)));
     }
     if (_seen.length > 200) _seen.remove(_seen.first);
     onRideUpdate?.call(data);
@@ -176,6 +223,14 @@ class DriverNotificationService {
             enableVibration: true,
           );
       await androidPlugin?.createNotificationChannel(defaultChannel);
+      await androidPlugin?.createNotificationChannel(
+        const AndroidNotificationChannel(
+          'infurnus_logistics_offers',
+          'Logistics booking offers',
+          importance: Importance.high,
+          sound: _logisticsSound,
+        ),
+      );
       await _plugin.initialize(
         const InitializationSettings(
           android: AndroidInitializationSettings('@mipmap/launcher_icon'),
@@ -236,14 +291,22 @@ class DriverNotificationService {
           final id =
               message.data['notificationId']?.toString() ?? message.messageId;
           final notification = message.notification;
-          if (notification != null && !isDriverOffer(message.data)) {
+          if (_logisticsOffer(message.data) ||
+              (notification != null && !isDriverOffer(message.data))) {
             unawaited(
               showNotification(
-                id:
-                    (id ?? notification.hashCode.toString()).hashCode &
-                    0x7fffffff,
-                title: notification.title ?? 'Infurnus',
-                body: notification.body ?? '',
+                id: _logisticsOffer(message.data)
+                    ? _logisticsAlertId(message.data)
+                    : (id ?? notification.hashCode.toString()).hashCode &
+                          0x7fffffff,
+                title:
+                    notification?.title ??
+                    message.data['title']?.toString() ??
+                    'Logistics booking request',
+                body:
+                    notification?.body ??
+                    message.data['body']?.toString() ??
+                    'Open INFURNUS to review the offer.',
                 payload: jsonEncode(message.data),
               ),
             );
@@ -316,33 +379,38 @@ class DriverNotificationService {
       if (data is Map<String, dynamic>) {
         timing.record(data, 'localPresentationRequestedAt');
       }
-      if (data is Map && isDriverOffer(data)) return;
+      if (data is Map && isDriverOffer(data) && !_logisticsOffer(data)) return;
 
       await _plugin.show(
         id,
         title,
         body,
-        const NotificationDetails(
-          android: AndroidNotificationDetails(
-            'infurnus_default_channel',
-            'General Notifications',
-            importance: Importance.high,
-            priority: Priority.defaultPriority,
-            playSound: true,
-            enableVibration: true,
-          ),
-          iOS: DarwinNotificationDetails(
-            presentSound: true,
-            presentAlert: true,
-            presentBadge: true,
-          ),
-        ),
+        data is Map && _logisticsOffer(data)
+            ? _logisticsDetails(data)
+            : const NotificationDetails(
+                android: AndroidNotificationDetails(
+                  'infurnus_default_channel',
+                  'General Notifications',
+                  importance: Importance.high,
+                  priority: Priority.defaultPriority,
+                  playSound: true,
+                  enableVibration: true,
+                ),
+                iOS: DarwinNotificationDetails(
+                  presentSound: true,
+                  presentAlert: true,
+                  presentBadge: true,
+                ),
+              ),
         payload: payload,
       );
     } catch (_) {
       debugPrint('Local notification presentation unavailable.');
     }
   }
+
+  Future<void> dismissLogisticsOffer(String rideId) =>
+      cancel(_logisticsAlertId({'rideId': rideId}));
 
   Future<void> cancel(int id) async {
     try {

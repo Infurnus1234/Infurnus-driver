@@ -165,6 +165,11 @@ void main() {
     await tester.ensureVisible(find.text('Complete Ride'));
     await tester.tap(find.text('Complete Ride'));
     await tester.pumpAndSettle();
+    if (find.text('Delivery PIN').evaluate().isNotEmpty) {
+      await tester.enterText(find.byType(TextField), '1234');
+      await tester.tap(find.text('Verify & Complete'));
+      await tester.pumpAndSettle();
+    }
     await tester.tap(find.text('Confirm'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
@@ -179,8 +184,8 @@ void main() {
 
 class _DelayedCompletionSession extends DriverSession {
   @override
-  Future<bool> transition(String status, {String? pin}) async {
-    final result = await super.transition(status, pin: pin);
+  Future<bool> transition(String status, {String? pin, String? endPin}) async {
+    final result = await super.transition(status, pin: pin, endPin: endPin);
     await Future<void>.delayed(const Duration(milliseconds: 100));
     return result;
   }

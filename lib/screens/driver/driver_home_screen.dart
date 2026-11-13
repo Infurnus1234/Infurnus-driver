@@ -162,6 +162,11 @@ class DriverHomeScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  if (session.api.hasDriverRole &&
+                      session.api.hasFleetRole) ...[
+                    const ModeSelector(),
+                    const SizedBox(height: 12),
+                  ],
                   if (session.error != null)
                     OpsError(
                       "We couldn't load this information. Please try again.",
