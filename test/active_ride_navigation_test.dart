@@ -35,7 +35,7 @@ void main() {
         expect(enabled(), isFalse);
         expect(
           find.text(
-            'Reach within 100 meters of your destination to complete the trip.',
+            'Reach within 200 meters of your destination to complete the trip.',
           ),
           findsOneWidget,
         );
@@ -57,21 +57,24 @@ void main() {
           await tester.pump();
         }
 
-        for (final distance in [10000.0, 1000.0, 500.0, 101.0]) {
+        for (final distance in [10000.0, 1000.0, 500.0, 201.0]) {
           await fix(distance);
           expect(enabled(), isFalse);
         }
+        await fix(200, accuracy: 65);
+        expect(enabled(), isTrue);
+        await fix(150);
+        expect(find.text('Approx. 150 m remaining'), findsOneWidget);
+        expect(enabled(), isTrue);
         await fix(100);
         expect(enabled(), isTrue);
-        await fix(99);
-        expect(enabled(), isTrue);
-        await fix(50, accuracy: 35);
+        await fix(50, accuracy: 101);
         expect(enabled(), isFalse);
         await fix(50);
         expect(enabled(), isTrue);
         await fix(0);
         expect(enabled(), isTrue);
-        await fix(101);
+        await fix(201);
         expect(enabled(), isFalse);
         await tester.pumpWidget(const SizedBox());
         session.dispose();

@@ -204,45 +204,48 @@ class DriverSession extends ChangeNotifier {
     }
   }
 
+  static const destinationCompletionRadiusMeters = 200;
+
   bool get canCompleteAtDestination {
     if (currentTrip?['status'] != 'in_progress') return false;
     if (!_destinationRestrictedSectors.contains(currentTrip?['sector'])) {
       return true;
     }
+    final distance = directDistanceToDestination;
+    return distance != null && distance <= destinationCompletionRadiusMeters;
+  }
+
+  double? get directDistanceToDestination {
     final destination = currentTrip?['destination'];
-    if (destination is! Map) return false;
+    if (destination is! Map) return null;
     final latitude = destination['latitude'];
     final longitude = destination['longitude'];
     if (latitude is! num ||
         longitude is! num ||
         !_validArrivalCoordinates(latitude, longitude)) {
-      return false;
+      return null;
     }
-    final now = DateTime.now();
-    bool withinDestination(Position? fix) {
-      if (fix == null ||
-          fix.isMocked ||
-          !fix.accuracy.isFinite ||
-          fix.accuracy <= 0 ||
-          fix.accuracy > 30 ||
-          !_validArrivalCoordinates(fix.latitude, fix.longitude)) {
-        return false;
-      }
-      // Match the mean Earth radius used by the server's PostGIS geography check.
-      final age = now.difference(fix.timestamp);
-      return age >= const Duration(seconds: -2) &&
-          age < _arrivalFreshness &&
-          Geolocator.distanceBetween(
-                    fix.latitude,
-                    fix.longitude,
-                    latitude.toDouble(),
-                    longitude.toDouble(),
-                  ) *
-                  (6371008.7714 / 6378137.0) <=
-              100;
+    final fix = _arrivalPosition;
+    if (fix == null ||
+        fix.isMocked ||
+        !fix.accuracy.isFinite ||
+        fix.accuracy <= 0 ||
+        fix.accuracy > 100 ||
+        !_validArrivalCoordinates(fix.latitude, fix.longitude)) {
+      return null;
     }
-
-    return withinDestination(_arrivalPosition);
+    final age = DateTime.now().difference(fix.timestamp);
+    if (age < const Duration(seconds: -2) || age >= _arrivalFreshness) {
+      return null;
+    }
+    // Match the mean Earth radius used by the PostGIS geography check.
+    return Geolocator.distanceBetween(
+          fix.latitude,
+          fix.longitude,
+          latitude.toDouble(),
+          longitude.toDouble(),
+        ) *
+        (6371008.7714 / 6378137.0);
   }
 
   static bool _validArrivalCoordinates(num latitude, num longitude) =>
@@ -375,10 +378,23 @@ class DriverSession extends ChangeNotifier {
   Timer? _distanceExpiry;
   bool _fetchingDistance = false;
 
-  String? get remainingDistanceLabel => currentTrip?['status'] == 'in_progress'
-      ? (_distanceRideId == currentTrip?['id'] ? _distanceLabel : null) ??
-            'Remaining distance unavailable'
-      : null;
+  String? get remainingDistanceLabel {
+    if (currentTrip?['status'] != 'in_progress') return null;
+    final serverLabel = _distanceRideId == currentTrip?['id']
+        ? _distanceLabel
+        : null;
+    if (serverLabel != null && serverLabel != _updatingDistance) {
+      return serverLabel;
+    }
+    final direct = directDistanceToDestination;
+    return direct == null
+        ? serverLabel ?? 'Remaining distance unavailable'
+        : 'Approx. ${_formatRemainingDistance(direct)}';
+  }
+
+  String _formatRemainingDistance(num meters) => meters >= 1000
+      ? '${(meters / 1000).toStringAsFixed(1)} km remaining'
+      : '${meters.round()} m remaining';
 
   String get _updatingDistance => _lastDistance == null
       ? 'Remaining distance unavailable'
@@ -414,12 +430,14 @@ class DriverSession extends ChangeNotifier {
     if (fresh && update?['status'] == 'arrived') {
       label = 'Destination reached';
     } else if (fresh &&
-        update?['status'] == 'live' &&
+        (update?['status'] == 'live' || update?['status'] == 'approximate') &&
         meters is num &&
+        meters.isFinite &&
         meters > 0) {
-      label = meters >= 1000
-          ? '${(meters / 1000).toStringAsFixed(1)} km remaining'
-          : '${meters.round()} m remaining';
+      final distance = _formatRemainingDistance(meters);
+      label = update?['status'] == 'approximate'
+          ? 'Approx. $distance'
+          : distance;
       _lastDistance = label;
     }
     final displayed = label ?? _updatingDistance;

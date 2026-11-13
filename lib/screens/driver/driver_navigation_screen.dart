@@ -14,7 +14,7 @@ import 'operations_dashboard.dart'
     show LogisticsUpfrontPaymentCard, RideDetails;
 
 const _completionHint =
-    'Reach within 100 meters of your destination to complete the trip.';
+    'Reach within 200 meters of your destination to complete the trip.';
 const _completionHintStyle = TextStyle(fontSize: 13, height: 1.2);
 
 class DriverNavigationScreen extends StatefulWidget {
