@@ -1742,7 +1742,7 @@ class DriverSession extends ChangeNotifier {
 
     await _permission(retry: retry);
     final epoch = _locationEpoch;
-    if (currentTrip == null) {
+    Future<void> publishInitialFix() async {
       final fix = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.high,
@@ -1769,6 +1769,9 @@ class DriverSession extends ChangeNotifier {
         }
       }
     }
+
+    final hasActiveTrip = currentTrip != null;
+    if (!hasActiveTrip) await publishInitialFix();
     await _positions?.cancel();
     if (_disposed || !authenticated || epoch != _locationEpoch) {
       throw const ApiException('Location access changed. Try again.');
@@ -1822,6 +1825,7 @@ class DriverSession extends ChangeNotifier {
             _notify();
           },
         );
+    if (hasActiveTrip) await publishInitialFix();
   }
 
   Future<void> _locationUpdate(Position p) async {
