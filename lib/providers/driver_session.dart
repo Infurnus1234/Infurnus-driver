@@ -180,6 +180,7 @@ class DriverSession extends ChangeNotifier {
   Position? _position;
   Position? _arrivalPosition;
   Timer? _arrivalExpiry;
+  Timer? _completionPoll;
   static const _arrivalFreshness = Duration(seconds: 30);
   static const _destinationRestrictedSectors = {
     'logistics',
@@ -213,6 +214,7 @@ class DriverSession extends ChangeNotifier {
     if (!_destinationRestrictedSectors.contains(currentTrip?['sector'])) {
       return true;
     }
+    if (!isPreview) return currentTrip?['canCompleteRide'] == true;
     final distance = directDistanceToDestination;
     return distance != null && distance <= destinationCompletionRadiusMeters;
   }
@@ -1840,10 +1842,17 @@ class DriverSession extends ChangeNotifier {
 
   Future<void> _sendLocation(Position p, {bool preferRest = false}) async {
     if (p.isMocked) {
+      const testBooking = String.fromEnvironment(
+        'INFURNUS_PATNA_DESTINATION_BOOKING',
+      );
+      final destinationTest = testBooking.isNotEmpty;
       if (!const bool.fromEnvironment('INFURNUS_PATNA_DEVICE_ENROLMENT') ||
           profile?['publicId']?.toString() != '100069' ||
-          (p.latitude - 25.620337).abs() > 0.00001 ||
-          (p.longitude - 85.139448).abs() > 0.00001) {
+          (destinationTest
+              ? (currentTrip?['bookingId']?.toString() != testBooking ||
+                    currentTrip?['status'] != 'in_progress')
+              : (p.latitude - 25.620337).abs() > 0.00001 ||
+                    (p.longitude - 85.139448).abs() > 0.00001)) {
         locationWarning = 'Turn off simulated GPS to receive ride requests.';
         return;
       }
@@ -1859,11 +1868,20 @@ class DriverSession extends ChangeNotifier {
         p.timestamp.millisecondsSinceEpoch,
         isUtc: true,
       ).toIso8601String();
+      final latitude = destinationTest
+          ? p.latitude.toStringAsFixed(6)
+          : '25.620337';
+      final longitude = destinationTest
+          ? p.longitude.toStringAsFixed(6)
+          : '85.139448';
       final proof = await const MethodChannel('infurnus/patna_location_proof')
           .invokeMethod<String>('sign', {
             'driver': driverId,
             'session': sessionId,
             'timestamp': timestamp,
+            if (destinationTest) 'bookingId': testBooking,
+            if (destinationTest) 'latitude': latitude,
+            if (destinationTest) 'longitude': longitude,
           });
       if (proof == null || token != api.accessToken) return;
       await api.request(
@@ -1872,8 +1890,8 @@ class DriverSession extends ChangeNotifier {
         retry: false,
         headers: {'X-Infurnus-Mock-Location-Proof': proof},
         body: {
-          'latitude': 25.620337,
-          'longitude': 85.139448,
+          'latitude': double.parse(latitude),
+          'longitude': double.parse(longitude),
           'accuracy': 5,
           'timestamp': timestamp,
         },
@@ -2085,16 +2103,6 @@ class DriverSession extends ChangeNotifier {
           'Enter the customer’s four-digit Delivery PIN to complete the trip.',
         );
       }
-      final fix = _arrivalPosition;
-      if (fix != null &&
-          _destinationRestrictedSectors.contains(currentTrip?['sector'])) {
-        try {
-          await _sendLocation(fix, preferRest: true);
-        } on ApiException catch (e) {
-          // An in-flight stream update can reach the server before this retry.
-          if (e.code != 'DRIVER_LOCATION_OUT_OF_ORDER') rethrow;
-        }
-      }
       await api.request(
         'POST',
         '/rides/$id/complete',
@@ -2169,6 +2177,16 @@ class DriverSession extends ChangeNotifier {
     }
     if (jsonEncode(previous) == jsonEncode(next)) return false;
     currentTrip = next;
+    if (!isPreview &&
+        next?['status'] == 'in_progress' &&
+        _destinationRestrictedSectors.contains(next?['sector'])) {
+      _completionPoll ??= Timer.periodic(const Duration(seconds: 5), (_) {
+        unawaited(_refreshActiveTrip());
+      });
+    } else {
+      _completionPoll?.cancel();
+      _completionPoll = null;
+    }
     return true;
   }
 
@@ -2252,7 +2270,13 @@ class DriverSession extends ChangeNotifier {
       }
       unawaited(_ensureCustomerContact());
       return true;
-    } on ApiException catch (e) {
+    } catch (error) {
+      if (stillCurrent() && currentTrip?['canCompleteRide'] == true) {
+        currentTrip?['canCompleteRide'] = false;
+        _notify();
+      }
+      if (error is! ApiException) return false;
+      final e = error;
       if (!_disposed &&
           _tripGeneration == generation &&
           api.accessToken == null &&
@@ -2598,6 +2622,7 @@ class DriverSession extends ChangeNotifier {
 
   @override
   void dispose() {
+    _completionPoll?.cancel();
     _arrivalExpiry?.cancel();
     _distanceExpiry?.cancel();
     _disposed = true;

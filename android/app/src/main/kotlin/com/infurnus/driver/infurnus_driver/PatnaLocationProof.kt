@@ -40,7 +40,15 @@ internal object PatnaLocationProof {
                     Log.i("InfurnusPatnaProof", "driver=$driver session=$session publicKey=" +
                         Base64.encodeToString(entry.certificate.publicKey.encoded, Base64.NO_WRAP))
                 }
-                val message = listOf("infurnus:patna-mock-location:v1", driver, session, timestamp).joinToString("\n")
+                val bookingId = call.argument<String>("bookingId")
+                val fields = if (bookingId == null) {
+                    listOf("infurnus:patna-mock-location:v1", driver, session, timestamp)
+                } else {
+                    listOf("infurnus:patna-mock-location:v2", driver, session, timestamp, bookingId,
+                        requireNotNull(call.argument<String>("latitude")),
+                        requireNotNull(call.argument<String>("longitude")))
+                }
+                val message = fields.joinToString("\n")
                 val signed = Signature.getInstance("SHA256withECDSA").run {
                     initSign(entry.privateKey)
                     update(message.toByteArray(Charsets.UTF_8))
