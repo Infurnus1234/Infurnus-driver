@@ -228,7 +228,7 @@ class DriverHomeScreen extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.only(left: 10),
                         decoration: BoxDecoration(
-                          color: session.online
+                          color: session.readyForRequests
                               ? requestGreen
                               : const Color(0xFFE5E7EB),
                           borderRadius: BorderRadius.circular(30),
@@ -236,10 +236,10 @@ class DriverHomeScreen extends StatelessWidget {
                         child: Row(
                           children: [
                             Text(
-                              session.online ? 'Online' : 'Offline',
+                              session.readyForRequests ? 'Available' : session.online ? 'Online' : 'Offline',
                               style: TextStyle(
                                 fontSize: 12,
-                                color: session.online
+                                color: session.readyForRequests
                                     ? Colors.white
                                     : Colors.black54,
                                 fontWeight: FontWeight.w600,
@@ -394,7 +394,7 @@ class DriverHomeScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 10),
                   Text(
-                    session.online ? 'You are Online' : 'You are Offline',
+                    session.readyForRequests ? 'Available for requests' : session.online ? 'Waiting to become available' : 'You are Offline',
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       fontSize: 21,
@@ -403,13 +403,16 @@ class DriverHomeScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 7),
                   Text(
-                    session.online
-                        ? session.locationWarning != null
-                              ? 'Online preference saved. Check location to receive requests.'
-                              : session.realtimeStatus == 'Connected'
-                              ? 'Waiting for ride requests…'
-                              : 'Online preference saved. Reconnecting to live requests…'
-                        : 'Go online to receive ride requests.',
+                    !session.online
+                        ? 'Go online to receive ride requests.'
+                        : session.locationWarning ??
+                              (!session.hasFreshDispatchLocation && !session.isPreview
+                                  ? 'Waiting for a fresh GPS fix.'
+                                  : session.readyForRequests
+                                  ? 'Waiting for ride requests…'
+                                  : session.realtimeStatus != 'Connected'
+                                  ? 'Reconnecting to live requests…'
+                                  : 'Checking driver availability…'),
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       fontSize: 14,

@@ -511,6 +511,25 @@ class DriverSession extends ChangeNotifier {
   String? errorCode;
   String realtimeStatus = 'Disconnected';
   DateTime? lastLocationSent;
+  Timer? _dispatchLocationExpiry;
+  DateTime? _lastAcceptedDispatchSample;
+
+  bool get hasFreshDispatchLocation {
+    final sample = _lastAcceptedDispatchSample;
+    return sample != null &&
+        DateTime.now().difference(sample) < const Duration(seconds: 30);
+  }
+
+  bool get readyForRequests =>
+      online &&
+      (isPreview ||
+          (operationalAllowed &&
+              profile?['availabilityStatus'] == 'available' &&
+              currentTrip == null &&
+              hasFreshDispatchLocation &&
+              locationWarning == null &&
+              realtimeStatus == 'Connected'));
+
   DateTime? _lastLocationSampleSent;
   bool busy = false;
   bool _disposed = false;
@@ -1795,7 +1814,6 @@ class DriverSession extends ChangeNotifier {
     // Sampling and delivery have independent clocks. A blocked delivery never queues old fixes.
     if (_sendingLocation ||
         !authenticated ||
-        p.accuracy > 200 ||
         (_lastLocationSampleSent != null &&
             !p.timestamp.isAfter(_lastLocationSampleSent!))) {
       return;
@@ -1819,7 +1837,14 @@ class DriverSession extends ChangeNotifier {
   }
 
   Future<void> _sendLocation(Position p, {bool preferRest = false}) async {
-    if (p.isMocked) return;
+    if (p.isMocked) {
+      locationWarning = 'Turn off simulated GPS to receive ride requests.';
+      return;
+    }
+    if (!p.accuracy.isFinite || p.accuracy > 200 || p.accuracy < 0) {
+      locationWarning = 'Waiting for a more accurate GPS fix.';
+      return;
+    }
     if (_lastLocationSampleSent != null &&
         !p.timestamp.isAfter(_lastLocationSampleSent!)) {
       return;
@@ -1872,6 +1897,11 @@ class DriverSession extends ChangeNotifier {
     }
     _lastLocationSampleSent = p.timestamp;
     lastLocationSent = DateTime.now();
+    _lastAcceptedDispatchSample = p.timestamp;
+    _dispatchLocationExpiry?.cancel();
+    final remaining =
+        const Duration(seconds: 30) - lastLocationSent!.difference(p.timestamp);
+    _dispatchLocationExpiry = Timer(remaining, _notify);
     locationWarning = null;
   }
 
@@ -2513,7 +2543,10 @@ class DriverSession extends ChangeNotifier {
     rides = [];
     challengeId = null;
     position = null;
+    _dispatchLocationExpiry?.cancel();
     lastLocationSent = null;
+    _lastAcceptedDispatchSample = null;
+    locationWarning = null;
     _lastLocationSampleSent = null;
     realtimeStatus = 'Disconnected';
     api.clearSession(persist: persist);
