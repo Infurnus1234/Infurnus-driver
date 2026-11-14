@@ -9,87 +9,86 @@ import 'package:provider/provider.dart';
 
 void main() {
   for (final sector in ['logistics', 'premium', 'rental', 'service']) {
-    testWidgets(
-      '$sector completion responds to backend eligibility',
-      (tester) async {
-        final (latitude, longitude) = sector == 'logistics'
-            ? (26.65, 84.92) // Motihari
-            : (25.86, 85.78); // Samastipur
-        final session = _LocationSession()
-          ..currentTrip = {
-            ..._trip(),
-            'sector': sector,
-            'destination': {'latitude': latitude, 'longitude': longitude},
-          };
-        await tester.pumpWidget(
-          ChangeNotifierProvider<DriverSession>.value(
-            value: session,
-            child: const MaterialApp(home: DriverNavigationScreen()),
+    testWidgets('$sector completion responds to backend eligibility', (
+      tester,
+    ) async {
+      final (latitude, longitude) = sector == 'logistics'
+          ? (26.65, 84.92) // Motihari
+          : (25.86, 85.78); // Samastipur
+      final session = _LocationSession()
+        ..currentTrip = {
+          ..._trip(),
+          'sector': sector,
+          'destination': {'latitude': latitude, 'longitude': longitude},
+        };
+      await tester.pumpWidget(
+        ChangeNotifierProvider<DriverSession>.value(
+          value: session,
+          child: const MaterialApp(home: DriverNavigationScreen()),
+        ),
+      );
+      await tester.tap(find.byKey(const ValueKey('ride-details-handle')));
+      await tester.pumpAndSettle();
+      final button = find.widgetWithText(FilledButton, 'Complete Ride');
+      bool enabled() => tester.widget<FilledButton>(button).onPressed != null;
+      expect(button, findsOneWidget);
+      expect(enabled(), isFalse);
+      expect(
+        find.text(
+          'Reach within 200 meters of your destination to complete the trip.',
+        ),
+        findsOneWidget,
+      );
+      final stale = DateTime.now().subtract(const Duration(minutes: 1));
+      session.sample(_fix(latitude, longitude, stale));
+      await tester.pump();
+      expect(enabled(), isFalse);
+      var timestamp = DateTime.now().subtract(const Duration(seconds: 15));
+      Future<void> fix(double offset, {double accuracy = 8}) async {
+        timestamp = timestamp.add(const Duration(milliseconds: 500));
+        session.sample(
+          _fix(
+            latitude + offset / 111195.080,
+            longitude,
+            timestamp,
+            accuracy: accuracy,
           ),
         );
-        await tester.tap(find.byKey(const ValueKey('ride-details-handle')));
-        await tester.pumpAndSettle();
-        final button = find.widgetWithText(FilledButton, 'Complete Ride');
-        bool enabled() => tester.widget<FilledButton>(button).onPressed != null;
-        expect(button, findsOneWidget);
-        expect(enabled(), isFalse);
-        expect(
-          find.text(
-            'Reach within 200 meters of your destination to complete the trip.',
-          ),
-          findsOneWidget,
-        );
-        final stale = DateTime.now().subtract(const Duration(minutes: 1));
-        session.sample(_fix(latitude, longitude, stale));
         await tester.pump();
-        expect(enabled(), isFalse);
-        var timestamp = DateTime.now().subtract(const Duration(seconds: 15));
-        Future<void> fix(double offset, {double accuracy = 8}) async {
-          timestamp = timestamp.add(const Duration(milliseconds: 500));
-          session.sample(
-            _fix(
-              latitude + offset / 111195.080,
-              longitude,
-              timestamp,
-              accuracy: accuracy,
-            ),
-          );
-          await tester.pump();
-        }
+      }
 
-        for (final distance in [10000.0, 1000.0, 500.0, 201.0]) {
-          await fix(distance);
-          expect(enabled(), isFalse);
-        }
-        await fix(200, accuracy: 65);
+      for (final distance in [10000.0, 1000.0, 500.0, 201.0]) {
+        await fix(distance);
         expect(enabled(), isFalse);
-        session.eligibility(true);
-        await tester.pump();
-        expect(enabled(), isTrue);
-        await fix(150);
-        expect(find.text('Approx. 150 m remaining'), findsOneWidget);
-        expect(enabled(), isTrue);
-        await fix(100);
-        expect(enabled(), isTrue);
-        await fix(50, accuracy: 101);
-        session.eligibility(false);
-        await tester.pump();
-        expect(enabled(), isFalse);
-        await fix(50);
-        expect(enabled(), isFalse);
-        session.eligibility(true);
-        await tester.pump();
-        expect(enabled(), isTrue);
-        await fix(0);
-        expect(enabled(), isTrue);
-        await fix(201);
-        session.eligibility(false);
-        await tester.pump();
-        expect(enabled(), isFalse);
-        await tester.pumpWidget(const SizedBox());
-        session.dispose();
-      },
-    );
+      }
+      await fix(200, accuracy: 65);
+      expect(enabled(), isFalse);
+      session.eligibility(true);
+      await tester.pump();
+      expect(enabled(), isTrue);
+      await fix(150);
+      expect(find.text('Approx. 150 m remaining'), findsOneWidget);
+      expect(enabled(), isTrue);
+      await fix(100);
+      expect(enabled(), isTrue);
+      await fix(50, accuracy: 101);
+      session.eligibility(false);
+      await tester.pump();
+      expect(enabled(), isFalse);
+      await fix(50);
+      expect(enabled(), isFalse);
+      session.eligibility(true);
+      await tester.pump();
+      expect(enabled(), isTrue);
+      await fix(0);
+      expect(enabled(), isTrue);
+      await fix(201);
+      session.eligibility(false);
+      await tester.pump();
+      expect(enabled(), isFalse);
+      await tester.pumpWidget(const SizedBox());
+      session.dispose();
+    });
   }
 
   testWidgets('ride details have three heights and can scroll at half height', (
