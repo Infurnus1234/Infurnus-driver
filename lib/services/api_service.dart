@@ -131,6 +131,7 @@ class ApiService {
     String path, {
     Map<String, dynamic>? body,
     bool retry = true,
+    Map<String, String>? headers,
     List<DocumentFile>? files,
     Map<String, String>? fields,
     String fileField = 'file',
@@ -167,6 +168,7 @@ class ApiService {
       request = jsonRequest;
     }
     request.headers.addAll({
+      ...?headers,
       'Accept': 'application/json',
       'Content-Type': ?(files == null ? 'application/json' : null),
       'X-Provider-Mode': providerMode,
