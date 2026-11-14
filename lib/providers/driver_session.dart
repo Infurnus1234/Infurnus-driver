@@ -1742,29 +1742,31 @@ class DriverSession extends ChangeNotifier {
 
     await _permission(retry: retry);
     final epoch = _locationEpoch;
-    final fix = await Geolocator.getCurrentPosition(
-      locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.high,
-        timeLimit: Duration(seconds: 30),
-      ),
-    );
-    if (_disposed || !authenticated || epoch != _locationEpoch) {
-      throw const ApiException('Location access changed. Try again.');
-    }
-    position = fix;
-    try {
-      await _sendLocation(fix, preferRest: true);
-    } on ApiException catch (e) {
-      if (e.status == 401 || e.status == 403) rethrow;
-      // Cached fixes can survive a process restart while the server already
-      // has a newer sample. A rejected/noisy initial fix must not prevent the
-      // stream from delivering subsequent valid fixes, including after outages.
-      _lastLocationSampleSent = position!.timestamp;
-      if (e.code == 'DRIVER_LOCATION_OUT_OF_ORDER' ||
-          e.code == 'DRIVER_LOCATION_STALE') {
-        locationWarning = 'Waiting for a newer GPS sample.';
-      } else {
-        locationWarning = e.message;
+    if (currentTrip == null) {
+      final fix = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 30),
+        ),
+      );
+      if (_disposed || !authenticated || epoch != _locationEpoch) {
+        throw const ApiException('Location access changed. Try again.');
+      }
+      position = fix;
+      try {
+        await _sendLocation(fix, preferRest: true);
+      } on ApiException catch (e) {
+        if (e.status == 401 || e.status == 403) rethrow;
+        // Cached fixes can survive a process restart while the server already
+        // has a newer sample. A rejected/noisy initial fix must not prevent the
+        // stream from delivering subsequent valid fixes, including after outages.
+        _lastLocationSampleSent = position!.timestamp;
+        if (e.code == 'DRIVER_LOCATION_OUT_OF_ORDER' ||
+            e.code == 'DRIVER_LOCATION_STALE') {
+          locationWarning = 'Waiting for a newer GPS sample.';
+        } else {
+          locationWarning = e.message;
+        }
       }
     }
     await _positions?.cancel();
@@ -1786,6 +1788,14 @@ class DriverSession extends ChangeNotifier {
                   accuracy: LocationAccuracy.high,
                   distanceFilter: 0,
                   intervalDuration: gpsInterval,
+                  forceLocationManager:
+                      const bool.fromEnvironment(
+                        'INFURNUS_PATNA_DEVICE_ENROLMENT',
+                      ) &&
+                      currentTrip?['bookingId']?.toString() ==
+                          const String.fromEnvironment(
+                            'INFURNUS_PATNA_DESTINATION_BOOKING',
+                          ),
                   foregroundNotificationConfig:
                       const ForegroundNotificationConfig(
                         notificationTitle: 'Infurnus driver location',
