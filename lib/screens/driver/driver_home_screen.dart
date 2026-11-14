@@ -236,7 +236,11 @@ class DriverHomeScreen extends StatelessWidget {
                         child: Row(
                           children: [
                             Text(
-                              session.readyForRequests ? 'Available' : session.online ? 'Online' : 'Offline',
+                              session.readyForRequests
+                                  ? 'Available'
+                                  : session.online
+                                  ? 'Online'
+                                  : 'Offline',
                               style: TextStyle(
                                 fontSize: 12,
                                 color: session.readyForRequests
@@ -394,7 +398,11 @@ class DriverHomeScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 10),
                   Text(
-                    session.readyForRequests ? 'Available for requests' : session.online ? 'Waiting to become available' : 'You are Offline',
+                    session.readyForRequests
+                        ? 'Available for requests'
+                        : session.online
+                        ? 'Waiting to become available'
+                        : 'You are Offline',
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       fontSize: 21,
@@ -406,7 +414,8 @@ class DriverHomeScreen extends StatelessWidget {
                     !session.online
                         ? 'Go online to receive ride requests.'
                         : session.locationWarning ??
-                              (!session.hasFreshDispatchLocation && !session.isPreview
+                              (!session.hasFreshDispatchLocation &&
+                                      !session.isPreview
                                   ? 'Waiting for a fresh GPS fix.'
                                   : session.readyForRequests
                                   ? 'Waiting for ride requests…'
