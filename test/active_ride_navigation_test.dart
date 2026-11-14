@@ -10,7 +10,7 @@ import 'package:provider/provider.dart';
 void main() {
   for (final sector in ['logistics', 'premium', 'rental', 'service']) {
     testWidgets(
-      '$sector completion responds to the latest accurate destination fix',
+      '$sector completion responds to backend eligibility',
       (tester) async {
         final (latitude, longitude) = sector == 'logistics'
             ? (26.65, 84.92) // Motihari
@@ -62,6 +62,9 @@ void main() {
           expect(enabled(), isFalse);
         }
         await fix(200, accuracy: 65);
+        expect(enabled(), isFalse);
+        session.eligibility(true);
+        await tester.pump();
         expect(enabled(), isTrue);
         await fix(150);
         expect(find.text('Approx. 150 m remaining'), findsOneWidget);
@@ -69,12 +72,19 @@ void main() {
         await fix(100);
         expect(enabled(), isTrue);
         await fix(50, accuracy: 101);
+        session.eligibility(false);
+        await tester.pump();
         expect(enabled(), isFalse);
         await fix(50);
+        expect(enabled(), isFalse);
+        session.eligibility(true);
+        await tester.pump();
         expect(enabled(), isTrue);
         await fix(0);
         expect(enabled(), isTrue);
         await fix(201);
+        session.eligibility(false);
+        await tester.pump();
         expect(enabled(), isFalse);
         await tester.pumpWidget(const SizedBox());
         session.dispose();
@@ -204,6 +214,11 @@ class _DelayedCompletionSession extends DriverSession {
 }
 
 class _LocationSession extends DriverSession {
+  void eligibility(bool allowed) {
+    currentTrip!['canCompleteRide'] = allowed;
+    notifyListeners();
+  }
+
   void sample(Position fix) {
     position = fix;
     notifyListeners();
