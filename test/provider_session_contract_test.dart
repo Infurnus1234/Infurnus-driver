@@ -86,6 +86,7 @@ void main() {
     'DRIVER_LOCATION_OUT_OF_ORDER',
     'DRIVER_LOCATION_IMPLAUSIBLE',
     'TEMPORARY_FAILURE',
+    'MOCK_LOCATION_NOT_AUTHORIZED',
   ]) {
     testWidgets(
       '$initialFailure at startup still starts the stream and recovers on a fresh sample',
@@ -121,7 +122,9 @@ void main() {
                         'message': 'Initial location rejected: $initialFailure',
                       },
                     }),
-                    409,
+                    initialFailure == 'MOCK_LOCATION_NOT_AUTHORIZED'
+                        ? 403
+                        : 409,
                   );
                 }
                 if (sent.length == 3) {
@@ -164,14 +167,18 @@ void main() {
         );
         expect(await session.restore(), true);
         expect(session.error, isNull);
-        expect(
-          session.locationWarning,
-          contains(
-            initialFailure == 'DRIVER_LOCATION_OUT_OF_ORDER'
-                ? 'newer GPS'
-                : 'Check your information and retry.',
-          ),
-        );
+        if (initialFailure == 'MOCK_LOCATION_NOT_AUTHORIZED') {
+          expect(session.locationWarning, isNotNull);
+        } else {
+          expect(
+            session.locationWarning,
+            contains(
+              initialFailure == 'DRIVER_LOCATION_OUT_OF_ORDER'
+                  ? 'newer GPS'
+                  : 'Check your information and retry.',
+            ),
+          );
+        }
         expect(session.lastLocationSent, isNull);
         expect(gps.settings, isNotNull);
         expect(

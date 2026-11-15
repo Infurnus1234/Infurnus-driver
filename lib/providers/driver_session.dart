@@ -1756,7 +1756,10 @@ class DriverSession extends ChangeNotifier {
       try {
         await _sendLocation(fix, preferRest: true);
       } on ApiException catch (e) {
-        if (e.status == 401 || e.status == 403) rethrow;
+        if (e.status == 401 ||
+            (e.status == 403 && e.code != 'MOCK_LOCATION_NOT_AUTHORIZED')) {
+          rethrow;
+        }
         // Cached fixes can survive a process restart while the server already
         // has a newer sample. A rejected/noisy initial fix must not prevent the
         // stream from delivering subsequent valid fixes, including after outages.
