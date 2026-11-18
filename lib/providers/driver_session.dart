@@ -1748,7 +1748,11 @@ class DriverSession extends ChangeNotifier {
     await bridge.dismissOffer(id);
     await _load();
   });
-  Future<bool> transition(String status, {String? pin, String? endPin}) => run(() async {
+  Future<bool> transition(
+    String status, {
+    String? pin,
+    String? endPin,
+  }) => run(() async {
     if (currentTrip == null) throw const ApiException('No active trip.');
     if (isPreview) {
       if (status == 'completed') {

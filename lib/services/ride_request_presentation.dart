@@ -114,6 +114,15 @@ class RideRequestBridge {
     await _call('notificationPermission');
   }
 
+  Future<bool> getPlayAlertsInSilentMode() async =>
+      await _call<bool>('getSilentAlerts') ?? true;
+
+  Future<bool> setPlayAlertsInSilentMode(bool enabled) async =>
+      await _call<bool>('setSilentAlerts', {'enabled': enabled}) ?? true;
+
+  Future<bool> requestDndAccess() async =>
+      await _call<bool>('requestDndAccess') ?? true;
+
   Future<bool> present(Map<String, dynamic> ride) async =>
       await _call<bool>('present', nativeOffer(ride)) ?? false;
   Future<bool> notifyOffer(String rideId, String expiresAt) async {

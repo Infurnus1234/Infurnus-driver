@@ -16,52 +16,134 @@ class DriverHomeScreen extends StatelessWidget {
   const DriverHomeScreen({super.key});
   Future<void> _alerts(BuildContext context) async {
     final bridge = RideRequestBridge();
-    final status = await bridge.status();
+    var status = await bridge.status();
     if (!context.mounted) return;
+    var silentAlerts = status?['silentAlerts'] != false;
     await showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
       isScrollControlled: true,
-      builder: (sheet) => SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Text(
-                'Ride request alerts',
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                status?['overlay'] == true
-                    ? 'Requests can appear over other apps.'
-                    : 'Allow Display over other apps to see ride requests while using another app. Without it, incoming requests use notifications.',
-              ),
-              const SizedBox(height: 16),
-              FilledButton(
-                onPressed: () async {
-                  Navigator.pop(sheet);
-                  await bridge.requestOverlayPermission();
-                },
-                child: const Text('Display over other apps'),
-              ),
-              OutlinedButton(
-                onPressed: () async {
-                  await bridge.requestNotificationPermission();
-                },
-                child: Text(
-                  status?['notifications'] == true
-                      ? 'Request sound and vibration settings'
-                      : 'Allow request notifications',
+      builder: (sheet) => StatefulBuilder(
+        builder: (context, setSheetState) => SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text(
+                  'Ride request alerts',
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
                 ),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(sheet),
-                child: const Text('Not now'),
-              ),
-            ],
+                const SizedBox(height: 12),
+                Text(
+                  status?['overlay'] == true
+                      ? 'Requests can appear over other apps.'
+                      : 'Allow Display over other apps to see ride requests while using another app. Without it, incoming requests use notifications.',
+                ),
+                const SizedBox(height: 16),
+                Card(
+                  margin: EdgeInsets.zero,
+                  child: SwitchListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                    title: const Text('Play ride alerts even in silent mode'),
+                    subtitle: const Text(
+                      'Uses alarm audio stream to alert on incoming requests when phone is on silent or vibrate',
+                    ),
+                    value: silentAlerts,
+                    onChanged: (val) async {
+                      await bridge.setPlayAlertsInSilentMode(val);
+                      setSheetState(() => silentAlerts = val);
+                    },
+                  ),
+                ),
+                if (status?['alarmVolumeZero'] == true) ...[
+                  const SizedBox(height: 12),
+                  Card(
+                    color: Colors.amber.shade50,
+                    margin: EdgeInsets.zero,
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.warning_amber_rounded,
+                            color: Colors.amber.shade900,
+                          ),
+                          const SizedBox(width: 12),
+                          const Expanded(
+                            child: Text(
+                              'Alarm volume is zero. Increase alarm volume in device sound settings to hear ride alerts.',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.black87,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+                if (status != null && status?['dndAccess'] != true) ...[
+                  const SizedBox(height: 12),
+                  Card(
+                    margin: EdgeInsets.zero,
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Do Not Disturb access (Optional)',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 4),
+                          const Text(
+                            'Allow ride alerts to sound when Do Not Disturb is active.',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.black54,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          OutlinedButton(
+                            onPressed: () async {
+                              await bridge.requestDndAccess();
+                              final updated = await bridge.status();
+                              setSheetState(() => status = updated);
+                            },
+                            child: const Text('Open Do Not Disturb settings'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 16),
+                FilledButton(
+                  onPressed: () async {
+                    Navigator.pop(sheet);
+                    await bridge.requestOverlayPermission();
+                  },
+                  child: const Text('Display over other apps'),
+                ),
+                OutlinedButton(
+                  onPressed: () async {
+                    await bridge.requestNotificationPermission();
+                  },
+                  child: Text(
+                    status?['notifications'] == true
+                        ? 'Request sound and vibration settings'
+                        : 'Allow request notifications',
+                  ),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(sheet),
+                  child: const Text('Not now'),
+                ),
+              ],
+            ),
           ),
         ),
       ),

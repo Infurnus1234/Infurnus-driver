@@ -39,9 +39,10 @@ public class DriverRequestOverlayPlugin implements FlutterPlugin, MethodChannel.
  private static String shownKey, shownRide, notificationRide;
  private static int shownNotification;
  private static MediaPlayer sound;
- private static Runnable expiryTask;
+ private static Runnable expiryTask, soundTimeoutTask;
  private static final Set<String> endedOffers=new LinkedHashSet<>();
- private static final String CHANNEL="infurnus_driver_channel_v3";
+ private static final String CHANNEL="infurnus_driver_channel_v4";
+ private static final String OLD_CHANNEL="infurnus_driver_channel_v3";
  private static final String QUIET_CHANNEL="infurnus_driver_overlay_backup";
  private static android.content.SharedPreferences prefs(){return context.getSharedPreferences("ride_request_presentation",Context.MODE_PRIVATE);}
  private static int dp(float v){return Math.round(v*context.getResources().getDisplayMetrics().density);}
@@ -80,7 +81,38 @@ public class DriverRequestOverlayPlugin implements FlutterPlugin, MethodChannel.
  @Override public void onMethodCall(MethodCall call,MethodChannel.Result result){
   try {
    switch(call.method){
-    case "status": result.success(Map.of("overlay",overlayAllowed(),"notifications",Build.VERSION.SDK_INT<24||notifications().areNotificationsEnabled()));break;
+    case "status":
+     AudioManager audioStatus=(AudioManager)context.getSystemService(Context.AUDIO_SERVICE);
+     int alarmVol=audioStatus!=null?audioStatus.getStreamVolume(AudioManager.STREAM_ALARM):-1;
+     int maxAlarmVol=audioStatus!=null?audioStatus.getStreamMaxVolume(AudioManager.STREAM_ALARM):-1;
+     boolean dndGranted=Build.VERSION.SDK_INT<23||notifications().isNotificationPolicyAccessGranted();
+     boolean dndActive=Build.VERSION.SDK_INT>=23&&notifications().getCurrentInterruptionFilter()!=NotificationManager.INTERRUPTION_FILTER_ALL;
+     Map<String,Object> st=new HashMap<>();
+     st.put("overlay",overlayAllowed());
+     st.put("notifications",Build.VERSION.SDK_INT<24||notifications().areNotificationsEnabled());
+     st.put("silentAlerts",prefs().getBoolean("play_in_silent_mode",true));
+     st.put("alarmVolume",alarmVol);
+     st.put("maxAlarmVolume",maxAlarmVol);
+     st.put("alarmVolumeZero",alarmVol==0);
+     st.put("dndAccess",dndGranted);
+     st.put("dndActive",dndActive);
+     result.success(st);break;
+    case "getSilentAlerts":
+     result.success(prefs().getBoolean("play_in_silent_mode",true));break;
+    case "setSilentAlerts":
+     Boolean silentEnabled=call.argument("enabled");
+     if(silentEnabled!=null)prefs().edit().putBoolean("play_in_silent_mode",silentEnabled).apply();
+     result.success(true);break;
+    case "requestDndAccess":
+     if(Build.VERSION.SDK_INT>=24){
+      try{
+       Intent dndIntent=new Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS);
+       if(activity!=null)activity.startActivity(dndIntent);
+       else{dndIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);context.startActivity(dndIntent);}
+       result.success(true);
+      }catch(Exception e){result.success(false);}
+     }else{result.success(true);}
+     break;
     case "permission":
      if(activity==null){result.success(false);break;}
      activity.startActivity(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,Uri.parse("package:"+context.getPackageName())));result.success(true);break;
@@ -100,6 +132,7 @@ public class DriverRequestOverlayPlugin implements FlutterPlugin, MethodChannel.
         && !pendingRide.equals(notificationRide)&&!endedOffers.contains(pendingRide)){
       hide();
       if(postOfferNotification(offer,false)){
+       playAlert(pendingDeadline);
        expiryTask=()->{if(pendingRide.equals(notificationRide))hide();};
        handler.postDelayed(expiryTask,Math.max(0,pendingDeadline-System.currentTimeMillis()));
       }
@@ -143,10 +176,20 @@ public class DriverRequestOverlayPlugin implements FlutterPlugin, MethodChannel.
  }
  private static void channels(){
   if(Build.VERSION.SDK_INT<26)return;
+  try{notifications().deleteNotificationChannel(OLD_CHANNEL);}catch(Exception ignored){}
   NotificationChannel channel=new NotificationChannel(CHANNEL,"Ride Request Sound",NotificationManager.IMPORTANCE_HIGH);
+  channel.setDescription("High-priority ride requests that alert even in silent mode");
   int raw=context.getResources().getIdentifier("ride_request_alert","raw",context.getPackageName());
-  if(raw!=0)channel.setSound(Uri.parse("android.resource://"+context.getPackageName()+"/"+raw),new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_NOTIFICATION).build());
-  channel.enableVibration(true);notifications().createNotificationChannel(channel);
+  if(raw!=0){
+   AudioAttributes audioAttributes=new AudioAttributes.Builder()
+       .setUsage(AudioAttributes.USAGE_ALARM)
+       .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+       .build();
+   channel.setSound(Uri.parse("android.resource://"+context.getPackageName()+"/"+raw),audioAttributes);
+  }
+  channel.enableVibration(true);
+  channel.setBypassDnd(true);
+  notifications().createNotificationChannel(channel);
   NotificationChannel quiet=new NotificationChannel(QUIET_CHANNEL,"Ride Request Actions",NotificationManager.IMPORTANCE_LOW);
   quiet.setSound(null,null);notifications().createNotificationChannel(quiet);
  }
@@ -219,7 +262,7 @@ public class DriverRequestOverlayPlugin implements FlutterPlugin, MethodChannel.
    android.content.SharedPreferences.Editor edit=prefs().edit();
    for(Map.Entry<String,?> e:prefs().getAll().entrySet())if(e.getKey().startsWith("seen_")&&e.getValue() instanceof Long&&(Long)e.getValue()<System.currentTimeMillis())edit.remove(e.getKey());
    edit.putLong("seen_"+key,deadline).apply();
-   if(deadline>System.currentTimeMillis())playAlert();
+   if(deadline>System.currentTimeMillis())playAlert(deadline);
   }
   expiryTask=()->{if(key.equals(shownKey))hide();};
   handler.postDelayed(expiryTask,Math.max(0,deadline-System.currentTimeMillis()));
@@ -229,11 +272,12 @@ public class DriverRequestOverlayPlugin implements FlutterPlugin, MethodChannel.
   return (Build.VERSION.SDK_INT<33||context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)==PackageManager.PERMISSION_GRANTED)
       && (Build.VERSION.SDK_INT<24||notifications().areNotificationsEnabled());
  }
- private static void playAlert(){
+ private static void playAlert(long deadline){
   if(!canNotify())return;
   NotificationChannel alertChannel=Build.VERSION.SDK_INT>=26?notifications().getNotificationChannel(CHANNEL):null;
   if(Build.VERSION.SDK_INT>=26 && (alertChannel==null||alertChannel.getImportance()<NotificationManager.IMPORTANCE_DEFAULT))return;
-  if(notifications().getCurrentInterruptionFilter()!=NotificationManager.INTERRUPTION_FILTER_ALL)return;
+  boolean playInSilent=prefs().getBoolean("play_in_silent_mode",true);
+  if(!playInSilent && notifications().getCurrentInterruptionFilter()!=NotificationManager.INTERRUPTION_FILTER_ALL)return;
   if(alertChannel==null || alertChannel.shouldVibrate()){
    Vibrator vibrator=(Vibrator)context.getSystemService(Context.VIBRATOR_SERVICE);
    if(vibrator!=null && vibrator.hasVibrator()){
@@ -243,23 +287,35 @@ public class DriverRequestOverlayPlugin implements FlutterPlugin, MethodChannel.
   }
   if(alertChannel!=null && alertChannel.getSound()==null)return;
   AudioManager audio=(AudioManager)context.getSystemService(Context.AUDIO_SERVICE);
-  if(audio==null||audio.getRingerMode()!=AudioManager.RINGER_MODE_NORMAL)return;
+  if(!playInSilent && audio!=null && audio.getRingerMode()!=AudioManager.RINGER_MODE_NORMAL)return;
   int raw=context.getResources().getIdentifier("ride_request_alert","raw",context.getPackageName());
   if(raw==0)return;
-  AudioAttributes attributes=new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_NOTIFICATION).build();
+  AudioAttributes attributes=new AudioAttributes.Builder()
+      .setUsage(AudioAttributes.USAGE_ALARM)
+      .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+      .build();
   try{
    stopAlert();
    sound=MediaPlayer.create(context,raw,attributes,0);
    if(sound!=null){
+    sound.setLooping(true);
     sound.setOnCompletionListener(p->{if(sound==p)stopAlert();});
     sound.setOnErrorListener((p,what,extra)->{if(sound==p)stopAlert();return true;});
     sound.start();
+    long remaining=deadline>0?(deadline-System.currentTimeMillis()):30000;
+    long timeout=Math.min(Math.max(1000,remaining),30000);
+    soundTimeoutTask=()->stopAlert();
+    handler.postDelayed(soundTimeoutTask,timeout);
    }
   }catch(Exception ignored){stopAlert();}
  }
  private static void stopAlert(){
+  if(soundTimeoutTask!=null){handler.removeCallbacks(soundTimeoutTask);soundTimeoutTask=null;}
   MediaPlayer player=sound;sound=null;
-  if(player!=null)try{player.release();}catch(Exception ignored){}
+  if(player!=null){
+   try{if(player.isPlaying())player.stop();}catch(Exception ignored){}
+   try{player.release();}catch(Exception ignored){}
+  }
  }
  private static void cancelNotification(){
   if(shownNotification!=0){
