@@ -212,6 +212,9 @@ class DriverNotificationService {
       await androidPlugin?.deleteNotificationChannel(
         'infurnus_driver_channel_v2',
       );
+      await androidPlugin?.deleteNotificationChannel(
+        'infurnus_driver_channel_v3',
+      );
       const AndroidNotificationChannel defaultChannel =
           AndroidNotificationChannel(
             'infurnus_default_channel',
