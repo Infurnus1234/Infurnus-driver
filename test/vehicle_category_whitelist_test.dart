@@ -1,4 +1,3 @@
-import 'support/premium_location_fixture.dart';
 import 'support/active_catalog_fixture.dart';
 
 import 'dart:convert';
@@ -25,7 +24,6 @@ http.Response _ok(dynamic data) =>
     http.Response(jsonEncode({'success': true, 'data': data}), 200);
 
 void main() {
-  setUp(configureOperatingMap);
   group('VehicleCategoryPolicy & Registration Dialog Tests', () {
     test('Allows all 8 approved sector and code combinations', () {
       expect(
@@ -245,8 +243,6 @@ void main() {
                         initial: {
                           'sector': pair['sector'],
                           'category': pair['code'],
-                          if (pair['sector'] == 'premium')
-                            'operatingLocation': testOperatingLocation,
                         },
                       );
                     },
@@ -274,8 +270,6 @@ void main() {
           expect(selectedResult, {
             'sector': pair['sector']!,
             'category': pair['code']!,
-            if (pair['sector'] == 'premium')
-              'operatingLocation': testOperatingLocation,
           });
           await tester.pumpWidget(const SizedBox());
         }
@@ -319,11 +313,7 @@ void main() {
                     final res = await selectFleetVehicleCategory(
                       context,
                       api,
-                      initial: {
-                        'sector': 'rental',
-                        'category': 'thar',
-                        'operatingLocation': testOperatingLocation,
-                      },
+                      initial: {'sector': 'rental', 'category': 'thar'},
                     );
                     if (res != null) selectedResult = res;
                   },

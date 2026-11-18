@@ -20,6 +20,7 @@ import 'package:infurnus_driver/services/api_service.dart';
 import 'package:infurnus_driver/services/notification_service.dart';
 import 'package:infurnus_driver/widgets/operations.dart';
 import 'package:infurnus_driver/screens/fleet/fleet_reports_screen.dart';
+import 'package:infurnus_driver/screens/fleet/logistics_fleet_offers.dart';
 
 void main() {
   setUp(() {
@@ -288,6 +289,128 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     session.dispose();
   });
+  testWidgets(
+    'Driver dashboard exposes mode switching only for dual-role accounts',
+    (tester) async {
+      final session = DriverSession()..api.role = 'driver';
+      Widget dashboard() => ChangeNotifierProvider.value(
+        value: session,
+        child: MaterialApp(theme: Ops.theme, home: const OperationsDashboard()),
+      );
+
+      await tester.pumpWidget(dashboard());
+      expect(find.widgetWithText(ActionChip, 'Driver Mode'), findsNothing);
+
+      await tester.pumpWidget(const SizedBox());
+      session.api.role = 'driver_fleet_owner';
+      await tester.pumpWidget(dashboard());
+      await tester.tap(find.widgetWithText(ActionChip, 'Driver Mode'));
+      await tester.pumpAndSettle();
+      expect(find.text('Switch Mode'), findsOneWidget);
+      expect(find.widgetWithText(ListTile, 'Fleet Owner Mode'), findsOneWidget);
+
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+      await tester.pumpWidget(const SizedBox());
+      session.dispose();
+    },
+  );
+
+  test(
+    'mode switching preserves the session and active trip when blocked',
+    () async {
+      final api = ApiService()
+        ..role = 'driver_fleet_owner'
+        ..accessToken = 'test-session';
+      final session = DriverSession(api: api)
+        ..currentTrip = {'id': 'active-booking'};
+      addTearDown(session.dispose);
+
+      expect(await session.switchMode('fleet_owner'), isFalse);
+      expect(api.providerMode, 'driver');
+      expect(api.accessToken, 'test-session');
+      expect(session.currentTrip?['id'], 'active-booking');
+    },
+  );
+
+  testWidgets(
+    'fleet coordination requires choosing a driver before forwarding',
+    (tester) async {
+      var status = 'pending';
+      final actions = <String>[];
+      final api =
+          ApiService(
+              client: MockClient((request) async {
+                final path = request.url.path;
+                Object? data;
+                if (path.endsWith('/respond')) {
+                  actions.add('respond');
+                  status = 'coordinating';
+                } else if (path.endsWith('/candidates')) {
+                  data = [
+                    {
+                      'driverId': 'driver',
+                      'vehicleId': 'vehicle',
+                      'name': 'Nearby driver',
+                      'category': 'mini_truck',
+                      'distanceMeters': 100,
+                    },
+                  ];
+                } else if (path.endsWith('/forward')) {
+                  actions.add('forward');
+                  expect(jsonDecode(request.body), {
+                    'driverId': 'driver',
+                    'vehicleId': 'vehicle',
+                  });
+                  status = 'forwarded';
+                } else {
+                  data = [
+                    {
+                      'id': 'offer',
+                      'rideId': 'ride',
+                      'bookingId': '4412345',
+                      'category': 'mini_truck',
+                      'pickup': 'Warehouse',
+                      'status': status,
+                    },
+                  ];
+                }
+                return http.Response(
+                  jsonEncode({'success': true, 'data': data}),
+                  200,
+                );
+              }),
+            )
+            ..role = 'fleet_owner'
+            ..providerMode = 'fleet_owner'
+            ..accessToken = 'qa-session';
+      final session = DriverSession(api: api);
+      await tester.pumpWidget(
+        ChangeNotifierProvider.value(
+          value: session,
+          child: const MaterialApp(
+            home: Scaffold(body: LogisticsFleetOffers(revision: 0)),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.textContaining('4412345'), findsOneWidget);
+      await tester.tap(find.byType(PopupMenuButton<bool>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Accept coordination'));
+      await tester.pumpAndSettle();
+      expect(actions, ['respond']);
+      await tester.tap(find.text('Select driver'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.textContaining('Nearby driver'));
+      await tester.pumpAndSettle();
+      expect(actions, ['respond', 'forward']);
+      expect(find.textContaining('forwarded'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox());
+      session.dispose();
+    },
+  );
+
   testWidgets(
     'home load error is friendly and excludes the offers empty state',
     (tester) async {

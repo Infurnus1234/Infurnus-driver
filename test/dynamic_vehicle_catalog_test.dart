@@ -1,4 +1,3 @@
-import 'support/premium_location_fixture.dart';
 import 'support/active_catalog_fixture.dart';
 
 import 'dart:convert';
@@ -11,7 +10,6 @@ import 'package:infurnus_driver/services/session_store.dart';
 import 'package:infurnus_driver/screens/fleet/fleet_vehicle_category_dialog.dart';
 
 void main() {
-  setUp(configureOperatingMap);
   const labels = {
     'passenger': 'Rental',
     'logistics': 'Logistics',
@@ -111,21 +109,9 @@ void main() {
           expect(find.text('Hidden option'), findsNothing);
           await tester.tap(find.text(name).last);
           await tester.pumpAndSettle();
-          if (sector == 'premium') {
-            await selectTestOperatingLocation(tester);
-          }
           await tester.tap(find.text('Continue'));
           await tester.pumpAndSettle();
-          expect(selected, {
-            'sector': sector,
-            'category': code,
-            if (sector == 'premium')
-              'operatingLocation': {
-                'address': 'Motihari Bihar',
-                'latitude': 26.65,
-                'longitude': 84.9167,
-              },
-          });
+          expect(selected, {'sector': sector, 'category': code});
         }
 
         await open();

@@ -35,6 +35,7 @@ class MainActivity : FlutterActivity() {
                     result.success(null)
                 } else result.notImplemented()
             }
+        PatnaLocationProof.attach(flutterEngine.dartExecutor.binaryMessenger)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "infurnus/maps")
             .setMethodCallHandler { call, result ->
                 if (call.method == "configured") {

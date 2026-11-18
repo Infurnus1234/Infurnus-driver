@@ -1,3 +1,5 @@
+import 'package:flutter/services.dart' show MethodChannel;
+
 import '../services/location_access.dart';
 import '../models/provider_public_id.dart';
 
@@ -175,7 +177,85 @@ class DriverSession extends ChangeNotifier {
   Map<String, dynamic>? history;
   int historyLimit = 20;
   List<Map<String, dynamic>> rides = [];
-  Position? position;
+  Position? _position;
+  Position? _arrivalPosition;
+  Timer? _arrivalExpiry;
+  Timer? _completionPoll;
+  static const _arrivalFreshness = Duration(seconds: 30);
+  static const _destinationRestrictedSectors = {
+    'logistics',
+    'premium',
+    'rental',
+    'service',
+  };
+
+  Position? get position => _position;
+  set position(Position? fix) {
+    _position = fix;
+    if (fix != null &&
+        _arrivalPosition != null &&
+        !fix.timestamp.isAfter(_arrivalPosition!.timestamp)) {
+      return;
+    }
+    _arrivalExpiry?.cancel();
+    _arrivalPosition = fix;
+    if (fix == null) return;
+    final remaining =
+        _arrivalFreshness - DateTime.now().difference(fix.timestamp);
+    if (remaining > Duration.zero) {
+      _arrivalExpiry = Timer(remaining, _notify);
+    }
+  }
+
+  static const destinationCompletionRadiusMeters = 200;
+
+  bool get canCompleteAtDestination {
+    if (currentTrip?['status'] != 'in_progress') return false;
+    if (!_destinationRestrictedSectors.contains(currentTrip?['sector'])) {
+      return true;
+    }
+    if (!isPreview) return currentTrip?['canCompleteRide'] == true;
+    final distance = directDistanceToDestination;
+    return distance != null && distance <= destinationCompletionRadiusMeters;
+  }
+
+  double? get directDistanceToDestination {
+    final destination = currentTrip?['destination'];
+    if (destination is! Map) return null;
+    final latitude = destination['latitude'];
+    final longitude = destination['longitude'];
+    if (latitude is! num ||
+        longitude is! num ||
+        !_validArrivalCoordinates(latitude, longitude)) {
+      return null;
+    }
+    final fix = _arrivalPosition;
+    if (fix == null ||
+        fix.isMocked ||
+        !fix.accuracy.isFinite ||
+        fix.accuracy <= 0 ||
+        fix.accuracy > 100 ||
+        !_validArrivalCoordinates(fix.latitude, fix.longitude)) {
+      return null;
+    }
+    final age = DateTime.now().difference(fix.timestamp);
+    if (age < const Duration(seconds: -2) || age >= _arrivalFreshness) {
+      return null;
+    }
+    // Match the mean Earth radius used by the PostGIS geography check.
+    return Geolocator.distanceBetween(
+          fix.latitude,
+          fix.longitude,
+          latitude.toDouble(),
+          longitude.toDouble(),
+        ) *
+        (6371008.7714 / 6378137.0);
+  }
+
+  static bool _validArrivalCoordinates(num latitude, num longitude) =>
+      latitude.abs() <= 90 &&
+      longitude.abs() <= 180 &&
+      (latitude != 0 || longitude != 0);
   String? challengeId;
   String? signupId;
   String? verificationContact;
@@ -295,6 +375,124 @@ class DriverSession extends ChangeNotifier {
   }
 
   String? locationWarning;
+  String? _distanceRideId;
+  DateTime? _distanceTimestamp;
+  String? _lastDistance;
+  String? _distanceLabel;
+  Timer? _distanceExpiry;
+  bool _fetchingDistance = false;
+
+  String? get remainingDistanceLabel {
+    if (currentTrip?['status'] != 'in_progress') return null;
+    final serverLabel = _distanceRideId == currentTrip?['id']
+        ? _distanceLabel
+        : null;
+    if (serverLabel != null && serverLabel != _updatingDistance) {
+      return serverLabel;
+    }
+    final direct = directDistanceToDestination;
+    return direct == null
+        ? serverLabel ?? 'Remaining distance unavailable'
+        : 'Approx. ${_formatRemainingDistance(direct)}';
+  }
+
+  String _formatRemainingDistance(num meters) => meters >= 1000
+      ? '${(meters / 1000).toStringAsFixed(1)} km remaining'
+      : '${meters.round()} m remaining';
+
+  String get _updatingDistance => _lastDistance == null
+      ? 'Remaining distance unavailable'
+      : '$_lastDistance · Updating';
+
+  void _updateRemainingDistance(String id, Map? update, DateTime? timestamp) {
+    if (_disposed ||
+        currentTrip?['id'] != id ||
+        currentTrip?['status'] != 'in_progress') {
+      return;
+    }
+    if (_distanceRideId != id) {
+      _distanceRideId = id;
+      _distanceTimestamp = null;
+      _lastDistance = null;
+      _distanceLabel = null;
+    }
+    final latest = _distanceTimestamp;
+    if (latest != null && (timestamp == null || timestamp.isBefore(latest))) {
+      if (timestamp != null ||
+          DateTime.now().difference(latest).inSeconds < 30) {
+        return;
+      }
+    }
+    _distanceTimestamp = timestamp ?? latest;
+    _distanceExpiry?.cancel();
+    final meters = update?['meters'];
+    final fresh =
+        timestamp != null &&
+        !timestamp.isAfter(DateTime.now().add(const Duration(seconds: 2))) &&
+        DateTime.now().difference(timestamp) < const Duration(seconds: 30);
+    String? label;
+    if (fresh && update?['status'] == 'arrived') {
+      label = 'Destination reached';
+    } else if (fresh &&
+        (update?['status'] == 'live' || update?['status'] == 'approximate') &&
+        meters is num &&
+        meters.isFinite &&
+        meters > 0) {
+      final distance = _formatRemainingDistance(meters);
+      label = update?['status'] == 'approximate'
+          ? 'Approx. $distance'
+          : distance;
+      _lastDistance = label;
+    }
+    final displayed = label ?? _updatingDistance;
+    if (_distanceLabel != displayed) {
+      _distanceLabel = displayed;
+      _notify();
+    }
+    if (fresh && label != null) {
+      _distanceExpiry = Timer(
+        const Duration(seconds: 30) - DateTime.now().difference(timestamp),
+        () {
+          if (currentTrip?['id'] == id &&
+              currentTrip?['status'] == 'in_progress') {
+            _distanceLabel = _updatingDistance;
+            _notify();
+          }
+        },
+      );
+    }
+  }
+
+  Future<void> refreshRemainingDistance() async {
+    final id = currentTrip?['id'];
+    if (_disposed ||
+        !authenticated ||
+        id is! String ||
+        _fetchingDistance ||
+        currentTrip?['status'] != 'in_progress') {
+      return;
+    }
+    _fetchingDistance = true;
+    try {
+      final data = await api.request(
+        'GET',
+        '/rides/driver/rides/${Uri.encodeComponent(id)}/map',
+      );
+      if (data is! Map) return;
+      final location = data['driverLocation'];
+      final distance = data['remainingRoadDistance'];
+      _updateRemainingDistance(
+        id,
+        distance is Map ? distance : null,
+        location is Map ? DateTime.tryParse('${location['timestamp']}') : null,
+      );
+    } catch (_) {
+      // Keep the last valid road distance until the next socket update or snapshot.
+    } finally {
+      _fetchingDistance = false;
+    }
+  }
+
   Map<String, dynamic>? _navigationUpdate;
   Map<String, dynamic>? get liveNavigation =>
       _navigationUpdate?['rideId'] == currentTrip?['id']
@@ -317,6 +515,25 @@ class DriverSession extends ChangeNotifier {
   String? errorCode;
   String realtimeStatus = 'Disconnected';
   DateTime? lastLocationSent;
+  Timer? _dispatchLocationExpiry;
+  DateTime? _lastAcceptedDispatchSample;
+
+  bool get hasFreshDispatchLocation {
+    final sample = _lastAcceptedDispatchSample;
+    return sample != null &&
+        DateTime.now().difference(sample) < const Duration(seconds: 30);
+  }
+
+  bool get readyForRequests =>
+      online &&
+      (isPreview ||
+          (operationalAllowed &&
+              profile?['availabilityStatus'] == 'available' &&
+              currentTrip == null &&
+              hasFreshDispatchLocation &&
+              locationWarning == null &&
+              realtimeStatus == 'Connected'));
+
   DateTime? _lastLocationSampleSent;
   bool busy = false;
   bool _disposed = false;
@@ -329,6 +546,7 @@ class DriverSession extends ChangeNotifier {
   Timer? _expiry;
   DriverNotificationService? _notifications;
   DriverNotificationService? get notifications => _notifications;
+  int logisticsFleetOfferRevision = 0;
 
   void dismissRideNotifications() {
     unawaited(_notifications?.cancelAll());
@@ -708,11 +926,27 @@ class DriverSession extends ChangeNotifier {
       _notifications?.dispose();
       _notifications = DriverNotificationService(
         api: api,
-        onRideUpdate: (data) => handleRideEvent('ride:lifecycle_updated', data),
+        onRideUpdate: (data) {
+          if (data['type'] == 'logistics.fleet_offer' ||
+              (api.providerMode == 'fleet_owner' &&
+                  data['silentOfferUpdate'] == 'true')) {
+            logisticsFleetOfferRevision++;
+            _notify();
+            return;
+          }
+          handleRideEvent('ride:lifecycle_updated', data);
+        },
         onOpen: (route) {
           if (!authenticated) return;
-          pendingNotificationRoute = route;
-          _notify();
+          unawaited(() async {
+            if (route == '/fleet/dashboard' &&
+                api.providerMode != 'fleet_owner' &&
+                !await switchMode('fleet_owner')) {
+              return;
+            }
+            pendingNotificationRoute = route;
+            _notify();
+          }());
         },
       );
       unawaited(_notifications!.init());
@@ -1508,31 +1742,39 @@ class DriverSession extends ChangeNotifier {
 
     await _permission(retry: retry);
     final epoch = _locationEpoch;
-    final fix = await Geolocator.getCurrentPosition(
-      locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.high,
-        timeLimit: Duration(seconds: 30),
-      ),
-    );
-    if (_disposed || !authenticated || epoch != _locationEpoch) {
-      throw const ApiException('Location access changed. Try again.');
-    }
-    position = fix;
-    try {
-      await _sendLocation(fix, preferRest: true);
-    } on ApiException catch (e) {
-      if (e.status == 401 || e.status == 403) rethrow;
-      // Cached fixes can survive a process restart while the server already
-      // has a newer sample. A rejected/noisy initial fix must not prevent the
-      // stream from delivering subsequent valid fixes, including after outages.
-      _lastLocationSampleSent = position!.timestamp;
-      if (e.code == 'DRIVER_LOCATION_OUT_OF_ORDER' ||
-          e.code == 'DRIVER_LOCATION_STALE') {
-        locationWarning = 'Waiting for a newer GPS sample.';
-      } else {
-        locationWarning = e.message;
+    Future<void> publishInitialFix() async {
+      final fix = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 30),
+        ),
+      );
+      if (_disposed || !authenticated || epoch != _locationEpoch) {
+        throw const ApiException('Location access changed. Try again.');
+      }
+      position = fix;
+      try {
+        await _sendLocation(fix, preferRest: true);
+      } on ApiException catch (e) {
+        if (e.status == 401 ||
+            (e.status == 403 && e.code != 'MOCK_LOCATION_NOT_AUTHORIZED')) {
+          rethrow;
+        }
+        // Cached fixes can survive a process restart while the server already
+        // has a newer sample. A rejected/noisy initial fix must not prevent the
+        // stream from delivering subsequent valid fixes, including after outages.
+        _lastLocationSampleSent = position!.timestamp;
+        if (e.code == 'DRIVER_LOCATION_OUT_OF_ORDER' ||
+            e.code == 'DRIVER_LOCATION_STALE') {
+          locationWarning = 'Waiting for a newer GPS sample.';
+        } else {
+          locationWarning = e.message;
+        }
       }
     }
+
+    final hasActiveTrip = currentTrip != null;
+    if (!hasActiveTrip) await publishInitialFix();
     await _positions?.cancel();
     if (_disposed || !authenticated || epoch != _locationEpoch) {
       throw const ApiException('Location access changed. Try again.');
@@ -1552,6 +1794,14 @@ class DriverSession extends ChangeNotifier {
                   accuracy: LocationAccuracy.high,
                   distanceFilter: 0,
                   intervalDuration: gpsInterval,
+                  forceLocationManager:
+                      const bool.fromEnvironment(
+                        'INFURNUS_PATNA_DEVICE_ENROLMENT',
+                      ) &&
+                      currentTrip?['bookingId']?.toString() ==
+                          const String.fromEnvironment(
+                            'INFURNUS_PATNA_DESTINATION_BOOKING',
+                          ),
                   foregroundNotificationConfig:
                       const ForegroundNotificationConfig(
                         notificationTitle: 'Infurnus driver location',
@@ -1570,19 +1820,21 @@ class DriverSession extends ChangeNotifier {
           onError: (_) {
             final failed = _positions;
             _positions = null;
+            _arrivalExpiry?.cancel();
+            _arrivalPosition = null;
             unawaited(failed?.cancel());
             locationWarning =
                 'Location tracking stopped. Check GPS and permissions.';
             _notify();
           },
         );
+    if (hasActiveTrip) await publishInitialFix();
   }
 
   Future<void> _locationUpdate(Position p) async {
     // Sampling and delivery have independent clocks. A blocked delivery never queues old fixes.
     if (_sendingLocation ||
         !authenticated ||
-        p.accuracy > 200 ||
         (_lastLocationSampleSent != null &&
             !p.timestamp.isAfter(_lastLocationSampleSent!))) {
       return;
@@ -1606,6 +1858,68 @@ class DriverSession extends ChangeNotifier {
   }
 
   Future<void> _sendLocation(Position p, {bool preferRest = false}) async {
+    if (p.isMocked) {
+      const testBooking = String.fromEnvironment(
+        'INFURNUS_PATNA_DESTINATION_BOOKING',
+      );
+      final destinationTest = testBooking.isNotEmpty;
+      if (!const bool.fromEnvironment('INFURNUS_PATNA_DEVICE_ENROLMENT') ||
+          profile?['publicId']?.toString() != '100069' ||
+          (destinationTest
+              ? (currentTrip?['bookingId']?.toString() != testBooking ||
+                    currentTrip?['status'] != 'in_progress')
+              : (p.latitude - 25.620337).abs() > 0.00001 ||
+                    (p.longitude - 85.139448).abs() > 0.00001)) {
+        locationWarning = 'Turn off simulated GPS to receive ride requests.';
+        return;
+      }
+      final token = api.accessToken;
+      final driverId = api.userId;
+      if (token == null || driverId == null) return;
+      final claims = jsonDecode(
+        utf8.decode(base64Url.decode(base64Url.normalize(token.split('.')[1]))),
+      ) as Map<String, dynamic>;
+      final sessionId = claims['sid'];
+      if (sessionId is! String) return;
+      final timestamp = DateTime.fromMillisecondsSinceEpoch(
+        p.timestamp.millisecondsSinceEpoch,
+        isUtc: true,
+      ).toIso8601String();
+      final latitude = destinationTest
+          ? p.latitude.toStringAsFixed(6)
+          : '25.620337';
+      final longitude = destinationTest
+          ? p.longitude.toStringAsFixed(6)
+          : '85.139448';
+      final proof = await const MethodChannel('infurnus/patna_location_proof')
+          .invokeMethod<String>('sign', {
+            'driver': driverId,
+            'session': sessionId,
+            'timestamp': timestamp,
+            if (destinationTest) 'bookingId': testBooking,
+            if (destinationTest) 'latitude': latitude,
+            if (destinationTest) 'longitude': longitude,
+          });
+      if (proof == null || token != api.accessToken) return;
+      await api.request(
+        'POST',
+        '/rides/driver/location',
+        retry: false,
+        headers: {'X-Infurnus-Mock-Location-Proof': proof},
+        body: {
+          'latitude': double.parse(latitude),
+          'longitude': double.parse(longitude),
+          'accuracy': 5,
+          'timestamp': timestamp,
+        },
+      );
+      _recordAcceptedLocation(p.timestamp);
+      return;
+    }
+    if (!p.accuracy.isFinite || p.accuracy > 200 || p.accuracy < 0) {
+      locationWarning = 'Waiting for a more accurate GPS fix.';
+      return;
+    }
     if (_lastLocationSampleSent != null &&
         !p.timestamp.isAfter(_lastLocationSampleSent!)) {
       return;
@@ -1656,44 +1970,56 @@ class DriverSession extends ChangeNotifier {
     } else {
       await api.request('POST', '/rides/driver/location', body: payload);
     }
-    _lastLocationSampleSent = p.timestamp;
+    _recordAcceptedLocation(p.timestamp);
+  }
+
+  void _recordAcceptedLocation(DateTime timestamp) {
+    _lastLocationSampleSent = timestamp;
     lastLocationSent = DateTime.now();
+    _lastAcceptedDispatchSample = timestamp;
+    _dispatchLocationExpiry?.cancel();
+    final remaining =
+        const Duration(seconds: 30) - lastLocationSent!.difference(timestamp);
+    _dispatchLocationExpiry = Timer(remaining, _notify);
     locationWarning = null;
   }
 
-  Future<bool> setOnline(bool value) => run(() async {
-    if (value == online) return;
-    if (isPreview) {
+  Future<bool> setOnline(bool value) async {
+    if (!value && currentTrip != null) return false;
+    return run(() async {
+      if (value == online) return;
+      if (isPreview) {
+        profile?['onlinePreference'] = value;
+        profile?['availabilityStatus'] = value ? 'available' : 'unavailable';
+        return;
+      }
+      if (value && !operationalAllowed) {
+        throw const ApiException(
+          'Complete backend approval and vehicle assignment before going online.',
+        );
+      }
+      if (value) await _startLocation(retry: true);
+      try {
+        await api.request(
+          'PATCH',
+          '/rides/driver/availability',
+          body: {'status': value ? 'available' : 'unavailable'},
+        );
+      } catch (_) {
+        if (value) {
+          await _positions?.cancel();
+          _positions = null;
+        }
+        rethrow;
+      }
       profile?['onlinePreference'] = value;
-      profile?['availabilityStatus'] = value ? 'available' : 'unavailable';
-      return;
-    }
-    if (value && !operationalAllowed) {
-      throw const ApiException(
-        'Complete backend approval and vehicle assignment before going online.',
-      );
-    }
-    if (value) await _startLocation(retry: true);
-    try {
-      await api.request(
-        'PATCH',
-        '/rides/driver/availability',
-        body: {'status': value ? 'available' : 'unavailable'},
-      );
-    } catch (_) {
-      if (value) {
+      if (!value && currentTrip == null) {
         await _positions?.cancel();
         _positions = null;
       }
-      rethrow;
-    }
-    profile?['onlinePreference'] = value;
-    if (!value && currentTrip == null) {
-      await _positions?.cancel();
-      _positions = null;
-    }
-    await _load();
-  });
+      await _load();
+    });
+  }
 
   Future<bool> accept(String id) => run(() async {
     dismissRideNotifications();
@@ -1748,15 +2074,26 @@ class DriverSession extends ChangeNotifier {
     await bridge.dismissOffer(id);
     await _load();
   });
+  bool get requiresDeliveryPin =>
+      currentTrip?['sector'] == 'logistics' &&
+      currentTrip?['hasEndPin'] == true;
+
   Future<bool> transition(
     String status, {
     String? pin,
     String? endPin,
   }) => run(() async {
     if (currentTrip == null) throw const ApiException('No active trip.');
+    if (status == 'completed' &&
+        _destinationRestrictedSectors.contains(currentTrip?['sector']) &&
+        !canCompleteAtDestination) {
+      throw const ApiException(
+        'Reach the saved destination and wait for an accurate GPS fix before completing the trip.',
+      );
+    }
     if (isPreview) {
       if (status == 'completed') {
-        if (currentTrip?['sector'] == 'logistics' &&
+        if (requiresDeliveryPin &&
             (endPin == null || !RegExp(r'^\d{4}$').hasMatch(endPin))) {
           throw const ApiException(
             'Enter the customer’s four-digit Delivery PIN to complete the trip.',
@@ -1777,7 +2114,7 @@ class DriverSession extends ChangeNotifier {
     }
     final id = Uri.encodeComponent(currentTrip!['id'] as String);
     if (status == 'completed') {
-      if (currentTrip?['sector'] == 'logistics' &&
+      if (requiresDeliveryPin &&
           (endPin == null || !RegExp(r'^\d{4}$').hasMatch(endPin))) {
         throw const ApiException(
           'Enter the customer’s four-digit Delivery PIN to complete the trip.',
@@ -1844,6 +2181,11 @@ class DriverSession extends ChangeNotifier {
     if (previous?['id'] != next?['id']) {
       _invalidateCustomerContact();
       _navigationUpdate = null;
+      _distanceExpiry?.cancel();
+      _distanceRideId = null;
+      _distanceTimestamp = null;
+      _lastDistance = null;
+      _distanceLabel = null;
       paymentRefreshError = null;
     } else if (next != null &&
         next['bookingId'] == null &&
@@ -1852,6 +2194,16 @@ class DriverSession extends ChangeNotifier {
     }
     if (jsonEncode(previous) == jsonEncode(next)) return false;
     currentTrip = next;
+    if (!isPreview &&
+        next?['status'] == 'in_progress' &&
+        _destinationRestrictedSectors.contains(next?['sector'])) {
+      _completionPoll ??= Timer.periodic(const Duration(seconds: 5), (_) {
+        unawaited(_refreshActiveTrip());
+      });
+    } else {
+      _completionPoll?.cancel();
+      _completionPoll = null;
+    }
     return true;
   }
 
@@ -1927,9 +2279,21 @@ class DriverSession extends ChangeNotifier {
         await positions?.cancel();
       }
       if (changed) _notify();
+      if (_distanceTimestamp == null ||
+          _distanceRideId != id ||
+          DateTime.now().difference(_distanceTimestamp!) >=
+              const Duration(seconds: 30)) {
+        unawaited(refreshRemainingDistance());
+      }
       unawaited(_ensureCustomerContact());
       return true;
-    } on ApiException catch (e) {
+    } catch (error) {
+      if (stillCurrent() && currentTrip?['canCompleteRide'] == true) {
+        currentTrip?['canCompleteRide'] = false;
+        _notify();
+      }
+      if (error is! ApiException) return false;
+      final e = error;
       if (!_disposed &&
           _tripGeneration == generation &&
           api.accessToken == null &&
@@ -2029,6 +2393,7 @@ class DriverSession extends ChangeNotifier {
     'ride:completed',
     'ride:cancelled',
     'ride:route_updated',
+    'ride:remaining_distance_updated',
   };
 
   /// Socket and push messages are invalidation hints; the authenticated API
@@ -2043,6 +2408,14 @@ class DriverSession extends ChangeNotifier {
     final ride = payload['ride'];
     final id = payload['rideId'] ?? (ride is Map ? ride['id'] : null);
     if (id is! String || id.isEmpty) return;
+    if (event == 'ride:remaining_distance_updated') {
+      _updateRemainingDistance(
+        id,
+        payload,
+        DateTime.tryParse('${payload['timestamp']}'),
+      );
+      return;
+    }
     if (event == 'ride:route_updated') {
       final segment = currentTrip?['status'] == 'in_progress'
           ? 'destination'
@@ -2106,6 +2479,7 @@ class DriverSession extends ChangeNotifier {
       _joinedTripId = null;
       realtimeStatus = 'Connected';
       _joinTrip();
+      unawaited(refreshRemainingDistance());
       _notify();
       // Reconcile missed events with the authoritative API after reconnecting.
       _rideEventRefreshPending = true;
@@ -2254,7 +2628,10 @@ class DriverSession extends ChangeNotifier {
     rides = [];
     challengeId = null;
     position = null;
+    _dispatchLocationExpiry?.cancel();
     lastLocationSent = null;
+    _lastAcceptedDispatchSample = null;
+    locationWarning = null;
     _lastLocationSampleSent = null;
     realtimeStatus = 'Disconnected';
     api.clearSession(persist: persist);
@@ -2262,6 +2639,9 @@ class DriverSession extends ChangeNotifier {
 
   @override
   void dispose() {
+    _completionPoll?.cancel();
+    _arrivalExpiry?.cancel();
+    _distanceExpiry?.cancel();
     _disposed = true;
     _clear(persist: false);
     api.dispose();

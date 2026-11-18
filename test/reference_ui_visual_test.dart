@@ -187,6 +187,17 @@ void main() {
                     };
                   case '/partners/partner/documents':
                     data = [];
+                  case '/rides/driver/rides/fixture-trip/map':
+                    data = {
+                      'driverLocation': {
+                        'timestamp': DateTime.now().toIso8601String(),
+                      },
+                      'remainingRoadDistance': {
+                        'status': 'live',
+                        'meters': 850,
+                      },
+                    };
+                  case '/provider/logistics-dispatch':
                   case '/provider/managed-drivers':
                     data = [];
                   case '/provider/vehicle-catalog':
@@ -378,7 +389,7 @@ void main() {
           'lastName': 'Singh Long Driver Name',
         };
       }
-      addTearDown(session.dispose);
+
       Widget screen = const OperationsDashboard();
       if (name.startsWith('fleet-') ||
           name == 'add-vehicle' ||
@@ -539,8 +550,11 @@ void main() {
         await tester.pumpAndSettle();
       }
       if (name == 'mode-switch') {
-        await tester.tap(find.text('Driver Mode'));
+        await tester.tap(find.widgetWithText(ActionChip, 'Driver Mode'));
         await tester.pumpAndSettle();
+      }
+      if (name == 'active-trip') {
+        expect(find.text('850 m remaining'), findsOneWidget);
       }
       if (name == 'pin-verification') {
         expect(find.text('Enter PIN to Start Ride'), findsOneWidget);
@@ -610,6 +624,7 @@ void main() {
       }
 
       await tester.pumpWidget(const SizedBox());
+      session.dispose();
       await tester.pumpAndSettle();
     });
   }
