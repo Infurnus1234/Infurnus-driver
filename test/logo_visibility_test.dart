@@ -42,8 +42,8 @@ void main() {
     expect(image.fit, BoxFit.contain);
     final rendered = tester.renderObject<RenderImage>(find.byType(RawImage));
     expect(rendered.image, isNotNull);
-    expect(rendered.image!.width, 1217);
-    expect(rendered.image!.height, 1280);
+    expect(rendered.image!.width, 1024);
+    expect(rendered.image!.height, 1024);
     await tester.pump(const Duration(milliseconds: 100));
     final boundary =
         key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
