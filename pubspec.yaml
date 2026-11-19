@@ -56,22 +56,22 @@ flutter:
   uses-material-design: true
 
   assets:
-    - assets/images/infurnus_logo.png
-    - assets/images/login_background.png
+    - assets/icon/
+    - assets/images/
 
 flutter_launcher_icons:
-  image_path: "assets/images/infurnus_icon_safe.png"
+  image_path: "assets/icon/app_icon.png"
   android: "launcher_icon"
   ios: true
-  image_path_ios: "assets/images/infurnus_icon_safe.png"
-  adaptive_icon_background: "#000000"
-  adaptive_icon_foreground: "assets/images/infurnus_icon_safe.png"
+  remove_alpha_ios: true
+  adaptive_icon_background: "#022507"
+  adaptive_icon_foreground: "assets/icon/app_icon_foreground.png"
 
 flutter_native_splash:
   color: "#000000"
-  image: "assets/images/infurnus_launch_safe.png"
+  image: "assets/icon/app_icon.png"
   android_12:
     color: "#000000"
-    image: "assets/images/infurnus_launch_safe.png"
+    image: "assets/icon/app_icon_foreground.png"
   ios: true
   web: false
