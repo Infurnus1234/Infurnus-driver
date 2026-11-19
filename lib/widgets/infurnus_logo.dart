@@ -17,7 +17,7 @@ class InfurnusLogo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Image.asset(
-      'assets/images/infurnus_logo.png',
+      'assets/images/logo_full.png',
       height: iconSize,
       fit: BoxFit.contain,
       errorBuilder: (context, error, stackTrace) => Icon(

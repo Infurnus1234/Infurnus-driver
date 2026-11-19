@@ -366,7 +366,7 @@ class InfurnusBrand extends StatelessWidget {
         const SizedBox(width: 12),
       ],
       Image.asset(
-        'assets/images/infurnus_logo.png',
+        'assets/images/logo_full.png',
         width: 34,
         height: 34,
         fit: BoxFit.contain,
